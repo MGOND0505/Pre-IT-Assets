@@ -1,0 +1,46 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    environment:
+      NODE_ENV: production
+      PORT: 5001
+      MONGODB_URI: mongodb://mongo:27017/it_asset_management
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      JWT_COOKIE_NAME: ${JWT_COOKIE_NAME:-itam_token}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-console}
+      SUPERADMIN_SEED_NAME: ${SUPERADMIN_SEED_NAME:-}
+      SUPERADMIN_SEED_EMAIL: ${SUPERADMIN_SEED_EMAIL:-}
+      SUPERADMIN_SEED_PASSWORD: ${SUPERADMIN_SEED_PASSWORD:-}
+    volumes:
+      - backend_uploads:/app/uploads
+    depends_on:
+      - mongo
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:5001/api}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Vianaar IT Asset & License Management}
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:
+  backend_uploads:

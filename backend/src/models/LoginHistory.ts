@@ -1,0 +1,26 @@
+import { Schema, model, type Types } from "mongoose";
+
+export interface ILoginHistory {
+  user: Types.ObjectId | null;
+  emailAttempted: string;
+  action: "login_success" | "login_failed" | "logout";
+  reason: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+}
+
+const loginHistorySchema = new Schema<ILoginHistory>(
+  {
+    user: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    emailAttempted: { type: String, required: true, trim: true, lowercase: true },
+    action: { type: String, enum: ["login_success", "login_failed", "logout"], required: true },
+    reason: { type: String, default: null },
+    ipAddress: { type: String, default: null },
+    userAgent: { type: String, default: null },
+  },
+  { timestamps: { createdAt: true, updatedAt: false } }
+);
+
+loginHistorySchema.index({ user: 1, createdAt: -1 });
+
+export const LoginHistory = model<ILoginHistory>("LoginHistory", loginHistorySchema);

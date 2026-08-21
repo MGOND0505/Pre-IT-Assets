@@ -1,0 +1,68 @@
+import { AssetCategory } from "../../models/AssetCategory";
+import { ApiError } from "../../utils/ApiError";
+
+type ListInput = { page?: number; limit?: number; search?: string; status?: "Active" | "Inactive" };
+
+export async function listAssetCategories(input: ListInput) {
+  const page = input.page ?? 1;
+  const limit = input.limit ?? 20;
+
+  const filter: Record<string, unknown> = {};
+  if (input.status) filter.status = input.status;
+  if (input.search) {
+    filter.$or = [
+      { name: { $regex: input.search, $options: "i" } },
+      { prefix: { $regex: input.search, $options: "i" } },
+    ];
+  }
+
+  const [items, total] = await Promise.all([
+    AssetCategory.find(filter)
+      .sort({ name: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit),
+    AssetCategory.countDocuments(filter),
+  ]);
+
+  return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
+}
+
+export async function getAssetCategoryById(id: string) {
+  const category = await AssetCategory.findById(id);
+  if (!category) throw new ApiError(404, "Asset category not found");
+  return category;
+}
+
+async function assertUnique(name?: string, prefix?: string, excludeId?: string) {
+  if (name) {
+    const existing = await AssetCategory.findOne({ name, _id: { $ne: excludeId } });
+    if (existing) throw new ApiError(409, "An asset category with this name already exists");
+  }
+  if (prefix) {
+    const existing = await AssetCategory.findOne({ prefix: prefix.toUpperCase(), _id: { $ne: excludeId } });
+    if (existing) throw new ApiError(409, "An asset category with this prefix already exists");
+  }
+}
+
+export async function createAssetCategory(input: { name: string; prefix: string; description?: string }) {
+  await assertUnique(input.name, input.prefix);
+  return AssetCategory.create(input);
+}
+
+export async function updateAssetCategory(
+  id: string,
+  input: Partial<{ name: string; prefix: string; description: string; status: "Active" | "Inactive" }>
+) {
+  const category = await getAssetCategoryById(id);
+  await assertUnique(input.name, input.prefix, id);
+
+  Object.assign(category, input);
+  await category.save();
+  return category;
+}
+
+export async function deleteAssetCategory(id: string) {
+  const category = await getAssetCategoryById(id);
+  await category.deleteOne();
+  return category;
+}
