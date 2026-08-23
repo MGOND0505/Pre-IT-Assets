@@ -1,19 +1,14 @@
 import { Router } from "express";
 import { authenticate } from "../../middleware/authenticate";
-import { authorize } from "../../middleware/authorize";
+import { requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
-import { PERM } from "../../config/permissionCatalog";
 import * as settingsController from "./settings.controller";
 import { updateSettingsSchema } from "./settings.validation";
 
 export const settingsRouter = Router();
 
 settingsRouter.use(authenticate);
+settingsRouter.use(requireAdmin);
 
-settingsRouter.get("/", authorize(PERM.SETTINGS_READ), settingsController.getSettings);
-settingsRouter.put(
-  "/",
-  authorize(PERM.SETTINGS_WRITE),
-  validate({ body: updateSettingsSchema }),
-  settingsController.updateSettings
-);
+settingsRouter.get("/", settingsController.getSettings);
+settingsRouter.put("/", validate({ body: updateSettingsSchema }), settingsController.updateSettings);

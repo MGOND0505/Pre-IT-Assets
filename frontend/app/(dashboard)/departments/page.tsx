@@ -19,7 +19,6 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { DepartmentFormDialog, type Department } from "@/components/departments/department-form-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { hasPermission, PERM } from "@/lib/permissions"
 
 type Paginated = { items: Department[]; total: number; page: number; totalPages: number }
 
@@ -31,10 +30,10 @@ export default function DepartmentsPage() {
   const [editing, setEditing] = React.useState<Department | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<Department | null>(null)
 
-  const canView = hasPermission(user, PERM.DEPARTMENTS_READ)
-  const canCreate = hasPermission(user, PERM.DEPARTMENTS_CREATE)
-  const canWrite = hasPermission(user, PERM.DEPARTMENTS_WRITE)
-  const canDelete = hasPermission(user, PERM.DEPARTMENTS_DELETE)
+  const canView = Boolean(user?.isAdmin)
+  const canCreate = Boolean(user?.isAdmin)
+  const canWrite = Boolean(user?.isAdmin)
+  const canDelete = Boolean(user?.isAdmin)
 
   const load = React.useCallback(async () => {
     setLoading(true)

@@ -4,9 +4,21 @@ import { ok } from "../../utils/response";
 import { logAction } from "../audit/audit.service";
 import * as assetsService from "./assets.service";
 
+type ListAssetsQuery = Parameters<typeof assetsService.listAssets>[0];
+
 export const listAssets = asyncHandler(async (req: Request, res: Response) => {
   const result = await assetsService.listAssets(req.query as never);
   ok(res, result, "Assets");
+});
+
+export const getAssetStats = asyncHandler(async (_req: Request, res: Response) => {
+  const stats = await assetsService.getAssetStats();
+  ok(res, stats, "Asset stats");
+});
+
+export const listDeletedAssets = asyncHandler(async (req: Request, res: Response) => {
+  const result = await assetsService.listAssets({ ...(req.query as unknown as ListAssetsQuery), includeDeleted: true });
+  ok(res, result, "Deleted assets");
 });
 
 export const getAsset = asyncHandler(async (req: Request, res: Response) => {
@@ -49,7 +61,7 @@ export const updateAsset = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const deleteAsset = asyncHandler(async (req: Request, res: Response) => {
-  const asset = await assetsService.deleteAsset(req.params.id);
+  const asset = await assetsService.deleteAsset(req.params.id, req.user!.id);
 
   await logAction({
     req,
@@ -60,4 +72,20 @@ export const deleteAsset = asyncHandler(async (req: Request, res: Response) => {
   });
 
   ok(res, null, "Asset deleted");
+});
+
+export const restoreAsset = asyncHandler(async (req: Request, res: Response) => {
+  const asset = await assetsService.restoreAsset(req.params.id);
+
+  await logAction({ req, action: "RESTORE", module: "Asset", recordId: asset.id, recordLabel: asset.assetId });
+
+  ok(res, asset, "Asset restored");
+});
+
+export const purgeAsset = asyncHandler(async (req: Request, res: Response) => {
+  const asset = await assetsService.purgeAsset(req.params.id);
+
+  await logAction({ req, action: "PURGE", module: "Asset", recordId: req.params.id, recordLabel: asset.assetId });
+
+  ok(res, null, "Asset permanently removed");
 });

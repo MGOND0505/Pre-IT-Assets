@@ -7,7 +7,6 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { Sidebar } from "@/components/layout/sidebar"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
 import { UserMenu } from "@/components/layout/user-menu"
-import { NotificationBell } from "@/components/notifications/notification-bell"
 
 export function Topbar() {
   return (
@@ -27,7 +26,6 @@ export function Topbar() {
       </Sheet>
 
       <div className="flex-1" />
-      <NotificationBell />
       <ThemeToggle />
       <UserMenu />
     </header>

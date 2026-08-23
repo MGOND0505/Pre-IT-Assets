@@ -4,7 +4,6 @@ import { verifyToken } from "../utils/jwt";
 import { User } from "../models/User";
 import { ApiError } from "../utils/ApiError";
 import { asyncHandler } from "../utils/asyncHandler";
-import { effectivePermissionsFromUser } from "../utils/rbac";
 
 export const authenticate = asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
   const token = req.cookies?.[env.JWT_COOKIE_NAME];
@@ -20,9 +19,7 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
     throw new ApiError(401, "Invalid or expired session");
   }
 
-  const user = await User.findById(payload.sub)
-    .select("status tokenVersion roles")
-    .populate({ path: "roles", populate: { path: "permissions" } });
+  const user = await User.findById(payload.sub).select("status tokenVersion isAdmin permissions department location");
 
   if (!user || user.status !== "Active") {
     throw new ApiError(401, "Account is inactive or no longer exists");
@@ -32,14 +29,13 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
     throw new ApiError(401, "Session has been invalidated, please log in again");
   }
 
-  const effective = effectivePermissionsFromUser(user);
-
   req.user = {
     id: user.id,
     tokenVersion: user.tokenVersion,
-    roleNames: effective.roleNames,
-    permissions: effective.permissions,
-    isSuperAdmin: effective.isSuperAdmin,
+    isAdmin: user.isAdmin,
+    permissions: user.permissions,
+    department: user.department ? String(user.department) : null,
+    location: user.location ? String(user.location) : null,
   };
   next();
 });

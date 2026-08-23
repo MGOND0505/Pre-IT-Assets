@@ -8,7 +8,6 @@ import { DataTable } from "@/components/common/data-table"
 import { Pagination } from "@/components/common/pagination"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { hasPermission, PERM } from "@/lib/permissions"
 
 type AuditLog = {
   _id: string
@@ -28,7 +27,7 @@ export default function AuditLogsPage() {
   const [loading, setLoading] = React.useState(true)
   const [page, setPage] = React.useState(1)
 
-  const canView = hasPermission(user, PERM.AUDIT_READ)
+  const canView = Boolean(user?.isAdmin)
 
   React.useEffect(() => {
     if (!canView) return

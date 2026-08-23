@@ -25,6 +25,7 @@ export interface IAsset {
   model: string;
   serialNumber: string;
   serviceTag: string;
+  imei: string;
   hostname: string;
   ipAddress: string;
   macAddress: string;
@@ -45,6 +46,9 @@ export interface IAsset {
   status: AssetStatus;
   condition: string;
   notes: string;
+  isDeleted: boolean;
+  deletedAt: Date | null;
+  deletedBy: Types.ObjectId | null;
   createdBy: Types.ObjectId | null;
 }
 
@@ -58,6 +62,7 @@ const assetSchema = new Schema<IAsset>(
     model: { type: String, default: "" },
     serialNumber: { type: String, default: "", index: true },
     serviceTag: { type: String, default: "", index: true },
+    imei: { type: String, default: "", index: true },
     hostname: { type: String, default: "" },
     ipAddress: { type: String, default: "" },
     macAddress: { type: String, default: "" },
@@ -78,6 +83,9 @@ const assetSchema = new Schema<IAsset>(
     status: { type: String, enum: ASSET_STATUSES, default: "In Stock", index: true },
     condition: { type: String, default: "" },
     notes: { type: String, default: "" },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null },
+    deletedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: { createdAt: "createdDate", updatedAt: "updatedDate" } }

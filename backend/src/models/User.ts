@@ -1,11 +1,15 @@
 import { Schema, model, type HydratedDocument, type Types } from "mongoose";
+import { emptyPermissions, type PermissionsShape } from "../config/permissions";
 
 export interface IUser {
   name: string;
   email: string;
+  employeeId?: string;
   passwordHash: string;
-  roles: Types.ObjectId[];
+  isAdmin: boolean;
+  permissions: PermissionsShape;
   department: Types.ObjectId | null;
+  location: Types.ObjectId | null;
   designation?: string;
   phone?: string;
   status: "Active" | "Inactive";
@@ -21,6 +25,13 @@ export interface IUser {
 
 export type UserDoc = HydratedDocument<IUser>;
 
+const permissionAreaSchema = {
+  read: { type: Boolean, default: false },
+  add: { type: Boolean, default: false },
+  edit: { type: Boolean, default: false },
+  delete: { type: Boolean, default: false },
+};
+
 const userSchema = new Schema<IUser>(
   {
     name: { type: String, required: true, trim: true },
@@ -32,9 +43,19 @@ const userSchema = new Schema<IUser>(
       lowercase: true,
       match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Invalid email address"],
     },
+    employeeId: { type: String, trim: true, uppercase: true, unique: true, sparse: true },
     passwordHash: { type: String, required: true, select: false },
-    roles: [{ type: Schema.Types.ObjectId, ref: "Role", required: true }],
+    isAdmin: { type: Boolean, default: false },
+    permissions: {
+      type: {
+        assets: permissionAreaSchema,
+        licenses: permissionAreaSchema,
+        reports: { read: { type: Boolean, default: false } },
+      },
+      default: emptyPermissions,
+    },
     department: { type: Schema.Types.ObjectId, ref: "Department", default: null },
+    location: { type: Schema.Types.ObjectId, ref: "Location", default: null },
     designation: { type: String, trim: true },
     phone: { type: String, trim: true },
     status: { type: String, enum: ["Active", "Inactive"], default: "Active", index: true },

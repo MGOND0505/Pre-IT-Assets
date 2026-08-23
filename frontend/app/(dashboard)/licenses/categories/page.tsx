@@ -22,7 +22,7 @@ import {
 } from "@/components/license-categories/license-category-form-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { hasPermission, PERM } from "@/lib/permissions"
+import { can } from "@/lib/permissions"
 
 type Paginated = { items: LicenseCategory[]; total: number; page: number; totalPages: number }
 
@@ -34,10 +34,10 @@ export default function LicenseCategoriesPage() {
   const [editing, setEditing] = React.useState<LicenseCategory | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<LicenseCategory | null>(null)
 
-  const canView = hasPermission(user, PERM.LICENSES_READ)
-  const canCreate = hasPermission(user, PERM.LICENSES_CREATE)
-  const canWrite = hasPermission(user, PERM.LICENSES_WRITE)
-  const canDelete = hasPermission(user, PERM.LICENSES_DELETE)
+  const canView = can(user, "licenses", "read")
+  const canCreate = Boolean(user?.isAdmin)
+  const canWrite = Boolean(user?.isAdmin)
+  const canDelete = Boolean(user?.isAdmin)
 
   const load = React.useCallback(async () => {
     setLoading(true)

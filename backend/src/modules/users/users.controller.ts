@@ -2,15 +2,12 @@ import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
 import { logAction } from "../audit/audit.service";
-import { createNotification } from "../notifications/notifications.service";
 import * as usersService from "./users.service";
 
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
   const user = await usersService.createUser({
     ...req.body,
     createdBy: req.user!.id,
-    actorPermissions: req.user!.permissions,
-    actorIsSuperAdmin: req.user!.isSuperAdmin,
   });
 
   await logAction({
@@ -19,7 +16,7 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
     module: "User",
     recordId: user.id,
     recordLabel: user.email,
-    newValue: { name: user.name, email: user.email, roleIds: req.body.roleIds },
+    newValue: { name: user.name, email: user.email, isAdmin: user.isAdmin },
   });
 
   ok(res, user, "User created", 201);
@@ -54,28 +51,23 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
   ok(res, user, "User updated");
 });
 
-export const updateUserRoles = asyncHandler(async (req: Request, res: Response) => {
+export const updateUserPermissions = asyncHandler(async (req: Request, res: Response) => {
   const before = await usersService.getUserById(req.params.id);
-  const oldValue = { roles: before.roles };
+  const oldValue = { isAdmin: before.isAdmin, permissions: before.permissions };
 
-  const user = await usersService.updateUserRoles(
-    req.params.id,
-    req.body.roleIds,
-    req.user!.permissions,
-    req.user!.isSuperAdmin
-  );
+  const user = await usersService.updateUserPermissions(req.params.id, req.body);
 
   await logAction({
     req,
-    action: "ROLE_ASSIGNED",
+    action: "PERMISSIONS_UPDATED",
     module: "User",
     recordId: user.id,
     recordLabel: user.email,
     oldValue,
-    newValue: { roles: req.body.roleIds },
+    newValue: req.body,
   });
 
-  ok(res, user, "Roles updated");
+  ok(res, user, "Permissions updated");
 });
 
 export const activateUser = asyncHandler(async (req: Request, res: Response) => {
@@ -98,13 +90,6 @@ export const adminResetPassword = asyncHandler(async (req: Request, res: Respons
   const user = await usersService.adminResetPassword(req.params.id, req.body.newPassword);
 
   await logAction({ req, action: "ADMIN_RESET_PASSWORD", module: "User", recordId: user.id, recordLabel: user.email });
-
-  await createNotification({
-    recipients: [user.id],
-    type: "ACCOUNT",
-    title: "Password reset by administrator",
-    message: "An administrator has reset your password. You will be asked to set a new one at next login.",
-  });
 
   ok(res, null, "Password has been reset");
 });

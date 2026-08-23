@@ -19,7 +19,7 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { AssetCategoryFormDialog, type AssetCategory } from "@/components/asset-categories/asset-category-form-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { hasPermission, PERM } from "@/lib/permissions"
+import { can } from "@/lib/permissions"
 
 type Paginated = { items: AssetCategory[]; total: number; page: number; totalPages: number }
 
@@ -31,10 +31,10 @@ export default function AssetCategoriesPage() {
   const [editing, setEditing] = React.useState<AssetCategory | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<AssetCategory | null>(null)
 
-  const canView = hasPermission(user, PERM.ASSETS_READ)
-  const canCreate = hasPermission(user, PERM.ASSETS_CREATE)
-  const canWrite = hasPermission(user, PERM.ASSETS_WRITE)
-  const canDelete = hasPermission(user, PERM.ASSETS_DELETE)
+  const canView = can(user, "assets", "read")
+  const canCreate = Boolean(user?.isAdmin)
+  const canWrite = Boolean(user?.isAdmin)
+  const canDelete = Boolean(user?.isAdmin)
 
   const load = React.useCallback(async () => {
     setLoading(true)

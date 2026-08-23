@@ -40,3 +40,24 @@ export const uploadAssetDocument = multer({
     cb(null, true);
   },
 });
+
+const SPREADSHEET_MIME_TYPES = new Set([
+  "text/csv",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/octet-stream", // some browsers send this for .csv
+]);
+
+/** CSV/Excel bulk-import uploads: kept in memory only, never written to disk. */
+export const uploadSpreadsheet = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_SIZE_BYTES },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!SPREADSHEET_MIME_TYPES.has(file.mimetype) && ![".csv", ".xlsx", ".xls"].includes(ext)) {
+      cb(new Error("Unsupported file type - upload a CSV or Excel file"));
+      return;
+    }
+    cb(null, true);
+  },
+});

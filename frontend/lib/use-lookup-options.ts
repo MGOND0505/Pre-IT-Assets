@@ -20,13 +20,17 @@ function useLookup<T>(endpoint: string, limit = 100) {
 }
 
 export type AssetCategoryOption = { _id: string; name: string; prefix: string }
+export type LicenseCategoryOption = { _id: string; name: string }
 export type VendorOption = { _id: string; name: string }
 export type LocationOption = { _id: string; name: string }
 export type DepartmentOption = { _id: string; name: string }
-export type UserOption = { _id: string; name: string; email: string }
+export type UserOption = { _id: string; name: string; email: string; employeeId?: string }
 
 export function useAssetCategoryOptions() {
   return useLookup<AssetCategoryOption>("/asset-categories")
+}
+export function useLicenseCategoryOptions() {
+  return useLookup<LicenseCategoryOption>("/license-categories")
 }
 export function useVendorOptions() {
   return useLookup<VendorOption>("/vendors")

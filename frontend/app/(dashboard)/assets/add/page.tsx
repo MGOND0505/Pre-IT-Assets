@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AssetForm, EMPTY_ASSET_FORM } from "@/components/assets/asset-form"
 import { useAuth } from "@/lib/auth-context"
-import { hasPermission, PERM } from "@/lib/permissions"
+import { can } from "@/lib/permissions"
 
 export default function AddAssetPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
 
-  const canCreate = hasPermission(user, PERM.ASSETS_CREATE)
+  const canCreate = can(user, "assets", "add")
 
   if (authLoading) return null
   if (!canCreate) {

@@ -1,8 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../../middleware/authenticate";
-import { authorize } from "../../middleware/authorize";
+import { requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
-import { PERM } from "../../config/permissionCatalog";
 import * as usersController from "./users.controller";
 import { listLoginHistoryForUser } from "./loginHistory.service";
 import { asyncHandler } from "../../utils/asyncHandler";
@@ -12,7 +11,7 @@ import {
   adminResetPasswordSchema,
   createUserSchema,
   listUsersQuerySchema,
-  updateUserRolesSchema,
+  updateUserPermissionsSchema,
   updateUserSchema,
   userIdParamsSchema,
 } from "./users.validation";
@@ -21,45 +20,9 @@ export const usersRouter = Router();
 
 usersRouter.use(authenticate);
 
-/**
- * @openapi
- * /users:
- *   get:
- *     summary: List users (paginated, filterable by role/status/search)
- *     tags: [Users]
- *     security: [{ cookieAuth: [] }]
- *     responses:
- *       200: { description: Paginated list of users }
- *   post:
- *     summary: Create a user
- *     tags: [Users]
- *     security: [{ cookieAuth: [] }]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [name, email, roleIds, password]
- *             properties:
- *               name: { type: string }
- *               email: { type: string, format: email }
- *               roleIds: { type: array, items: { type: string } }
- *               password: { type: string, minLength: 8 }
- *     responses:
- *       201: { description: User created }
- *       409: { description: Email already in use }
- */
-usersRouter.get("/", authorize(PERM.USERS_READ), validate({ query: listUsersQuerySchema }), usersController.listUsers);
-usersRouter.post(
-  "/",
-  authorize(PERM.USERS_CREATE),
-  validate({ body: createUserSchema }),
-  usersController.createUser
-);
-// Minimal people-picker for assign/transfer flows - deliberately not gated by
-// users:read (any authenticated user may need to pick an assignee), and only
-// ever exposes name/email, never anything sensitive.
+// Minimal people-picker for the assignee field on assets/licenses - deliberately
+// not Admin-gated (any authenticated user may need to pick an assignee), and only
+// ever exposes name/email/employeeId, never anything sensitive.
 usersRouter.get(
   "/lookup",
   asyncHandler(async (req, res) => {
@@ -69,58 +32,50 @@ usersRouter.get(
       filter.$or = [
         { name: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
+        { employeeId: { $regex: search, $options: "i" } },
       ];
     }
-    const users = await User.find(filter).select("name email").limit(50).sort({ name: 1 });
+    const users = await User.find(filter).select("name email employeeId").limit(50).sort({ name: 1 });
     ok(res, users, "Users");
   })
 );
 
-usersRouter.get(
-  "/:id",
-  authorize(PERM.USERS_READ),
-  validate({ params: userIdParamsSchema }),
-  usersController.getUser
-);
+// User management is Admin-only, per the simple permission model - not part of
+// the per-area Assets/Licenses/Reports matrix.
+usersRouter.use(requireAdmin);
+
+usersRouter.get("/", validate({ query: listUsersQuerySchema }), usersController.listUsers);
+usersRouter.post("/", validate({ body: createUserSchema }), usersController.createUser);
+
+usersRouter.get("/:id", validate({ params: userIdParamsSchema }), usersController.getUser);
 usersRouter.put(
   "/:id",
-  authorize(PERM.USERS_WRITE),
   validate({ params: userIdParamsSchema, body: updateUserSchema }),
   usersController.updateUser
 );
 usersRouter.put(
-  "/:id/roles",
-  authorize(PERM.USERS_WRITE, PERM.USERS_MANAGE_USERS),
-  validate({ params: userIdParamsSchema, body: updateUserRolesSchema }),
-  usersController.updateUserRoles
+  "/:id/permissions",
+  validate({ params: userIdParamsSchema, body: updateUserPermissionsSchema }),
+  usersController.updateUserPermissions
 );
 usersRouter.patch(
   "/:id/activate",
-  authorize(PERM.USERS_WRITE),
   validate({ params: userIdParamsSchema }),
   usersController.activateUser
 );
 usersRouter.patch(
   "/:id/deactivate",
-  authorize(PERM.USERS_WRITE),
   validate({ params: userIdParamsSchema }),
   usersController.deactivateUser
 );
 usersRouter.patch(
   "/:id/reset-password",
-  authorize(PERM.USERS_WRITE),
   validate({ params: userIdParamsSchema, body: adminResetPasswordSchema }),
   usersController.adminResetPassword
 );
-usersRouter.delete(
-  "/:id",
-  authorize(PERM.USERS_DELETE),
-  validate({ params: userIdParamsSchema }),
-  usersController.deleteUser
-);
+usersRouter.delete("/:id", validate({ params: userIdParamsSchema }), usersController.deleteUser);
 usersRouter.get(
   "/:id/login-history",
-  authorize(PERM.AUDIT_READ),
   validate({ params: userIdParamsSchema }),
   asyncHandler(async (req, res) => {
     const page = req.query.page ? Number(req.query.page) : undefined;

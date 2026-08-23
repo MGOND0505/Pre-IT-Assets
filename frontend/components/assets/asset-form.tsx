@@ -13,9 +13,12 @@ import {
   useAssetCategoryOptions,
   useDepartmentOptions,
   useLocationOptions,
+  useUserOptions,
   useVendorOptions,
 } from "@/lib/use-lookup-options"
 import { ASSET_STATUSES } from "@/components/assets/asset-status-badge"
+
+const NONE = "__none__"
 
 export type AssetFormValues = {
   _id?: string
@@ -28,6 +31,7 @@ export type AssetFormValues = {
   model: string
   serialNumber: string
   serviceTag: string
+  imei: string
   hostname: string
   ipAddress: string
   macAddress: string
@@ -44,6 +48,7 @@ export type AssetFormValues = {
   amcEnd: string
   location: string
   department: string
+  assignedUser: string
   notes: string
 }
 
@@ -57,6 +62,7 @@ export const EMPTY_ASSET_FORM: AssetFormValues = {
   model: "",
   serialNumber: "",
   serviceTag: "",
+  imei: "",
   hostname: "",
   ipAddress: "",
   macAddress: "",
@@ -73,6 +79,7 @@ export const EMPTY_ASSET_FORM: AssetFormValues = {
   amcEnd: "",
   location: "",
   department: "",
+  assignedUser: "",
   notes: "",
 }
 
@@ -113,6 +120,7 @@ export function AssetForm({
   const { items: vendors } = useVendorOptions()
   const { items: locations } = useLocationOptions()
   const { items: departments } = useDepartmentOptions()
+  const { items: users } = useUserOptions()
 
   function set<K extends keyof AssetFormValues>(field: K) {
     return (value: string) => setForm((f) => ({ ...f, [field]: value }))
@@ -145,6 +153,7 @@ export function AssetForm({
         vendor: form.vendor || undefined,
         location: form.location || undefined,
         department: form.department || undefined,
+        assignedUser: form.assignedUser || null,
       }
 
       if (isEdit && form._id) {
@@ -213,6 +222,7 @@ export function AssetForm({
           <Field label="Model" id="asset-model" value={form.model} onChange={set("model")} />
           <Field label="Serial number" id="asset-serial" value={form.serialNumber} onChange={set("serialNumber")} />
           <Field label="Service tag" id="asset-service-tag" value={form.serviceTag} onChange={set("serviceTag")} />
+          <Field label="IMEI" id="asset-imei" value={form.imei} onChange={set("imei")} />
           <Field label="Hostname" id="asset-hostname" value={form.hostname} onChange={set("hostname")} />
           <Field label="IP address" id="asset-ip" value={form.ipAddress} onChange={set("ipAddress")} />
           <Field label="MAC address" id="asset-mac" value={form.macAddress} onChange={set("macAddress")} />
@@ -262,7 +272,7 @@ export function AssetForm({
       <Separator />
 
       <section className="flex flex-col gap-4">
-        <h3 className="text-sm font-semibold text-muted-foreground">Location</h3>
+        <h3 className="text-sm font-semibold text-muted-foreground">Location &amp; assignment</h3>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="asset-location">Location</Label>
@@ -289,6 +299,22 @@ export function AssetForm({
                 {departments.map((d) => (
                   <SelectItem key={d._id} value={d._id}>
                     {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="col-span-2 flex flex-col gap-2">
+            <Label htmlFor="asset-assigned-user">Assigned to</Label>
+            <Select value={form.assignedUser || NONE} onValueChange={(v) => setSelect("assignedUser")(v === NONE ? "" : v)}>
+              <SelectTrigger id="asset-assigned-user" className="w-full">
+                <SelectValue placeholder="Unassigned" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>Unassigned</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u._id} value={u._id}>
+                    {u.name} ({u.email})
                   </SelectItem>
                 ))}
               </SelectContent>

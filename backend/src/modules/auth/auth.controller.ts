@@ -4,7 +4,6 @@ import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
 import { parseDurationMs } from "../../utils/duration";
 import { User } from "../../models/User";
-import { effectivePermissionsFromUser } from "../../utils/rbac";
 import * as authService from "./auth.service";
 
 function setAuthCookie(res: Response, token: string) {
@@ -22,25 +21,10 @@ function clearAuthCookie(res: Response) {
 }
 
 async function serializeCurrentUser(userId: string) {
-  const user = await User.findById(userId).populate({
-    path: "roles",
-    populate: { path: "permissions" },
-  });
-
+  const user = await User.findById(userId).populate("department", "name").populate("location", "name");
   if (!user) return null;
 
-  const effective = effectivePermissionsFromUser(user);
-  const plain = user.toJSON() as Record<string, unknown>;
-
-  return {
-    ...plain,
-    roles: (user.roles as unknown as Array<{ id: string; name: string }>).map((role) => ({
-      id: role.id,
-      name: role.name,
-    })),
-    permissions: effective.permissions,
-    isSuperAdmin: effective.isSuperAdmin,
-  };
+  return user.toJSON();
 }
 
 export const login = asyncHandler(async (req: Request, res: Response) => {

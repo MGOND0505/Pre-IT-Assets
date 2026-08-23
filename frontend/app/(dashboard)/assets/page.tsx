@@ -13,7 +13,7 @@ import { Pagination } from "@/components/common/pagination"
 import { AssetStatusBadge, ASSET_STATUSES, type AssetStatus } from "@/components/assets/asset-status-badge"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { hasPermission, PERM } from "@/lib/permissions"
+import { can } from "@/lib/permissions"
 import { useAssetCategoryOptions } from "@/lib/use-lookup-options"
 
 type Asset = {
@@ -41,8 +41,8 @@ export default function AssetsPage() {
   const [status, setStatus] = React.useState<string>(ALL)
   const [category, setCategory] = React.useState<string>(ALL)
 
-  const canView = hasPermission(user, PERM.ASSETS_READ)
-  const canCreate = hasPermission(user, PERM.ASSETS_CREATE)
+  const canView = can(user, "assets", "read")
+  const canCreate = can(user, "assets", "add")
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -117,7 +117,7 @@ export default function AssetsPage() {
 
       <div className="flex flex-wrap gap-3">
         <Input
-          placeholder="Search by asset ID, serial, hostname, IP, MAC..."
+          placeholder="Search by asset ID, employee, serial, IMEI, hostname, IP, MAC..."
           value={search}
           onChange={(e) => {
             setPage(1)

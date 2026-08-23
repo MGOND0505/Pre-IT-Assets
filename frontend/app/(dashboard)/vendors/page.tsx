@@ -19,7 +19,6 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { VendorFormDialog, type Vendor } from "@/components/vendors/vendor-form-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { hasPermission, PERM } from "@/lib/permissions"
 
 type Paginated = { items: Vendor[]; total: number; page: number; totalPages: number }
 
@@ -31,10 +30,10 @@ export default function VendorsPage() {
   const [editing, setEditing] = React.useState<Vendor | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<Vendor | null>(null)
 
-  const canView = hasPermission(user, PERM.VENDORS_READ)
-  const canCreate = hasPermission(user, PERM.VENDORS_CREATE)
-  const canWrite = hasPermission(user, PERM.VENDORS_WRITE)
-  const canDelete = hasPermission(user, PERM.VENDORS_DELETE)
+  const canView = Boolean(user?.isAdmin)
+  const canCreate = Boolean(user?.isAdmin)
+  const canWrite = Boolean(user?.isAdmin)
+  const canDelete = Boolean(user?.isAdmin)
 
   const load = React.useCallback(async () => {
     setLoading(true)

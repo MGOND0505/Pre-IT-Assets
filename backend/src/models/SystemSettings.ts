@@ -6,6 +6,7 @@ export interface ISystemSettings {
   amcAlertDays: number;
   licenseRenewalAlertDays: number[];
   licenseIdPrefix: string;
+  licenseNextSequence: number;
 }
 
 const systemSettingsSchema = new Schema<ISystemSettings>(
@@ -15,6 +16,7 @@ const systemSettingsSchema = new Schema<ISystemSettings>(
     amcAlertDays: { type: Number, default: 30 },
     licenseRenewalAlertDays: { type: [Number], default: [90, 60, 30, 15, 7] },
     licenseIdPrefix: { type: String, default: "LIC", trim: true, uppercase: true },
+    licenseNextSequence: { type: Number, default: 1 },
   },
   { timestamps: { createdAt: "createdDate", updatedAt: "updatedDate" } }
 );

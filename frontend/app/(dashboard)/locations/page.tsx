@@ -19,7 +19,6 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { LocationFormDialog, type Location } from "@/components/locations/location-form-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { hasPermission, PERM } from "@/lib/permissions"
 
 type Paginated = { items: Location[]; total: number; page: number; totalPages: number }
 
@@ -31,10 +30,10 @@ export default function LocationsPage() {
   const [editing, setEditing] = React.useState<Location | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<Location | null>(null)
 
-  const canView = hasPermission(user, PERM.LOCATIONS_READ)
-  const canCreate = hasPermission(user, PERM.LOCATIONS_CREATE)
-  const canWrite = hasPermission(user, PERM.LOCATIONS_WRITE)
-  const canDelete = hasPermission(user, PERM.LOCATIONS_DELETE)
+  const canView = Boolean(user?.isAdmin)
+  const canCreate = Boolean(user?.isAdmin)
+  const canWrite = Boolean(user?.isAdmin)
+  const canDelete = Boolean(user?.isAdmin)
 
   const load = React.useCallback(async () => {
     setLoading(true)

@@ -48,7 +48,7 @@ export function UserMenu() {
             <div className="flex flex-col">
               <span>{user.name}</span>
               <span className="text-xs font-normal text-muted-foreground">
-                {user.roles.map((r) => r.name).join(", ")}
+                {user.isAdmin ? "Admin" : user.email}
               </span>
             </div>
           </DropdownMenuLabel>

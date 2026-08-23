@@ -19,16 +19,19 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { UserFormDialog } from "@/components/users/user-form-dialog"
 import { UserStatusBadge } from "@/components/users/user-status-badge"
 import { AdminResetPasswordDialog } from "@/components/users/admin-reset-password-dialog"
-import { EditUserRolesDialog } from "@/components/users/edit-user-roles-dialog"
+import { EditPermissionsDialog } from "@/components/users/edit-permissions-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { hasPermission, PERM } from "@/lib/permissions"
+import type { PermissionsShape } from "@/lib/permissions"
 
 type User = {
   _id: string
   name: string
   email: string
-  roles: { _id: string; name: string }[]
+  employeeId?: string
+  department: { _id: string; name: string } | null
+  isAdmin: boolean
+  permissions: PermissionsShape
   status: "Active" | "Inactive"
   createdDate: string
 }
@@ -41,6 +44,18 @@ type PaginatedUsers = {
   totalPages: number
 }
 
+function permissionSummary(user: User): string {
+  if (user.isAdmin) return "Admin (all)"
+  const parts: string[] = []
+  for (const area of ["assets", "licenses"] as const) {
+    const p = user.permissions[area]
+    const actions = (["read", "add", "edit", "delete"] as const).filter((a) => p[a])
+    if (actions.length > 0) parts.push(`${area}:${actions.join(",")}`)
+  }
+  if (user.permissions.reports.read) parts.push("reports:read")
+  return parts.length > 0 ? parts.join(" ") : "No access"
+}
+
 export default function UsersPage() {
   const { user: currentUser, loading: authLoading } = useAuth()
   const [data, setData] = React.useState<PaginatedUsers | null>(null)
@@ -49,13 +64,9 @@ export default function UsersPage() {
   const [pendingStatusChange, setPendingStatusChange] = React.useState<User | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<User | null>(null)
   const [resetPasswordUser, setResetPasswordUser] = React.useState<User | null>(null)
-  const [editRolesUser, setEditRolesUser] = React.useState<User | null>(null)
+  const [editPermissionsUser, setEditPermissionsUser] = React.useState<User | null>(null)
 
-  const canView = hasPermission(currentUser, PERM.USERS_READ)
-  const canCreate = hasPermission(currentUser, PERM.USERS_CREATE)
-  const canWrite = hasPermission(currentUser, PERM.USERS_WRITE)
-  const canDelete = hasPermission(currentUser, PERM.USERS_DELETE)
-  const canManageRoles = hasPermission(currentUser, PERM.USERS_MANAGE_USERS)
+  const canManage = Boolean(currentUser?.isAdmin)
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -70,8 +81,8 @@ export default function UsersPage() {
   }, [page])
 
   React.useEffect(() => {
-    if (canView) load()
-  }, [canView, load])
+    if (canManage) load()
+  }, [canManage, load])
 
   async function toggleStatus(targetUser: User) {
     const nextStatus = targetUser.status === "Active" ? "deactivate" : "activate"
@@ -102,16 +113,15 @@ export default function UsersPage() {
     { accessorKey: "name", header: "Name" },
     { accessorKey: "email", header: "Email" },
     {
-      accessorKey: "roles",
-      header: "Roles",
+      accessorKey: "department",
+      header: "Department",
+      cell: ({ row }) => row.original.department?.name ?? "-",
+    },
+    {
+      id: "permissions",
+      header: "Access",
       cell: ({ row }) => (
-        <div className="flex flex-wrap gap-1">
-          {row.original.roles.map((role) => (
-            <Badge key={role._id} variant="outline">
-              {role.name}
-            </Badge>
-          ))}
-        </div>
+        <Badge variant={row.original.isAdmin ? "default" : "outline"}>{permissionSummary(row.original)}</Badge>
       ),
     },
     {
@@ -132,27 +142,17 @@ export default function UsersPage() {
             }
           />
           <DropdownMenuContent align="end">
-            {canManageRoles && (
-              <DropdownMenuItem onClick={() => setEditRolesUser(row.original)}>Edit roles</DropdownMenuItem>
-            )}
-            {canWrite && (
-              <DropdownMenuItem onClick={() => setResetPasswordUser(row.original)}>
-                Reset password
-              </DropdownMenuItem>
-            )}
-            {canWrite && (
-              <DropdownMenuItem
-                variant={row.original.status === "Active" ? "destructive" : "default"}
-                onClick={() => setPendingStatusChange(row.original)}
-              >
-                {row.original.status === "Active" ? "Deactivate" : "Activate"}
-              </DropdownMenuItem>
-            )}
-            {canDelete && (
-              <DropdownMenuItem variant="destructive" onClick={() => setPendingDelete(row.original)}>
-                Delete
-              </DropdownMenuItem>
-            )}
+            <DropdownMenuItem onClick={() => setEditPermissionsUser(row.original)}>Edit permissions</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setResetPasswordUser(row.original)}>Reset password</DropdownMenuItem>
+            <DropdownMenuItem
+              variant={row.original.status === "Active" ? "destructive" : "default"}
+              onClick={() => setPendingStatusChange(row.original)}
+            >
+              {row.original.status === "Active" ? "Deactivate" : "Activate"}
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={() => setPendingDelete(row.original)}>
+              Delete
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -163,7 +163,7 @@ export default function UsersPage() {
     return null
   }
 
-  if (!canView) {
+  if (!canManage) {
     return (
       <p className="text-sm text-muted-foreground">
         You do not have permission to view this page.
@@ -176,9 +176,9 @@ export default function UsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
-          <p className="text-sm text-muted-foreground">Manage who has access to this system.</p>
+          <p className="text-sm text-muted-foreground">Manage who has access to this system and what they can do.</p>
         </div>
-        {canCreate && <UserFormDialog onCreated={load} />}
+        <UserFormDialog onCreated={load} />
       </div>
 
       <DataTable columns={columns} data={data?.items ?? []} isLoading={loading} emptyMessage="No users yet." />
@@ -221,13 +221,14 @@ export default function UsersPage() {
         />
       )}
 
-      {editRolesUser && (
-        <EditUserRolesDialog
+      {editPermissionsUser && (
+        <EditPermissionsDialog
           open
-          onOpenChange={(open) => !open && setEditRolesUser(null)}
-          userId={editRolesUser._id}
-          userEmail={editRolesUser.email}
-          currentRoleIds={editRolesUser.roles.map((r) => r._id)}
+          onOpenChange={(open) => !open && setEditPermissionsUser(null)}
+          userId={editPermissionsUser._id}
+          userEmail={editPermissionsUser.email}
+          currentIsAdmin={editPermissionsUser.isAdmin}
+          currentPermissions={editPermissionsUser.permissions}
           onSaved={load}
         />
       )}

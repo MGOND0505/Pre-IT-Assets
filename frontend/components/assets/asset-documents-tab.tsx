@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
-import { hasPermission, PERM } from "@/lib/permissions"
+import { can } from "@/lib/permissions"
 import { useAuth } from "@/lib/auth-context"
 
 const DOCUMENT_TYPES = ["Invoice", "Warranty", "AMC", "Purchase", "Other"] as const
@@ -30,7 +30,7 @@ export function AssetDocumentsTab({ assetId }: { assetId: string }) {
   const [pendingDelete, setPendingDelete] = React.useState<AssetDocument | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
-  const canWrite = hasPermission(user, PERM.ASSETS_WRITE)
+  const canWrite = can(user, "assets", "edit")
 
   const load = React.useCallback(async () => {
     setLoading(true)

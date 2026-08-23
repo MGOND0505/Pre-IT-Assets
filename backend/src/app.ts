@@ -21,7 +21,9 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json());
+// The default 100kb limit is too small for the bulk import confirm step, which resends
+// the full previewed row set (mirrors the 10MB upload limit in utils/upload.ts).
+app.use(express.json({ limit: "15mb" }));
 app.use(cookieParser());
 app.use(mongoSanitize());
 

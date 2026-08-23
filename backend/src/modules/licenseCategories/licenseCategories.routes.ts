@@ -1,8 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../../middleware/authenticate";
-import { authorize } from "../../middleware/authorize";
+import { requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
-import { PERM } from "../../config/permissionCatalog";
 import * as licenseCategoriesController from "./licenseCategories.controller";
 import {
   createLicenseCategorySchema,
@@ -17,31 +16,29 @@ licenseCategoriesRouter.use(authenticate);
 
 licenseCategoriesRouter.get(
   "/",
-  authorize(PERM.LICENSES_READ),
   validate({ query: listLicenseCategoriesQuerySchema }),
   licenseCategoriesController.listLicenseCategories
 );
 licenseCategoriesRouter.post(
   "/",
-  authorize(PERM.LICENSES_CREATE),
+  requireAdmin,
   validate({ body: createLicenseCategorySchema }),
   licenseCategoriesController.createLicenseCategory
 );
 licenseCategoriesRouter.get(
   "/:id",
-  authorize(PERM.LICENSES_READ),
   validate({ params: licenseCategoryIdParamsSchema }),
   licenseCategoriesController.getLicenseCategory
 );
 licenseCategoriesRouter.put(
   "/:id",
-  authorize(PERM.LICENSES_WRITE),
+  requireAdmin,
   validate({ params: licenseCategoryIdParamsSchema, body: updateLicenseCategorySchema }),
   licenseCategoriesController.updateLicenseCategory
 );
 licenseCategoriesRouter.delete(
   "/:id",
-  authorize(PERM.LICENSES_DELETE),
+  requireAdmin,
   validate({ params: licenseCategoryIdParamsSchema }),
   licenseCategoriesController.deleteLicenseCategory
 );

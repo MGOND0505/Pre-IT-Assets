@@ -7,12 +7,25 @@ export async function getSettings() {
 
   // Backfill fields added after the singleton was first created (schema defaults
   // only apply to brand-new documents, not ones already persisted without the field).
+  let needsSave = false;
   if (existing.assetIdCompanyPrefix === undefined) {
     existing.assetIdCompanyPrefix = "VNR";
-    await existing.save();
+    needsSave = true;
   }
+  if (existing.licenseNextSequence === undefined) {
+    existing.licenseNextSequence = 1;
+    needsSave = true;
+  }
+  if (needsSave) await existing.save();
 
   return existing;
+}
+
+/** Atomically claims the next license ID sequence number. */
+export async function claimNextLicenseSequence(): Promise<{ prefix: string; sequence: number }> {
+  await getSettings(); // ensure the singleton (and its backfilled fields) exists first
+  const settings = await SystemSettings.findOneAndUpdate({}, { $inc: { licenseNextSequence: 1 } }, { new: false });
+  return { prefix: settings!.licenseIdPrefix, sequence: settings!.licenseNextSequence };
 }
 
 export async function updateSettings(input: Partial<ISystemSettings>) {

@@ -12,10 +12,9 @@ import { AssetStatusBadge, type AssetStatus } from "@/components/assets/asset-st
 import { AssetForm, type AssetFormValues } from "@/components/assets/asset-form"
 import { AssetDocumentsTab } from "@/components/assets/asset-documents-tab"
 import { AssetHistoryTab } from "@/components/assets/asset-history-tab"
-import { AssetWorkflowActions } from "@/components/assets/asset-workflow-actions"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { hasPermission, PERM } from "@/lib/permissions"
+import { can } from "@/lib/permissions"
 
 type RefOption = { _id: string; name: string } | null
 
@@ -31,6 +30,7 @@ type Asset = {
   model: string
   serialNumber: string
   serviceTag: string
+  imei: string
   hostname: string
   ipAddress: string
   macAddress: string
@@ -47,6 +47,7 @@ type Asset = {
   amcEnd: string | null
   location: RefOption
   department: RefOption
+  assignedUser: (RefOption & { email?: string }) | null
   notes: string
 }
 
@@ -75,6 +76,7 @@ function toFormValues(asset: Asset): AssetFormValues {
     model: asset.model,
     serialNumber: asset.serialNumber,
     serviceTag: asset.serviceTag,
+    imei: asset.imei,
     hostname: asset.hostname,
     ipAddress: asset.ipAddress,
     macAddress: asset.macAddress,
@@ -91,6 +93,7 @@ function toFormValues(asset: Asset): AssetFormValues {
     amcEnd: asset.amcEnd?.slice(0, 10) ?? "",
     location: asset.location?._id ?? "",
     department: asset.department?._id ?? "",
+    assignedUser: asset.assignedUser?._id ?? "",
     notes: asset.notes,
   }
 }
@@ -103,8 +106,8 @@ export default function AssetDetailPage() {
   const [loading, setLoading] = React.useState(true)
   const [editing, setEditing] = React.useState(false)
 
-  const canView = hasPermission(user, PERM.ASSETS_READ)
-  const canWrite = hasPermission(user, PERM.ASSETS_WRITE)
+  const canView = can(user, "assets", "read")
+  const canWrite = can(user, "assets", "edit")
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -146,8 +149,6 @@ export default function AssetDetailPage() {
         </div>
       </div>
 
-      <AssetWorkflowActions assetId={asset._id} onDone={load} />
-
       <Card>
         <CardContent className="pt-6">
           <Tabs defaultValue="overview">
@@ -169,6 +170,12 @@ export default function AssetDetailPage() {
                 <Row label="Condition" value={asset.condition} />
                 <Row label="Location" value={asset.location?.name} />
                 <Row label="Department" value={asset.department?.name} />
+                <Row
+                  label="Assigned to"
+                  value={
+                    asset.assignedUser ? `${asset.assignedUser.name}${asset.assignedUser.email ? ` (${asset.assignedUser.email})` : ""}` : "Unassigned"
+                  }
+                />
                 <Row label="Notes" value={asset.notes} />
               </div>
             </TabsContent>
@@ -179,6 +186,7 @@ export default function AssetDetailPage() {
                 <Row label="Model" value={asset.model} />
                 <Row label="Serial number" value={asset.serialNumber} />
                 <Row label="Service tag" value={asset.serviceTag} />
+                <Row label="IMEI" value={asset.imei} />
                 <Row label="Hostname" value={asset.hostname} />
                 <Row label="IP address" value={asset.ipAddress} />
                 <Row label="MAC address" value={asset.macAddress} />

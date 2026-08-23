@@ -26,7 +26,7 @@ export async function logAction({
   if (req.user) {
     const user = await User.findById(req.user.id).select("name email");
     if (user) {
-      userSnapshot = { name: user.name, email: user.email, role: req.user.roleNames.join(", ") };
+      userSnapshot = { name: user.name, email: user.email, role: req.user.isAdmin ? "Admin" : "User" };
     }
   }
 

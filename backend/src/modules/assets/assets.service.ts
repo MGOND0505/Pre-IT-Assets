@@ -3,6 +3,7 @@ import path from "node:path";
 import { Asset, type IAsset } from "../../models/Asset";
 import { AssetCategory } from "../../models/AssetCategory";
 import { AssetDocument } from "../../models/AssetDocument";
+import { User } from "../../models/User";
 import { ApiError } from "../../utils/ApiError";
 import { getSettings } from "../settings/settings.service";
 import { ASSET_DOCUMENTS_DIR } from "../../utils/upload";
@@ -13,7 +14,7 @@ const POPULATE_FIELDS = [
   { path: "vendor", select: "name" },
   { path: "location", select: "name city" },
   { path: "department", select: "name" },
-  { path: "assignedUser", select: "name email" },
+  { path: "assignedUser", select: "name email employeeId" },
 ];
 
 /** Atomically claims the next sequence number for a category and formats the full asset ID. */
@@ -44,13 +45,14 @@ type ListInput = {
   purchaseDateTo?: Date;
   sortBy?: string;
   sortDir?: "asc" | "desc";
+  includeDeleted?: boolean;
 };
 
 export async function listAssets(input: ListInput) {
   const page = input.page ?? 1;
   const limit = input.limit ?? 20;
 
-  const filter: Record<string, unknown> = {};
+  const filter: Record<string, unknown> = { isDeleted: input.includeDeleted ? true : false };
   if (input.status) filter.status = input.status;
   if (input.category) filter.category = input.category;
   if (input.location) filter.location = input.location;
@@ -63,16 +65,25 @@ export async function listAssets(input: ListInput) {
     };
   }
   if (input.search) {
+    const matchingUsers = await User.find({
+      $or: [
+        { name: { $regex: input.search, $options: "i" } },
+        { employeeId: { $regex: input.search, $options: "i" } },
+      ],
+    }).select("_id");
+
     filter.$or = [
       { assetId: { $regex: input.search, $options: "i" } },
       { name: { $regex: input.search, $options: "i" } },
       { serialNumber: { $regex: input.search, $options: "i" } },
       { serviceTag: { $regex: input.search, $options: "i" } },
+      { imei: { $regex: input.search, $options: "i" } },
       { hostname: { $regex: input.search, $options: "i" } },
       { manufacturer: { $regex: input.search, $options: "i" } },
       { model: { $regex: input.search, $options: "i" } },
       { ipAddress: { $regex: input.search, $options: "i" } },
       { macAddress: { $regex: input.search, $options: "i" } },
+      ...(matchingUsers.length > 0 ? [{ assignedUser: { $in: matchingUsers.map((u) => u.id) } }] : []),
     ];
   }
 
@@ -125,8 +136,50 @@ export async function updateAsset(id: string, input: AssetInput) {
   return asset;
 }
 
-export async function deleteAsset(id: string) {
+/** Soft delete: the record is hidden from normal listings but recoverable by an Admin. */
+export async function deleteAsset(id: string, deletedBy: string) {
   const asset = await getAssetById(id);
+  asset.isDeleted = true;
+  asset.deletedAt = new Date();
+  asset.deletedBy = deletedBy as unknown as IAsset["deletedBy"];
+  await asset.save();
+  return asset;
+}
+
+export async function restoreAsset(id: string) {
+  const asset = await Asset.findById(id);
+  if (!asset) throw new ApiError(404, "Asset not found");
+  asset.isDeleted = false;
+  asset.deletedAt = null;
+  asset.deletedBy = null;
+  await asset.save();
+  return asset;
+}
+
+export async function getAssetStats() {
+  const [total, byStatus, byLocation] = await Promise.all([
+    Asset.countDocuments({ isDeleted: false }),
+    Asset.aggregate([{ $match: { isDeleted: false } }, { $group: { _id: "$status", count: { $sum: 1 } } }]),
+    Asset.aggregate([
+      { $match: { isDeleted: false, location: { $ne: null } } },
+      { $group: { _id: "$location", count: { $sum: 1 } } },
+      { $lookup: { from: "locations", localField: "_id", foreignField: "_id", as: "location" } },
+      { $unwind: "$location" },
+      { $project: { _id: 0, locationId: "$_id", name: "$location.name", count: 1 } },
+    ]),
+  ]);
+
+  const statusCounts: Record<string, number> = {};
+  for (const row of byStatus) statusCounts[row._id] = row.count;
+
+  return { total, byStatus: statusCounts, byLocation };
+}
+
+/** Permanently removes a soft-deleted asset and its uploaded documents. Admin-only, irreversible. */
+export async function purgeAsset(id: string) {
+  const asset = await Asset.findById(id);
+  if (!asset) throw new ApiError(404, "Asset not found");
+  if (!asset.isDeleted) throw new ApiError(400, "Only a soft-deleted asset can be permanently removed");
 
   const documents = await AssetDocument.find({ asset: id });
   await Promise.all(

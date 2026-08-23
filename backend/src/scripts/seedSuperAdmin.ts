@@ -2,8 +2,7 @@ import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import { env } from "../config/env";
 import { User } from "../models/User";
-import { Role } from "../models/Role";
-import { ensureRbacDefaults } from "./seedRbacDefaults";
+import { emptyPermissions } from "../config/permissions";
 
 async function seed() {
   if (!env.SUPERADMIN_SEED_EMAIL || !env.SUPERADMIN_SEED_PASSWORD) {
@@ -12,30 +11,25 @@ async function seed() {
   }
 
   await mongoose.connect(env.MONGODB_URI);
-  await ensureRbacDefaults();
-
-  const superAdminRole = await Role.findOne({ name: "Super Admin" });
-  if (!superAdminRole) {
-    throw new Error('"Super Admin" role not found after seeding defaults - this should not happen');
-  }
 
   const existing = await User.findOne({ email: env.SUPERADMIN_SEED_EMAIL.toLowerCase().trim() });
 
   if (existing) {
-    console.log(`SuperAdmin already exists: ${existing.email} (skipping)`);
+    console.log(`Admin already exists: ${existing.email} (skipping)`);
   } else {
     const passwordHash = await bcrypt.hash(env.SUPERADMIN_SEED_PASSWORD, env.BCRYPT_SALT_ROUNDS);
 
     const admin = await User.create({
-      name: env.SUPERADMIN_SEED_NAME ?? "Super Admin",
+      name: env.SUPERADMIN_SEED_NAME ?? "Admin",
       email: env.SUPERADMIN_SEED_EMAIL,
-      roles: [superAdminRole.id],
       passwordHash,
+      isAdmin: true,
+      permissions: emptyPermissions(),
       status: "Active",
       mustChangePassword: false,
     });
 
-    console.log(`SuperAdmin created: ${admin.email}`);
+    console.log(`Admin created: ${admin.email}`);
   }
 
   await mongoose.disconnect();

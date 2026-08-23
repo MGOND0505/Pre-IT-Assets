@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { isNavGroup, navConfig, type NavLeaf } from "@/lib/nav-config"
 import { useAuth } from "@/lib/auth-context"
-import { hasPermission } from "@/lib/permissions"
+import { can } from "@/lib/permissions"
 
 function Leaf({ item, pathname }: { item: NavLeaf; pathname: string }) {
   const active = pathname === item.href
@@ -41,7 +41,11 @@ export function SidebarNav() {
   const pathname = usePathname()
   const { user } = useAuth()
 
-  const visibleLeaf = (item: NavLeaf) => !item.permission || hasPermission(user, item.permission)
+  const visibleLeaf = (item: NavLeaf) => {
+    if (!item.permission) return true
+    if (item.permission === "admin") return Boolean(user?.isAdmin)
+    return can(user, item.permission.area, item.permission.action)
+  }
 
   return (
     <nav className="flex flex-col gap-4 p-3">

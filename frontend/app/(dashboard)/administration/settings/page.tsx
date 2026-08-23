@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { hasPermission, PERM } from "@/lib/permissions"
 
 type Settings = {
   assetIdCompanyPrefix: string
@@ -26,8 +25,8 @@ export default function SettingsPage() {
   const [loading, setLoading] = React.useState(true)
   const [submitting, setSubmitting] = React.useState(false)
 
-  const canView = hasPermission(user, PERM.SETTINGS_READ)
-  const canWrite = hasPermission(user, PERM.SETTINGS_WRITE)
+  const canView = Boolean(user?.isAdmin)
+  const canWrite = Boolean(user?.isAdmin)
 
   React.useEffect(() => {
     if (!canView) return

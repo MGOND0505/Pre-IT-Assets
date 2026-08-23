@@ -7,7 +7,6 @@ import { LoginHistory } from "../../models/LoginHistory";
 import { ApiError } from "../../utils/ApiError";
 import { signToken } from "../../utils/jwt";
 import { emailProvider } from "../../services/email";
-import { createNotification } from "../notifications/notifications.service";
 import { logAction } from "../audit/audit.service";
 
 function requestMeta(req: Request) {
@@ -79,12 +78,6 @@ export async function login(req: Request, email: string, password: string) {
         module: "User",
         recordId: user.id,
         recordLabel: user.email,
-      });
-      await createNotification({
-        recipients: [user.id],
-        type: "ACCOUNT",
-        title: "Account temporarily locked",
-        message: `Too many failed login attempts. Your account is locked for ${env.LOGIN_LOCKOUT_DURATION_MINUTES} minutes.`,
       });
     }
 
@@ -160,13 +153,6 @@ export async function resetPassword(rawToken: string, newPassword: string) {
   user.lockedUntil = null;
   user.tokenVersion += 1;
   await user.save();
-
-  await createNotification({
-    recipients: [user.id],
-    type: "ACCOUNT",
-    title: "Password reset",
-    message: "Your password was just reset. If this wasn't you, contact your administrator immediately.",
-  });
 }
 
 export async function changePassword(req: Request, userId: string, currentPassword: string, newPassword: string) {

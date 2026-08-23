@@ -2,14 +2,16 @@
 
 import * as React from "react"
 import { apiClient, type ApiEnvelope } from "@/lib/api-client"
+import type { PermissionsShape } from "@/lib/permissions"
 
 export type CurrentUser = {
   _id: string
   name: string
   email: string
-  roles: { id: string; name: string }[]
-  permissions: string[]
-  isSuperAdmin: boolean
+  isAdmin: boolean
+  permissions: PermissionsShape
+  department: { _id: string; name: string } | null
+  location: { _id: string; name: string } | null
   status: "Active" | "Inactive"
   mustChangePassword: boolean
 }
