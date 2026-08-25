@@ -2,9 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  devIndicators: {
-    position: "bottom-right",
-  },
+  devIndicators: false,
 };
 
 export default nextConfig;

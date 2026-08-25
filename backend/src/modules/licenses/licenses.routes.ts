@@ -1,10 +1,9 @@
 import { Router } from "express";
-import { authenticate } from "../../middleware/authenticate";
 import { authorize, requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadSpreadsheet } from "../../utils/upload";
 import * as licensesController from "./licenses.controller";
-import { previewLicenseImport, confirmLicenseImport } from "./licenses.import";
+import { previewLicenseImport, confirmLicenseImport, downloadLicenseTemplate } from "./licenses.import";
 import {
   createLicenseSchema,
   licenseIdParamsSchema,
@@ -14,17 +13,16 @@ import {
 
 export const licensesRouter = Router();
 
-licensesRouter.use(authenticate);
-
-licensesRouter.get("/stats", authorize("licenses", "read"), licensesController.getLicenseStats);
+licensesRouter.get("/stats", authorize("licenses", "view"), licensesController.getLicenseStats);
 
 licensesRouter.post(
   "/import/preview",
-  authorize("licenses", "add"),
+  authorize("licenses", "import"),
   uploadSpreadsheet.single("file"),
   previewLicenseImport
 );
-licensesRouter.post("/import/confirm", authorize("licenses", "add"), confirmLicenseImport);
+licensesRouter.post("/import/confirm", authorize("licenses", "import"), confirmLicenseImport);
+licensesRouter.get("/import/template", authorize("licenses", "import"), downloadLicenseTemplate);
 
 licensesRouter.get(
   "/deleted",
@@ -35,25 +33,25 @@ licensesRouter.get(
 
 licensesRouter.get(
   "/",
-  authorize("licenses", "read"),
+  authorize("licenses", "view"),
   validate({ query: listLicensesQuerySchema }),
   licensesController.listLicenses
 );
 licensesRouter.post(
   "/",
-  authorize("licenses", "add"),
+  authorize("licenses", "create"),
   validate({ body: createLicenseSchema }),
   licensesController.createLicense
 );
 licensesRouter.get(
   "/:id",
-  authorize("licenses", "read"),
+  authorize("licenses", "view"),
   validate({ params: licenseIdParamsSchema }),
   licensesController.getLicense
 );
 licensesRouter.put(
   "/:id",
-  authorize("licenses", "edit"),
+  authorize("licenses", "update"),
   validate({ params: licenseIdParamsSchema, body: updateLicenseSchema }),
   licensesController.updateLicense
 );

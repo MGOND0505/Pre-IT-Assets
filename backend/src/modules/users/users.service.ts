@@ -1,8 +1,9 @@
 import bcrypt from "bcryptjs";
-import { User } from "../../models/User";
+import { User, type IUser } from "../../models/User";
 import { env } from "../../config/env";
 import { ApiError } from "../../utils/ApiError";
 import { emptyPermissions, type PermissionsShape } from "../../config/permissions";
+import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
 
 type CreateUserInput = {
   name: string;
@@ -18,14 +19,22 @@ type CreateUserInput = {
   createdBy: string;
 };
 
-export async function createUser(input: CreateUserInput) {
-  const existing = await User.findOne({ email: input.email.toLowerCase().trim() });
+export async function createUser(input: CreateUserInput, organizationId: string) {
+  const existing = await User.findOne({
+    organization: organizationId,
+    email: input.email.toLowerCase().trim(),
+    isDeleted: false,
+  });
   if (existing) {
     throw new ApiError(409, "A user with this email already exists");
   }
 
   if (input.employeeId) {
-    const existingEmployeeId = await User.findOne({ employeeId: input.employeeId.toUpperCase().trim() });
+    const existingEmployeeId = await User.findOne({
+      organization: organizationId,
+      employeeId: input.employeeId.toUpperCase().trim(),
+      isDeleted: false,
+    });
     if (existingEmployeeId) {
       throw new ApiError(409, "A user with this employee ID already exists");
     }
@@ -34,6 +43,7 @@ export async function createUser(input: CreateUserInput) {
   const passwordHash = await bcrypt.hash(input.password, env.BCRYPT_SALT_ROUNDS);
 
   return User.create({
+    organization: organizationId,
     name: input.name,
     email: input.email,
     employeeId: input.employeeId,
@@ -42,7 +52,7 @@ export async function createUser(input: CreateUserInput) {
     phone: input.phone,
     department: input.department || null,
     location: input.location || null,
-    isAdmin: input.isAdmin ?? false,
+    role: input.isAdmin ? "orgAdmin" : "teamMember",
     permissions: { ...emptyPermissions(), ...input.permissions },
     createdBy: input.createdBy,
     mustChangePassword: true,
@@ -54,14 +64,17 @@ type ListUsersInput = {
   limit?: number;
   search?: string;
   status?: "Active" | "Inactive";
+  role?: "superAdmin" | "orgAdmin" | "teamMember";
+  includeDeleted?: boolean;
 };
 
-export async function listUsers(input: ListUsersInput) {
+export async function listUsers(input: ListUsersInput, organizationId: string) {
   const page = input.page ?? 1;
   const limit = input.limit ?? 20;
 
-  const filter: Record<string, unknown> = {};
+  const filter: Record<string, unknown> = { organization: organizationId, isDeleted: input.includeDeleted ? true : false };
   if (input.status) filter.status = input.status;
+  if (input.role) filter.role = input.role;
   if (input.search) {
     filter.$or = [
       { name: { $regex: input.search, $options: "i" } },
@@ -80,11 +93,14 @@ export async function listUsers(input: ListUsersInput) {
     User.countDocuments(filter),
   ]);
 
-  return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
+  const retentionDays = await getOrgRetentionDays(organizationId);
+  return { items: withRecycleBinMeta(items, retentionDays), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
-export async function getUserById(id: string) {
-  const user = await User.findById(id).populate("department", "name").populate("location", "name");
+export async function getUserById(id: string, organizationId: string) {
+  const user = await User.findOne({ _id: id, organization: organizationId, isDeleted: false })
+    .populate("department", "name")
+    .populate("location", "name");
   if (!user) throw new ApiError(404, "User not found");
   return user;
 }
@@ -98,11 +114,15 @@ type UpdateUserInput = Partial<{
   location: string;
 }>;
 
-export async function updateUser(id: string, input: UpdateUserInput) {
-  const user = await getUserById(id);
+export async function updateUser(id: string, input: UpdateUserInput, organizationId: string) {
+  const user = await getUserById(id, organizationId);
 
   if (input.employeeId && input.employeeId.toUpperCase().trim() !== user.employeeId) {
-    const existing = await User.findOne({ employeeId: input.employeeId.toUpperCase().trim() });
+    const existing = await User.findOne({
+      organization: organizationId,
+      employeeId: input.employeeId.toUpperCase().trim(),
+      isDeleted: false,
+    });
     if (existing) {
       throw new ApiError(409, "A user with this employee ID already exists");
     }
@@ -115,18 +135,26 @@ export async function updateUser(id: string, input: UpdateUserInput) {
 
 export async function updateUserPermissions(
   id: string,
-  input: { isAdmin?: boolean; permissions?: Partial<PermissionsShape> }
+  input: { isAdmin?: boolean; permissions?: Partial<PermissionsShape> },
+  organizationId: string
 ) {
-  const user = await getUserById(id);
+  const user = await getUserById(id, organizationId);
 
   if (user.isAdmin && input.isAdmin === false) {
-    const otherAdmins = await User.countDocuments({ _id: { $ne: id }, isAdmin: true });
+    // Scoped to this organization only - counting admins globally would let another org's
+    // admin count mask (or wrongly block) a "last admin in THIS org" removal.
+    const otherAdmins = await User.countDocuments({
+      _id: { $ne: id },
+      organization: organizationId,
+      role: "orgAdmin",
+      isDeleted: false,
+    });
     if (otherAdmins === 0) {
-      throw new ApiError(409, "Cannot remove Admin from the last remaining Admin");
+      throw new ApiError(409, "Cannot remove Admin from the last remaining Admin in this organization");
     }
   }
 
-  if (input.isAdmin !== undefined) user.isAdmin = input.isAdmin;
+  if (input.isAdmin !== undefined) user.role = input.isAdmin ? "orgAdmin" : "teamMember";
   if (input.permissions) {
     user.permissions = { ...user.permissions, ...input.permissions } as PermissionsShape;
   }
@@ -135,16 +163,16 @@ export async function updateUserPermissions(
   return user;
 }
 
-export async function setUserStatus(id: string, status: "Active" | "Inactive") {
-  const user = await getUserById(id);
+export async function setUserStatus(id: string, status: "Active" | "Inactive", organizationId: string) {
+  const user = await getUserById(id, organizationId);
   user.status = status;
   user.tokenVersion += 1; // invalidate any existing sessions immediately
   await user.save();
   return user;
 }
 
-export async function adminResetPassword(id: string, newPassword: string) {
-  const user = await getUserById(id);
+export async function adminResetPassword(id: string, newPassword: string, organizationId: string) {
+  const user = await getUserById(id, organizationId);
   user.passwordHash = await bcrypt.hash(newPassword, env.BCRYPT_SALT_ROUNDS);
   user.mustChangePassword = true;
   user.failedLoginAttempts = 0;
@@ -154,22 +182,59 @@ export async function adminResetPassword(id: string, newPassword: string) {
   return user;
 }
 
-export async function deleteUser(id: string, actingUserId: string) {
+export async function deleteUser(id: string, actingUserId: string, organizationId: string) {
   if (id === actingUserId) {
     throw new ApiError(400, "You cannot delete your own account");
   }
 
-  const user = await getUserById(id);
+  const user = await getUserById(id, organizationId);
 
   if (user.isAdmin) {
-    const otherAdmins = await User.countDocuments({ _id: { $ne: id }, isAdmin: true });
+    // Scoped to this organization only - see updateUserPermissions's identical guard above.
+    const otherAdmins = await User.countDocuments({
+      _id: { $ne: id },
+      organization: organizationId,
+      role: "orgAdmin",
+      isDeleted: false,
+    });
     if (otherAdmins === 0) {
-      throw new ApiError(409, "Cannot delete the last remaining Admin");
+      throw new ApiError(409, "Cannot delete the last remaining Admin in this organization");
     }
   }
 
   const snapshot = { name: user.name, email: user.email, isAdmin: user.isAdmin };
-  await user.deleteOne();
+
+  user.isDeleted = true;
+  user.deletedAt = new Date();
+  user.deletedBy = actingUserId as unknown as IUser["deletedBy"];
+  user.tokenVersion += 1; // invalidate any existing sessions immediately
+  await user.save();
 
   return snapshot;
+}
+
+export async function restoreUser(id: string, organizationId: string) {
+  const user = await User.findOne({ _id: id, organization: organizationId, isDeleted: true });
+  if (!user) throw new ApiError(404, "Deleted user not found");
+
+  const existingEmail = await User.findOne({ organization: organizationId, email: user.email, isDeleted: false });
+  if (existingEmail) {
+    throw new ApiError(409, "A user with this email already exists");
+  }
+  if (user.employeeId) {
+    const existingEmployeeId = await User.findOne({
+      organization: organizationId,
+      employeeId: user.employeeId,
+      isDeleted: false,
+    });
+    if (existingEmployeeId) {
+      throw new ApiError(409, "A user with this employee ID already exists");
+    }
+  }
+
+  user.isDeleted = false;
+  user.deletedAt = null;
+  user.deletedBy = null;
+  await user.save();
+  return user;
 }

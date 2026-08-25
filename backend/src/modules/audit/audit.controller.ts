@@ -10,6 +10,7 @@ export const getAuditLogs = asyncHandler(async (req: Request, res: Response) => 
     limit: req.query.limit ? Number(req.query.limit) : undefined,
     module: typeof req.query.module === "string" ? req.query.module : undefined,
     action: typeof req.query.action === "string" ? req.query.action : undefined,
+    organizationId: req.organization!._id,
   });
 
   ok(res, result, "Audit logs");
@@ -18,7 +19,7 @@ export const getAuditLogs = asyncHandler(async (req: Request, res: Response) => 
 export const getLoginHistory = asyncHandler(async (req: Request, res: Response) => {
   const page = req.query.page ? Number(req.query.page) : undefined;
   const limit = req.query.limit ? Number(req.query.limit) : undefined;
-  const result = await listAllLoginHistory(page, limit);
+  const result = await listAllLoginHistory(req.organization!._id, page, limit);
 
   ok(res, result, "Login history");
 });

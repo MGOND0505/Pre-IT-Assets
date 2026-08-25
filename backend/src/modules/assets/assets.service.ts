@@ -1,13 +1,22 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { Types } from "mongoose";
 import { Asset, type IAsset } from "../../models/Asset";
 import { AssetCategory } from "../../models/AssetCategory";
 import { AssetDocument } from "../../models/AssetDocument";
+import { AssetHistory } from "../../models/AssetHistory";
 import { User } from "../../models/User";
 import { ApiError } from "../../utils/ApiError";
 import { getSettings } from "../settings/settings.service";
 import { ASSET_DOCUMENTS_DIR } from "../../utils/upload";
 import { recordAssetHistory } from "./assetHistory.service";
+import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
+import {
+  notifyAssetCreated,
+  notifyAssetUpdated,
+  notifyAssetDeleted,
+  notifyAssetsBulkDeleted,
+} from "../../services/alerts/assetChangeAlerts";
 
 const POPULATE_FIELDS = [
   { path: "category", select: "name prefix" },
@@ -18,16 +27,16 @@ const POPULATE_FIELDS = [
 ];
 
 /** Atomically claims the next sequence number for a category and formats the full asset ID. */
-async function generateAssetId(categoryId: string): Promise<string> {
+async function generateAssetId(categoryId: string, organizationId: string): Promise<string> {
   const category = await AssetCategory.findOneAndUpdate(
-    { _id: categoryId },
+    { _id: categoryId, organization: organizationId },
     { $inc: { nextSequence: 1 } },
     { new: false }
   );
 
   if (!category) throw new ApiError(400, "Unknown asset category");
 
-  const settings = await getSettings();
+  const settings = await getSettings(organizationId);
   const sequence = String(category.nextSequence).padStart(6, "0");
   return `${settings.assetIdCompanyPrefix}-${category.prefix}-${sequence}`;
 }
@@ -48,11 +57,14 @@ type ListInput = {
   includeDeleted?: boolean;
 };
 
-export async function listAssets(input: ListInput) {
+export async function listAssets(input: ListInput, organizationId: string) {
   const page = input.page ?? 1;
   const limit = input.limit ?? 20;
 
-  const filter: Record<string, unknown> = { isDeleted: input.includeDeleted ? true : false };
+  const filter: Record<string, unknown> = {
+    organization: organizationId,
+    isDeleted: input.includeDeleted ? true : false,
+  };
   if (input.status) filter.status = input.status;
   if (input.category) filter.category = input.category;
   if (input.location) filter.location = input.location;
@@ -66,6 +78,7 @@ export async function listAssets(input: ListInput) {
   }
   if (input.search) {
     const matchingUsers = await User.find({
+      organization: organizationId,
       $or: [
         { name: { $regex: input.search, $options: "i" } },
         { employeeId: { $regex: input.search, $options: "i" } },
@@ -83,6 +96,9 @@ export async function listAssets(input: ListInput) {
       { model: { $regex: input.search, $options: "i" } },
       { ipAddress: { $regex: input.search, $options: "i" } },
       { macAddress: { $regex: input.search, $options: "i" } },
+      { employeeName: { $regex: input.search, $options: "i" } },
+      { employeeId: { $regex: input.search, $options: "i" } },
+      { email: { $regex: input.search, $options: "i" } },
       ...(matchingUsers.length > 0 ? [{ assignedUser: { $in: matchingUsers.map((u) => u.id) } }] : []),
     ];
   }
@@ -99,24 +115,49 @@ export async function listAssets(input: ListInput) {
     Asset.countDocuments(filter),
   ]);
 
-  return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
+  const retentionDays = await getOrgRetentionDays(organizationId);
+  return { items: withRecycleBinMeta(items, retentionDays), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
-export async function getAssetById(id: string) {
-  const asset = await Asset.findById(id).populate(POPULATE_FIELDS);
+export async function getAssetById(id: string, organizationId: string) {
+  const asset = await Asset.findOne({ _id: id, organization: organizationId }).populate(POPULATE_FIELDS);
   if (!asset) throw new ApiError(404, "Asset not found");
   return asset;
 }
 
-type AssetInput = Partial<Omit<IAsset, "assetId">>;
+// assetId is optional input (manually assigned when the caller holds assets:editAssetId, per
+// assets.controller.ts#stripAssetIdUnlessAuthorized) rather than never-accepted - falls back to
+// generateAssetId() below when omitted, exactly as before.
+type AssetInput = Partial<Omit<IAsset, "assetId">> & { assetId?: string };
 
-export async function createAsset(input: AssetInput & { category: string }, createdBy: string) {
-  const category = await AssetCategory.findById(input.category);
+async function assertAssetIdAvailable(assetId: string, organizationId: string, excludeId?: string) {
+  const existing = await Asset.findOne({
+    organization: organizationId,
+    assetId,
+    isDeleted: false,
+    ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+  });
+  if (existing) throw new ApiError(409, "An asset with this ID already exists");
+}
+
+export async function createAsset(
+  input: AssetInput & { category: string },
+  createdBy: string,
+  organizationId: string,
+  opts: { notify?: boolean } = {}
+) {
+  const category = await AssetCategory.findOne({ _id: input.category, organization: organizationId });
   if (!category) throw new ApiError(400, "Unknown asset category");
 
-  const assetId = await generateAssetId(input.category);
+  let assetId: string;
+  if (input.assetId) {
+    await assertAssetIdAvailable(input.assetId, organizationId);
+    assetId = input.assetId;
+  } else {
+    assetId = await generateAssetId(input.category, organizationId);
+  }
 
-  const asset = await Asset.create({ ...input, assetId, createdBy });
+  const asset = await Asset.create({ ...input, assetId, organization: organizationId, createdBy });
 
   await recordAssetHistory({
     asset: asset.id,
@@ -126,28 +167,60 @@ export async function createAsset(input: AssetInput & { category: string }, crea
     remarks: "Asset created",
   });
 
+  if (opts.notify ?? true) notifyAssetCreated(organizationId, { assetId: asset.assetId, name: asset.name });
+
   return asset;
 }
 
-export async function updateAsset(id: string, input: AssetInput) {
-  const asset = await getAssetById(id);
+export async function updateAsset(
+  id: string,
+  input: AssetInput,
+  organizationId: string,
+  opts: { notify?: boolean } = {}
+) {
+  const asset = await getAssetById(id, organizationId);
+  const before = asset.toObject();
+
+  if (input.assetId && input.assetId !== asset.assetId) {
+    await assertAssetIdAvailable(input.assetId, organizationId, id);
+  }
+
   Object.assign(asset, input);
   await asset.save();
+  if (opts.notify ?? true) {
+    notifyAssetUpdated(
+      organizationId,
+      { assetId: asset.assetId, name: asset.name },
+      before as unknown as Record<string, unknown>,
+      asset.toObject() as unknown as Record<string, unknown>
+    );
+  }
   return asset;
 }
 
 /** Soft delete: the record is hidden from normal listings but recoverable by an Admin. */
-export async function deleteAsset(id: string, deletedBy: string) {
-  const asset = await getAssetById(id);
+export async function deleteAsset(id: string, deletedBy: string, organizationId: string) {
+  const asset = await getAssetById(id, organizationId);
   asset.isDeleted = true;
   asset.deletedAt = new Date();
   asset.deletedBy = deletedBy as unknown as IAsset["deletedBy"];
   await asset.save();
+  notifyAssetDeleted(organizationId, { assetId: asset.assetId, name: asset.name });
   return asset;
 }
 
-export async function restoreAsset(id: string) {
-  const asset = await Asset.findById(id);
+/** Soft delete: multiple assets at once, e.g. from the list page's multi-select. */
+export async function bulkDeleteAssets(ids: string[], deletedBy: string, organizationId: string) {
+  const result = await Asset.updateMany(
+    { _id: { $in: ids }, organization: organizationId, isDeleted: false },
+    { $set: { isDeleted: true, deletedAt: new Date(), deletedBy } }
+  );
+  notifyAssetsBulkDeleted(organizationId, result.modifiedCount);
+  return result.modifiedCount;
+}
+
+export async function restoreAsset(id: string, organizationId: string) {
+  const asset = await Asset.findOne({ _id: id, organization: organizationId });
   if (!asset) throw new ApiError(404, "Asset not found");
   asset.isDeleted = false;
   asset.deletedAt = null;
@@ -156,28 +229,81 @@ export async function restoreAsset(id: string) {
   return asset;
 }
 
-export async function getAssetStats() {
-  const [total, byStatus, byLocation] = await Promise.all([
-    Asset.countDocuments({ isDeleted: false }),
-    Asset.aggregate([{ $match: { isDeleted: false } }, { $group: { _id: "$status", count: { $sum: 1 } } }]),
+const ACTIVE_FLEET_STATUSES = ["Available", "In Stock", "Assigned", "Reserved", "Under Repair", "Under Maintenance"];
+
+export async function getAssetStats(organizationId: string) {
+  const now = new Date();
+  const warrantyExpiringBy = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  // .aggregate() pipelines, unlike find()/countDocuments(), never go through Mongoose's
+  // automatic string->ObjectId query casting - a raw string here would silently match
+  // nothing in every $match stage below (BSON type mismatch against the stored ObjectId),
+  // while countDocuments() with the same shape works fine. Cast explicitly.
+  const isDeletedFalse = { organization: new Types.ObjectId(organizationId), isDeleted: false };
+
+  const [total, byStatus, byLocation, valueAgg, byCategory, byDepartment, topAssignees, warrantyExpiringSoon] =
+    await Promise.all([
+    Asset.countDocuments(isDeletedFalse),
+    Asset.aggregate([{ $match: isDeletedFalse }, { $group: { _id: "$status", count: { $sum: 1 } } }]),
     Asset.aggregate([
-      { $match: { isDeleted: false, location: { $ne: null } } },
+      { $match: { ...isDeletedFalse, location: { $ne: null } } },
       { $group: { _id: "$location", count: { $sum: 1 } } },
       { $lookup: { from: "locations", localField: "_id", foreignField: "_id", as: "location" } },
       { $unwind: "$location" },
       { $project: { _id: 0, locationId: "$_id", name: "$location.name", count: 1 } },
     ]),
+    Asset.aggregate([
+      { $match: isDeletedFalse },
+      { $group: { _id: null, total: { $sum: { $ifNull: ["$purchaseCost", 0] } } } },
+    ]),
+    Asset.aggregate([
+      { $match: { ...isDeletedFalse, category: { $ne: null } } },
+      { $group: { _id: "$category", count: { $sum: 1 } } },
+      { $lookup: { from: "assetcategories", localField: "_id", foreignField: "_id", as: "category" } },
+      { $unwind: "$category" },
+      { $project: { _id: 0, categoryId: "$_id", name: "$category.name", count: 1 } },
+      { $sort: { count: -1 } },
+    ]),
+    Asset.aggregate([
+      { $match: { ...isDeletedFalse, department: { $ne: null } } },
+      { $group: { _id: "$department", count: { $sum: 1 } } },
+      { $lookup: { from: "departments", localField: "_id", foreignField: "_id", as: "department" } },
+      { $unwind: "$department" },
+      { $project: { _id: 0, departmentId: "$_id", name: "$department.name", count: 1 } },
+      { $sort: { count: -1 } },
+    ]),
+    Asset.aggregate([
+      { $match: { ...isDeletedFalse, assignedUser: { $ne: null } } },
+      { $group: { _id: "$assignedUser", count: { $sum: 1 } } },
+      { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "user" } },
+      { $unwind: "$user" },
+      { $project: { _id: 0, userId: "$_id", name: "$user.name", count: 1 } },
+      { $sort: { count: -1 } },
+      { $limit: 8 },
+    ]),
+    Asset.countDocuments({ ...isDeletedFalse, warrantyEnd: { $ne: null, $gte: now, $lte: warrantyExpiringBy } }),
   ]);
 
   const statusCounts: Record<string, number> = {};
   for (const row of byStatus) statusCounts[row._id] = row.count;
 
-  return { total, byStatus: statusCounts, byLocation };
+  const activeCount = ACTIVE_FLEET_STATUSES.reduce((sum, status) => sum + (statusCounts[status] ?? 0), 0);
+
+  return {
+    total,
+    byStatus: statusCounts,
+    byLocation,
+    active: activeCount,
+    totalValue: valueAgg[0]?.total ?? 0,
+    byCategory,
+    byDepartment,
+    topAssignees,
+    warrantyExpiringSoon,
+  };
 }
 
 /** Permanently removes a soft-deleted asset and its uploaded documents. Admin-only, irreversible. */
-export async function purgeAsset(id: string) {
-  const asset = await Asset.findById(id);
+export async function purgeAsset(id: string, organizationId: string) {
+  const asset = await Asset.findOne({ _id: id, organization: organizationId });
   if (!asset) throw new ApiError(404, "Asset not found");
   if (!asset.isDeleted) throw new ApiError(400, "Only a soft-deleted asset can be permanently removed");
 
@@ -190,6 +316,7 @@ export async function purgeAsset(id: string) {
     )
   );
   await AssetDocument.deleteMany({ asset: id });
+  await AssetHistory.deleteMany({ asset: id });
 
   await asset.deleteOne();
   return asset;

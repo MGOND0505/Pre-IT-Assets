@@ -14,7 +14,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth, type UserRole } from "@/lib/auth-context"
+import { useOrgHref } from "@/lib/use-org-href"
+
+const ROLE_LABEL: Record<UserRole, string> = {
+  superAdmin: "Super Admin",
+  subSuperAdmin: "Sub-Super Admin",
+  orgAdmin: "Org Admin",
+  teamMember: "Team Member",
+}
 
 function initials(name: string) {
   return name
@@ -27,6 +35,7 @@ function initials(name: string) {
 
 export function UserMenu() {
   const { user, logout } = useAuth()
+  const toOrgHref = useOrgHref()
 
   if (!user) return null
 
@@ -47,14 +56,12 @@ export function UserMenu() {
           <DropdownMenuLabel>
             <div className="flex flex-col">
               <span>{user.name}</span>
-              <span className="text-xs font-normal text-muted-foreground">
-                {user.isAdmin ? "Admin" : user.email}
-              </span>
+              <span className="text-xs font-normal text-muted-foreground">{ROLE_LABEL[user.role]}</span>
             </div>
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem render={<Link href="/profile/change-password" />}>
+        <DropdownMenuItem render={<Link href={toOrgHref("/profile/change-password")} />}>
           <KeyRound className="size-4" />
           Change password
         </DropdownMenuItem>

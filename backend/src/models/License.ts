@@ -14,6 +14,7 @@ export const LICENSE_STATUSES = ["Active", "Expired", "Cancelled"] as const;
 export type LicenseStatus = (typeof LICENSE_STATUSES)[number];
 
 export interface ILicense {
+  organization: Types.ObjectId;
   licenseId: string;
   softwareName: string;
   productName: string;
@@ -42,7 +43,8 @@ export interface ILicense {
 
 const licenseSchema = new Schema<ILicense>(
   {
-    licenseId: { type: String, required: true, unique: true, index: true },
+    organization: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
+    licenseId: { type: String, required: true },
     softwareName: { type: String, required: true, trim: true },
     productName: { type: String, default: "" },
     publisher: { type: String, default: "" },
@@ -69,5 +71,7 @@ const licenseSchema = new Schema<ILicense>(
   },
   { timestamps: { createdAt: "createdDate", updatedAt: "updatedDate" } }
 );
+
+licenseSchema.index({ organization: 1, licenseId: 1 }, { unique: true });
 
 export const License = model<ILicense>("License", licenseSchema);

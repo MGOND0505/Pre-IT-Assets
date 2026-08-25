@@ -19,9 +19,11 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
     throw new ApiError(401, "Invalid or expired session");
   }
 
-  const user = await User.findById(payload.sub).select("status tokenVersion isAdmin permissions department location");
+  const user = await User.findById(payload.sub).select(
+    "status tokenVersion role organization orgAccess permissions department location isDeleted"
+  );
 
-  if (!user || user.status !== "Active") {
+  if (!user || user.isDeleted || user.status !== "Active") {
     throw new ApiError(401, "Account is inactive or no longer exists");
   }
 
@@ -32,10 +34,17 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
   req.user = {
     id: user.id,
     tokenVersion: user.tokenVersion,
+    role: user.role,
     isAdmin: user.isAdmin,
+    organization: user.organization ? String(user.organization) : null,
+    orgAccess: user.orgAccess.map((grant) => ({
+      organization: String(grant.organization),
+      permissions: grant.permissions,
+    })),
     permissions: user.permissions,
     department: user.department ? String(user.department) : null,
     location: user.location ? String(user.location) : null,
   };
+
   next();
 });

@@ -7,7 +7,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, Inbox } from "lucide-react"
 
 import {
   Table,
@@ -18,12 +18,18 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils"
 
 type DataTableProps<TData> = {
   columns: ColumnDef<TData, unknown>[]
   data: TData[]
   isLoading?: boolean
   emptyMessage?: string
+  /** When provided, whole rows become clickable (e.g. to open a detail page). Clicks on an
+   * interactive element inside the row (a link, button, checkbox) are ignored so they keep
+   * their own behavior instead of also triggering navigation. */
+  onRowClick?: (row: TData) => void
 }
 
 export function DataTable<TData>({
@@ -31,6 +37,7 @@ export function DataTable<TData>({
   data,
   isLoading = false,
   emptyMessage = "No records found.",
+  onRowClick,
 }: DataTableProps<TData>) {
   const table = useReactTable({
     data,
@@ -40,7 +47,7 @@ export function DataTable<TData>({
   })
 
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <div className="overflow-x-auto rounded-xl border bg-card shadow-soft-sm">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -55,7 +62,7 @@ export function DataTable<TData>({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="-ml-3 h-8"
+                        className="-ml-3 h-8 text-xs font-semibold tracking-wide text-muted-foreground uppercase hover:text-foreground"
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         {flexRender(header.column.columnDef.header, header.getContext())}
@@ -78,20 +85,39 @@ export function DataTable<TData>({
         </TableHeader>
         <TableBody>
           {isLoading ? (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                Loading...
-              </TableCell>
-            </TableRow>
+            Array.from({ length: 5 }).map((_, rowIndex) => (
+              <TableRow key={rowIndex} className="hover:bg-transparent">
+                {columns.map((_, colIndex) => (
+                  <TableCell key={colIndex}>
+                    <Skeleton className="h-4 w-full max-w-40" />
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
           ) : table.getRowModel().rows.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                {emptyMessage}
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={columns.length} className="h-32 text-center">
+                <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                  <Inbox className="size-8 opacity-50" />
+                  <span className="text-sm">{emptyMessage}</span>
+                </div>
               </TableCell>
             </TableRow>
           ) : (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow
+                key={row.id}
+                className={cn(onRowClick && "cursor-pointer hover:bg-muted/50")}
+                onClick={
+                  onRowClick
+                    ? (e) => {
+                        const target = e.target as HTMLElement
+                        if (target.closest('a, button, input, [role="checkbox"]')) return
+                        onRowClick(row.original)
+                      }
+                    : undefined
+                }
+              >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                 ))}

@@ -1,7 +1,19 @@
+import fs from "node:fs";
+import path from "node:path";
 import * as XLSX from "xlsx";
 import PDFDocument from "pdfkit";
 
 type Row = Record<string, unknown>;
+
+/** pdfkit only embeds PNG/JPEG natively - other formats (WEBP/SVG) are skipped in PDF exports. */
+const PDF_EMBEDDABLE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg"]);
+
+export function findEmbeddableLogoPath(brandingDir: string, logoFileName: string): string | null {
+  if (!logoFileName) return null;
+  if (!PDF_EMBEDDABLE_EXTENSIONS.has(path.extname(logoFileName).toLowerCase())) return null;
+  const filePath = path.join(brandingDir, logoFileName);
+  return fs.existsSync(filePath) ? filePath : null;
+}
 
 function csvEscape(value: unknown): string {
   const str = value === null || value === undefined ? "" : String(value);
@@ -26,7 +38,7 @@ export function rowsToExcelBuffer(rows: Row[], sheetName: string): Buffer {
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
 }
 
-export function rowsToPdfBuffer(rows: Row[], title: string): Promise<Buffer> {
+export function rowsToPdfBuffer(rows: Row[], title: string, logoPath?: string | null, teamName?: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 36, size: "A4", layout: "landscape" });
     const chunks: Buffer[] = [];
@@ -34,7 +46,19 @@ export function rowsToPdfBuffer(rows: Row[], title: string): Promise<Buffer> {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    doc.fontSize(16).text(title, { align: "left" });
+    if (logoPath) {
+      try {
+        doc.image(logoPath, doc.page.width - doc.page.margins.right - 80, doc.page.margins.top, { fit: [80, 32] });
+      } catch {
+        // Corrupt/unreadable image - fall back to a text-only header rather than failing the export.
+      }
+    }
+
+    if (teamName) {
+      doc.fontSize(11).fillColor("#333").text(teamName, { align: "left" });
+    }
+
+    doc.fontSize(16).fillColor("#000").text(title, { align: "left" });
     doc.fontSize(9).fillColor("#666").text(`Generated ${new Date().toLocaleString()} - ${rows.length} record(s)`);
     doc.moveDown();
 

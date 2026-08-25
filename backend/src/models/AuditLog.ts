@@ -1,6 +1,7 @@
 import { Schema, model, type Types } from "mongoose";
 
 export interface IAuditLog {
+  organization: Types.ObjectId | null;
   user: Types.ObjectId | null;
   userSnapshot: { name: string | null; email: string | null; role: string | null };
   action: string;
@@ -15,6 +16,10 @@ export interface IAuditLog {
 
 const auditLogSchema = new Schema<IAuditLog>(
   {
+    // Nullable: a handful of auth-flow actions (login lockouts, password changes) happen on
+    // the flat, org-agnostic /api/auth/* routes, where there's no per-request resolved org -
+    // see logAction()'s fallback to the acting user's own home org (still null for superAdmin).
+    organization: { type: Schema.Types.ObjectId, ref: "Organization", default: null, index: true },
     user: { type: Schema.Types.ObjectId, ref: "User", default: null },
     userSnapshot: {
       name: { type: String, default: null },
@@ -34,6 +39,7 @@ const auditLogSchema = new Schema<IAuditLog>(
 );
 
 auditLogSchema.index({ module: 1, createdAt: -1 });
+auditLogSchema.index({ organization: 1, createdAt: -1 });
 
 // Defense in depth: audit logs are never mutated or deleted via Mongoose, even by internal code.
 for (const op of ["findOneAndUpdate", "updateOne", "updateMany", "deleteOne", "deleteMany", "findOneAndDelete"] as const) {

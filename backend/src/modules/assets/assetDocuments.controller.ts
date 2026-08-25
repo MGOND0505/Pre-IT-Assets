@@ -5,9 +5,11 @@ import { ok, fail } from "../../utils/response";
 import { ApiError } from "../../utils/ApiError";
 import { ASSET_DOCUMENTS_DIR } from "../../utils/upload";
 import { logAction } from "../audit/audit.service";
+import * as assetsService from "./assets.service";
 import * as assetDocumentsService from "./assetDocuments.service";
 
 export const listDocuments = asyncHandler(async (req: Request, res: Response) => {
+  await assetsService.getAssetById(req.params.id, req.organization!._id);
   const documents = await assetDocumentsService.listAssetDocuments(req.params.id);
   ok(res, documents, "Documents");
 });
@@ -16,6 +18,7 @@ export const uploadDocument = asyncHandler(async (req: Request, res: Response) =
   if (!req.file) {
     throw new ApiError(400, "No file uploaded");
   }
+  await assetsService.getAssetById(req.params.id, req.organization!._id);
 
   const doc = await assetDocumentsService.createAssetDocument({
     asset: req.params.id,
@@ -39,6 +42,7 @@ export const uploadDocument = asyncHandler(async (req: Request, res: Response) =
 });
 
 export const downloadDocument = asyncHandler(async (req: Request, res: Response) => {
+  await assetsService.getAssetById(req.params.id, req.organization!._id);
   const doc = await assetDocumentsService.getAssetDocument(req.params.id, req.params.docId);
   const filePath = path.join(ASSET_DOCUMENTS_DIR, doc.storedFileName);
   res.download(filePath, doc.originalName, (err) => {
@@ -47,6 +51,7 @@ export const downloadDocument = asyncHandler(async (req: Request, res: Response)
 });
 
 export const deleteDocument = asyncHandler(async (req: Request, res: Response) => {
+  await assetsService.getAssetById(req.params.id, req.organization!._id);
   const doc = await assetDocumentsService.deleteAssetDocument(req.params.id, req.params.docId);
 
   await logAction({

@@ -1,5 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ResetPasswordForm } from "@/components/auth/reset-password-form"
+import { AppLogo } from "@/components/layout/app-logo"
+import { AuthBackground } from "@/components/layout/auth-background"
 
 export default async function ResetPasswordPage({
   params,
@@ -9,8 +11,11 @@ export default async function ResetPasswordPage({
   const { token } = await params
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-sm">
+    <AuthBackground>
+      <div className="lg:hidden">
+        <AppLogo imgClassName="h-12 max-w-56 object-contain" textClassName="text-lg font-semibold tracking-tight" />
+      </div>
+      <Card className="w-full max-w-sm shadow-soft-lg">
         <CardHeader>
           <CardTitle>Reset password</CardTitle>
           <CardDescription>Choose a new password for your account.</CardDescription>
@@ -19,6 +24,6 @@ export default async function ResetPasswordPage({
           <ResetPasswordForm token={token} />
         </CardContent>
       </Card>
-    </div>
+    </AuthBackground>
   )
 }

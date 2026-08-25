@@ -1,6 +1,5 @@
 import { Router } from "express";
-import { authenticate } from "../../middleware/authenticate";
-import { requireAdmin } from "../../middleware/authorize";
+import { authorize, requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import * as vendorsController from "./vendors.controller";
 import {
@@ -12,20 +11,45 @@ import {
 
 export const vendorsRouter = Router();
 
-vendorsRouter.use(authenticate);
-
-vendorsRouter.get("/", validate({ query: listVendorsQuerySchema }), vendorsController.listVendors);
-vendorsRouter.post("/", requireAdmin, validate({ body: createVendorSchema }), vendorsController.createVendor);
-vendorsRouter.get("/:id", validate({ params: vendorIdParamsSchema }), vendorsController.getVendor);
+vendorsRouter.get(
+  "/deleted",
+  requireAdmin,
+  validate({ query: listVendorsQuerySchema }),
+  vendorsController.listDeletedVendors
+);
+vendorsRouter.get(
+  "/",
+  authorize("vendors", "view"),
+  validate({ query: listVendorsQuerySchema }),
+  vendorsController.listVendors
+);
+vendorsRouter.post(
+  "/",
+  authorize("vendors", "create"),
+  validate({ body: createVendorSchema }),
+  vendorsController.createVendor
+);
+vendorsRouter.get(
+  "/:id",
+  authorize("vendors", "view"),
+  validate({ params: vendorIdParamsSchema }),
+  vendorsController.getVendor
+);
 vendorsRouter.put(
   "/:id",
-  requireAdmin,
+  authorize("vendors", "update"),
   validate({ params: vendorIdParamsSchema, body: updateVendorSchema }),
   vendorsController.updateVendor
 );
 vendorsRouter.delete(
   "/:id",
-  requireAdmin,
+  authorize("vendors", "delete"),
   validate({ params: vendorIdParamsSchema }),
   vendorsController.deleteVendor
+);
+vendorsRouter.post(
+  "/:id/restore",
+  requireAdmin,
+  validate({ params: vendorIdParamsSchema }),
+  vendorsController.restoreVendor
 );

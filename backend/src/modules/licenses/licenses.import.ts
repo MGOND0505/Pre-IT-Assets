@@ -3,7 +3,7 @@ import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
 import { ApiError } from "../../utils/ApiError";
 import { parseSpreadsheet, findColumn } from "../../utils/spreadsheet";
-import { License, LICENSE_STATUSES, type LicenseStatus } from "../../models/License";
+import { License, LICENSE_STATUSES, type ILicense, type LicenseStatus } from "../../models/License";
 import { Vendor } from "../../models/Vendor";
 import { Department } from "../../models/Department";
 import { User } from "../../models/User";
@@ -16,7 +16,27 @@ function resolveMode(value: unknown): ImportMode {
   return value === "per-user" ? "per-user" : "catalog";
 }
 
+/** Canonical column headers for "Download template" / "Download current data" (catalog mode). */
+export const LICENSE_IMPORT_TEMPLATE_COLUMNS = [
+  "License ID",
+  "Software Name",
+  "Product Name",
+  "Publisher",
+  "License Type",
+  "Vendor",
+  "Department",
+  "Purchase Date",
+  "Expiry Date",
+  "Total Licenses",
+  "Cost Per License",
+  "Status",
+  "PO Number",
+  "Invoice Number",
+  "Notes",
+];
+
 type MappedFields = {
+  licenseIdRaw: string;
   softwareName: string;
   productName: string;
   publisher: string;
@@ -36,13 +56,19 @@ type MappedFields = {
 export type MappedLicenseRow = {
   rowIndex: number;
   mapped: MappedFields;
-  classification: "new" | "duplicate" | "invalid";
+  classification: "new" | "updated" | "duplicate" | "invalid";
   reason?: string;
-  duplicateLicenseId?: string;
+  existingId?: string;
+  existingLicenseId?: string;
+  changedFields?: string[];
 };
 
-function isBlank(value: string): boolean {
+function isBlank(value: string | null | undefined): boolean {
   return !value || value.trim() === "" || value.trim().toUpperCase() === "N/A";
+}
+
+function normalize(value: string | null | undefined): string {
+  return isBlank(value) ? "" : value!.trim().toLowerCase();
 }
 
 function escapeRegExp(value: string): string {
@@ -55,6 +81,16 @@ function parseDateOrUndefined(value: string): Date | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
+function dateToDayString(value: Date | null | undefined): string {
+  return value ? value.toISOString().slice(0, 10) : "";
+}
+
+function parseNumberOrNull(value: string): number | null {
+  if (isBlank(value)) return null;
+  const num = Number(value.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(num) && value.replace(/[^0-9.]/g, "") !== "" ? num : null;
+}
+
 function mapStatus(raw: string): LicenseStatus {
   if (/expir/i.test(raw)) return "Expired";
   if (/cancel/i.test(raw)) return "Cancelled";
@@ -63,6 +99,7 @@ function mapStatus(raw: string): LicenseStatus {
 
 function mapRow(row: Record<string, string>): MappedFields {
   return {
+    licenseIdRaw: findColumn(row, ["License ID", "LicenseId"]),
     softwareName: findColumn(row, ["Software Name", "Software", "Product", "License Name"]),
     productName: findColumn(row, ["Product Name", "Product"]),
     publisher: findColumn(row, ["Publisher", "Vendor Name", "Vendor"]),
@@ -80,31 +117,100 @@ function mapRow(row: Record<string, string>): MappedFields {
   };
 }
 
-async function classifyRows(rawRows: Record<string, string>[]): Promise<MappedLicenseRow[]> {
-  const existing = await License.find({ isDeleted: false }).select("licenseId softwareName");
-  const existingByName = new Map(existing.map((l) => [l.softwareName.toLowerCase(), l.licenseId]));
-  const seen = new Set<string>();
+type ExistingLicense = ILicense & {
+  _id: unknown;
+  vendor?: { name?: string } | null;
+  department?: { name?: string } | null;
+};
+
+function diffAgainstExisting(mapped: MappedFields, existing: ExistingLicense): string[] {
+  const changed: string[] = [];
+
+  const stringChecks: [string, string, string | undefined][] = [
+    ["softwareName", mapped.softwareName, existing.softwareName],
+    ["productName", mapped.productName, existing.productName],
+    ["publisher", mapped.publisher, existing.publisher],
+    ["licenseType", mapped.licenseType, existing.licenseType],
+    ["vendorName", mapped.vendorName, existing.vendor?.name],
+    ["departmentName", mapped.departmentName, existing.department?.name],
+    ["poNumber", mapped.poNumber, existing.poNumber],
+    ["invoiceNumber", mapped.invoiceNumber, existing.invoiceNumber],
+    ["notes", mapped.notes, existing.notes],
+  ];
+  for (const [field, incoming, current] of stringChecks) {
+    if (!isBlank(incoming) && normalize(incoming) !== normalize(current)) changed.push(field);
+  }
+
+  if (!isBlank(mapped.status) && mapStatus(mapped.status) !== existing.status) changed.push("status");
+  if (!isBlank(mapped.purchaseDate) && dateToDayString(parseDateOrUndefined(mapped.purchaseDate) ?? null) !== dateToDayString(existing.purchaseDate)) {
+    changed.push("purchaseDate");
+  }
+  if (!isBlank(mapped.expiryDate) && dateToDayString(parseDateOrUndefined(mapped.expiryDate) ?? null) !== dateToDayString(existing.expiryDate)) {
+    changed.push("expiryDate");
+  }
+  if (!isBlank(mapped.totalLicenses) && parseNumberOrNull(mapped.totalLicenses) !== existing.totalLicenses) changed.push("totalLicenses");
+  if (!isBlank(mapped.costPerLicense) && parseNumberOrNull(mapped.costPerLicense) !== existing.costPerLicense) changed.push("costPerLicense");
+
+  return changed;
+}
+
+function hasAnyRecognizableColumn(rawRows: Record<string, string>[]): boolean {
+  return rawRows.some((row) => {
+    const mapped = mapRow(row);
+    return !isBlank(mapped.softwareName) || !isBlank(mapped.licenseIdRaw);
+  });
+}
+
+async function classifyRows(organizationId: string, rawRows: Record<string, string>[]): Promise<MappedLicenseRow[]> {
+  const existingLicenses = (await License.find({ organization: organizationId, isDeleted: false }).populate([
+    { path: "vendor", select: "name" },
+    { path: "department", select: "name" },
+  ])) as unknown as ExistingLicense[];
+
+  const byLicenseId = new Map(existingLicenses.map((l) => [l.licenseId.toLowerCase(), l]));
+  const byName = new Map(existingLicenses.map((l) => [l.softwareName.toLowerCase(), l]));
+
+  const seenInFile = new Set<string>();
 
   return rawRows.map((row, rowIndex) => {
     const mapped = mapRow(row);
-    const key = mapped.softwareName.toLowerCase();
+    const idKey = normalize(mapped.licenseIdRaw);
+    const nameKey = normalize(mapped.softwareName);
 
-    let classification: MappedLicenseRow["classification"] = "new";
+    const existing = (idKey && byLicenseId.get(idKey)) || (nameKey && byName.get(nameKey));
+    const fileKey = idKey || nameKey;
+
+    let classification: MappedLicenseRow["classification"];
     let reason: string | undefined;
-    let duplicateLicenseId: string | undefined;
+    let existingId: string | undefined;
+    let existingLicenseId: string | undefined;
+    let changedFields: string[] | undefined;
 
-    if (isBlank(mapped.softwareName)) {
+    if (isBlank(mapped.softwareName) && !existing) {
       classification = "invalid";
       reason = "No software name column found for this row";
-    } else if (existingByName.has(key) || seen.has(key)) {
-      classification = "duplicate";
-      duplicateLicenseId = existingByName.get(key);
-      reason = "A license for this software already exists";
+    } else if (existing) {
+      existingId = String(existing._id);
+      existingLicenseId = existing.licenseId;
+      changedFields = diffAgainstExisting(mapped, existing);
+
+      if (fileKey && seenInFile.has(fileKey)) {
+        classification = "duplicate";
+        reason = "This license appears more than once in this file";
+      } else if (changedFields.length > 0) {
+        classification = "updated";
+        reason = `${changedFields.length} field(s) will change: ${changedFields.join(", ")}`;
+      } else {
+        classification = "duplicate";
+        reason = "No changes from the existing record";
+      }
+    } else {
+      classification = "new";
     }
 
-    if (!isBlank(mapped.softwareName)) seen.add(key);
+    if (fileKey) seenInFile.add(fileKey);
 
-    return { rowIndex, mapped, classification, reason, duplicateLicenseId };
+    return { rowIndex, mapped, classification, reason, existingId, existingLicenseId, changedFields };
   });
 }
 
@@ -119,9 +225,10 @@ export type MappedLicenseGroup = {
   emails: string[];
   resolvedUserIds: string[];
   unresolvedEmails: string[];
-  classification: "new" | "duplicate" | "invalid";
+  classification: "new" | "updated" | "duplicate" | "invalid";
   reason?: string;
-  duplicateLicenseId?: string;
+  existingId?: string;
+  existingLicenseId?: string;
 };
 
 function splitSoftwareNames(raw: string): string[] {
@@ -131,9 +238,9 @@ function splitSoftwareNames(raw: string): string[] {
     .filter(Boolean);
 }
 
-async function classifyPerUserRows(rawRows: Record<string, string>[]): Promise<MappedLicenseGroup[]> {
-  const existing = await License.find({ isDeleted: false }).select("licenseId softwareName");
-  const existingByName = new Map(existing.map((l) => [l.softwareName.toLowerCase(), l.licenseId]));
+async function classifyPerUserRows(organizationId: string, rawRows: Record<string, string>[]): Promise<MappedLicenseGroup[]> {
+  const existingLicenses = (await License.find({ organization: organizationId, isDeleted: false })) as unknown as ExistingLicense[];
+  const existingByName = new Map(existingLicenses.map((l) => [l.softwareName.toLowerCase(), l]));
 
   const groups = new Map<string, { displayName: string; emails: string[] }>();
   for (const row of rawRows) {
@@ -155,7 +262,10 @@ async function classifyPerUserRows(rawRows: Record<string, string>[]): Promise<M
   }
 
   const allEmails = [...new Set([...groups.values()].flatMap((g) => g.emails))];
-  const users = allEmails.length > 0 ? await User.find({ email: { $in: allEmails } }).select("email") : [];
+  const users =
+    allEmails.length > 0
+      ? await User.find({ organization: organizationId, email: { $in: allEmails } }).select("email")
+      : [];
   const userByEmail = new Map(users.map((u) => [u.email.toLowerCase(), u]));
 
   const result: MappedLicenseGroup[] = [];
@@ -164,14 +274,27 @@ async function classifyPerUserRows(rawRows: Record<string, string>[]): Promise<M
     const resolvedUserIds = uniqueEmails.filter((e) => userByEmail.has(e)).map((e) => String(userByEmail.get(e)!._id));
     const unresolvedEmails = uniqueEmails.filter((e) => !userByEmail.has(e));
 
+    const existing = existingByName.get(key);
     let classification: MappedLicenseGroup["classification"] = "new";
     let reason: string | undefined;
-    let duplicateLicenseId: string | undefined;
+    let existingId: string | undefined;
+    let existingLicenseId: string | undefined;
 
-    if (existingByName.has(key)) {
-      classification = "duplicate";
-      duplicateLicenseId = existingByName.get(key);
-      reason = "A license for this software already exists";
+    if (existing) {
+      existingId = String(existing._id);
+      existingLicenseId = existing.licenseId;
+      const existingUserIds = new Set(existing.assignedUsers.map((id) => String(id)));
+      const sameSeatCount = existing.totalLicenses === uniqueEmails.length;
+      const sameAssignees =
+        resolvedUserIds.length === existingUserIds.size && resolvedUserIds.every((id) => existingUserIds.has(id));
+
+      if (sameSeatCount && sameAssignees) {
+        classification = "duplicate";
+        reason = "No changes from the existing record";
+      } else {
+        classification = "updated";
+        reason = `Seat count/assignees changed (was ${existing.totalLicenses}, now ${uniqueEmails.length})`;
+      }
     }
 
     result.push({
@@ -182,7 +305,8 @@ async function classifyPerUserRows(rawRows: Record<string, string>[]): Promise<M
       unresolvedEmails,
       classification,
       reason,
-      duplicateLicenseId,
+      existingId,
+      existingLicenseId,
     });
   }
 
@@ -192,15 +316,17 @@ async function classifyPerUserRows(rawRows: Record<string, string>[]): Promise<M
 export const previewLicenseImport = asyncHandler(async (req: Request, res: Response) => {
   if (!req.file) throw new ApiError(400, "No file uploaded");
 
+  const organizationId = req.organization!._id;
   const mode = resolveMode(req.query.mode);
   const rawRows = parseSpreadsheet(req.file.buffer);
   if (rawRows.length === 0) throw new ApiError(400, "The file has no data rows");
 
   if (mode === "per-user") {
-    const groups = await classifyPerUserRows(rawRows);
+    const groups = await classifyPerUserRows(organizationId, rawRows);
     const counts = {
       total: groups.length,
       new: groups.filter((g) => g.classification === "new").length,
+      updated: groups.filter((g) => g.classification === "updated").length,
       duplicate: groups.filter((g) => g.classification === "duplicate").length,
       invalid: groups.filter((g) => g.classification === "invalid").length,
     };
@@ -208,10 +334,18 @@ export const previewLicenseImport = asyncHandler(async (req: Request, res: Respo
     return;
   }
 
-  const rows = await classifyRows(rawRows);
+  if (!hasAnyRecognizableColumn(rawRows)) {
+    throw new ApiError(
+      400,
+      "This file doesn't look like a license CSV - no recognizable columns (Software Name or License ID) were found. Try the template."
+    );
+  }
+
+  const rows = await classifyRows(organizationId, rawRows);
   const counts = {
     total: rows.length,
     new: rows.filter((r) => r.classification === "new").length,
+    updated: rows.filter((r) => r.classification === "updated").length,
     duplicate: rows.filter((r) => r.classification === "duplicate").length,
     invalid: rows.filter((r) => r.classification === "invalid").length,
   };
@@ -219,33 +353,73 @@ export const previewLicenseImport = asyncHandler(async (req: Request, res: Respo
   ok(res, { mode, counts, rows }, "Import preview");
 });
 
-async function findOrCreateVendor(name: string) {
+async function findOrCreateVendor(organizationId: string, name: string) {
   if (isBlank(name)) return null;
-  const existing = await Vendor.findOne({ name: new RegExp(`^${escapeRegExp(name.trim())}$`, "i") });
+  const existing = await Vendor.findOne({
+    organization: organizationId,
+    name: new RegExp(`^${escapeRegExp(name.trim())}$`, "i"),
+  });
   if (existing) return existing;
-  return Vendor.create({ name: name.trim() });
+  return Vendor.create({ organization: organizationId, name: name.trim() });
 }
 
-async function findOrCreateDepartment(name: string) {
+async function findOrCreateDepartment(organizationId: string, name: string) {
   if (isBlank(name)) return null;
-  const existing = await Department.findOne({ name: new RegExp(`^${escapeRegExp(name.trim())}$`, "i") });
+  const existing = await Department.findOne({
+    organization: organizationId,
+    name: new RegExp(`^${escapeRegExp(name.trim())}$`, "i"),
+  });
   if (existing) return existing;
-  return Department.create({ name: name.trim() });
+  return Department.create({ organization: organizationId, name: name.trim() });
+}
+
+async function buildPartialPayload(organizationId: string, mapped: MappedFields) {
+  const payload: Record<string, unknown> = {};
+
+  if (!isBlank(mapped.softwareName)) payload.softwareName = mapped.softwareName;
+  if (!isBlank(mapped.productName)) payload.productName = mapped.productName;
+  if (!isBlank(mapped.publisher)) payload.publisher = mapped.publisher;
+  if (!isBlank(mapped.licenseType)) payload.licenseType = mapped.licenseType;
+  if (!isBlank(mapped.purchaseDate)) payload.purchaseDate = parseDateOrUndefined(mapped.purchaseDate) ?? null;
+  if (!isBlank(mapped.expiryDate)) payload.expiryDate = parseDateOrUndefined(mapped.expiryDate) ?? null;
+  if (!isBlank(mapped.totalLicenses)) payload.totalLicenses = parseNumberOrNull(mapped.totalLicenses) || 1;
+  if (!isBlank(mapped.costPerLicense)) payload.costPerLicense = parseNumberOrNull(mapped.costPerLicense);
+  if (!isBlank(mapped.status)) payload.status = mapStatus(mapped.status);
+  if (!isBlank(mapped.poNumber)) payload.poNumber = mapped.poNumber;
+  if (!isBlank(mapped.invoiceNumber)) payload.invoiceNumber = mapped.invoiceNumber;
+  if (!isBlank(mapped.notes)) payload.notes = mapped.notes;
+
+  if (!isBlank(mapped.vendorName)) {
+    const vendor = await findOrCreateVendor(organizationId, mapped.vendorName);
+    payload.vendor = vendor ? String(vendor._id) : null;
+  }
+  if (!isBlank(mapped.departmentName)) {
+    const department = await findOrCreateDepartment(organizationId, mapped.departmentName);
+    payload.department = department ? String(department._id) : null;
+  }
+
+  return payload;
 }
 
 export const confirmLicenseImport = asyncHandler(async (req: Request, res: Response) => {
+  const organizationId = req.organization!._id;
   const mode = resolveMode(req.body.mode);
 
   if (mode === "per-user") {
     const groups = (req.body.groups as MappedLicenseGroup[]) ?? [];
-    const toImport = groups.filter((g) => g.classification === "new");
+    const newGroups = groups.filter((g) => g.classification === "new");
+    const updatedGroups = groups.filter((g) => g.classification === "updated");
+    const duplicates = groups.filter((g) => g.classification === "duplicate").length;
+    const invalid = groups.filter((g) => g.classification === "invalid").length;
 
-    let created = 0;
+    let added = 0;
+    let updated = 0;
     const errors: string[] = [];
 
-    for (const group of toImport) {
+    for (const group of newGroups) {
       try {
         await licensesService.createLicense(
+          organizationId,
           {
             softwareName: group.softwareName,
             totalLicenses: group.seatCount || 1,
@@ -258,7 +432,20 @@ export const confirmLicenseImport = asyncHandler(async (req: Request, res: Respo
           },
           req.user!.id
         );
-        created += 1;
+        added += 1;
+      } catch (err) {
+        errors.push(`${group.softwareName}: ${err instanceof Error ? err.message : "unknown error"}`);
+      }
+    }
+
+    for (const group of updatedGroups) {
+      try {
+        if (!group.existingId) throw new Error("missing existing record reference");
+        await licensesService.updateLicense(organizationId, group.existingId, {
+          totalLicenses: group.seatCount || 1,
+          assignedUsers: group.resolvedUserIds as never,
+        });
+        updated += 1;
       } catch (err) {
         errors.push(`${group.softwareName}: ${err instanceof Error ? err.message : "unknown error"}`);
       }
@@ -268,28 +455,33 @@ export const confirmLicenseImport = asyncHandler(async (req: Request, res: Respo
       req,
       action: "IMPORT",
       module: "License",
-      recordLabel: `${created} license(s) imported (per-user mode)`,
-      newValue: { created, skipped: groups.length - toImport.length, errors: errors.length },
+      recordLabel: `${added} added, ${updated} updated (per-user mode)`,
+      newValue: { total: groups.length, added, updated, duplicates, invalid, errors: errors.length },
     });
 
-    ok(res, { created, skipped: groups.length - toImport.length, errors }, "Import complete");
+    ok(res, { total: groups.length, added, updated, duplicates, invalid, errors }, "Import complete");
     return;
   }
 
   const rows = (req.body.rows as MappedLicenseRow[]) ?? [];
-  const toImport = rows.filter((r) => r.classification === "new");
+  const newRows = rows.filter((r) => r.classification === "new");
+  const updatedRows = rows.filter((r) => r.classification === "updated");
+  const duplicates = rows.filter((r) => r.classification === "duplicate").length;
+  const invalid = rows.filter((r) => r.classification === "invalid").length;
 
-  let created = 0;
+  let added = 0;
+  let updated = 0;
   const errors: string[] = [];
 
-  for (const row of toImport) {
+  for (const row of newRows) {
     try {
       const [vendor, department] = await Promise.all([
-        findOrCreateVendor(row.mapped.vendorName),
-        findOrCreateDepartment(row.mapped.departmentName),
+        findOrCreateVendor(organizationId, row.mapped.vendorName),
+        findOrCreateDepartment(organizationId, row.mapped.departmentName),
       ]);
 
       await licensesService.createLicense(
+        organizationId,
         {
           softwareName: row.mapped.softwareName,
           productName: row.mapped.productName,
@@ -298,10 +490,8 @@ export const confirmLicenseImport = asyncHandler(async (req: Request, res: Respo
           department: department ? (String(department._id) as never) : null,
           purchaseDate: parseDateOrUndefined(row.mapped.purchaseDate) ?? null,
           expiryDate: parseDateOrUndefined(row.mapped.expiryDate) ?? null,
-          totalLicenses: row.mapped.totalLicenses ? Number(row.mapped.totalLicenses.replace(/[^0-9]/g, "")) || 1 : 1,
-          costPerLicense: row.mapped.costPerLicense
-            ? Number(row.mapped.costPerLicense.replace(/[^0-9.]/g, "")) || null
-            : null,
+          totalLicenses: parseNumberOrNull(row.mapped.totalLicenses) || 1,
+          costPerLicense: parseNumberOrNull(row.mapped.costPerLicense),
           status: mapStatus(row.mapped.status),
           poNumber: row.mapped.poNumber,
           invoiceNumber: row.mapped.invoiceNumber,
@@ -309,7 +499,18 @@ export const confirmLicenseImport = asyncHandler(async (req: Request, res: Respo
         },
         req.user!.id
       );
-      created += 1;
+      added += 1;
+    } catch (err) {
+      errors.push(`Row ${row.rowIndex + 1}: ${err instanceof Error ? err.message : "unknown error"}`);
+    }
+  }
+
+  for (const row of updatedRows) {
+    try {
+      if (!row.existingId) throw new Error("missing existing record reference");
+      const payload = await buildPartialPayload(organizationId, row.mapped);
+      await licensesService.updateLicense(organizationId, row.existingId, payload as never);
+      updated += 1;
     } catch (err) {
       errors.push(`Row ${row.rowIndex + 1}: ${err instanceof Error ? err.message : "unknown error"}`);
     }
@@ -319,9 +520,15 @@ export const confirmLicenseImport = asyncHandler(async (req: Request, res: Respo
     req,
     action: "IMPORT",
     module: "License",
-    recordLabel: `${created} license(s) imported`,
-    newValue: { created, skipped: rows.length - toImport.length, errors: errors.length },
+    recordLabel: `${added} added, ${updated} updated`,
+    newValue: { total: rows.length, added, updated, duplicates, invalid, errors: errors.length },
   });
 
-  ok(res, { created, skipped: rows.length - toImport.length, errors }, "Import complete");
+  ok(res, { total: rows.length, added, updated, duplicates, invalid, errors }, "Import complete");
+});
+
+export const downloadLicenseTemplate = asyncHandler(async (_req: Request, res: Response) => {
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", 'attachment; filename="license-import-template.csv"');
+  res.send(LICENSE_IMPORT_TEMPLATE_COLUMNS.join(",") + "\n");
 });

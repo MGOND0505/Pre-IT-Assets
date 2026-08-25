@@ -1,6 +1,5 @@
 import { Router } from "express";
-import { authenticate } from "../../middleware/authenticate";
-import { requireAdmin } from "../../middleware/authorize";
+import { authorize, requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import * as departmentsController from "./departments.controller";
 import {
@@ -12,29 +11,45 @@ import {
 
 export const departmentsRouter = Router();
 
-departmentsRouter.use(authenticate);
-
-departmentsRouter.get("/", validate({ query: listDepartmentsQuerySchema }), departmentsController.listDepartments);
+departmentsRouter.get(
+  "/deleted",
+  requireAdmin,
+  validate({ query: listDepartmentsQuerySchema }),
+  departmentsController.listDeletedDepartments
+);
+departmentsRouter.get(
+  "/",
+  authorize("departments", "view"),
+  validate({ query: listDepartmentsQuerySchema }),
+  departmentsController.listDepartments
+);
 departmentsRouter.post(
   "/",
-  requireAdmin,
+  authorize("departments", "create"),
   validate({ body: createDepartmentSchema }),
   departmentsController.createDepartment
 );
 departmentsRouter.get(
   "/:id",
+  authorize("departments", "view"),
   validate({ params: departmentIdParamsSchema }),
   departmentsController.getDepartment
 );
 departmentsRouter.put(
   "/:id",
-  requireAdmin,
+  authorize("departments", "update"),
   validate({ params: departmentIdParamsSchema, body: updateDepartmentSchema }),
   departmentsController.updateDepartment
 );
 departmentsRouter.delete(
   "/:id",
-  requireAdmin,
+  authorize("departments", "delete"),
   validate({ params: departmentIdParamsSchema }),
   departmentsController.deleteDepartment
+);
+departmentsRouter.post(
+  "/:id/restore",
+  requireAdmin,
+  validate({ params: departmentIdParamsSchema }),
+  departmentsController.restoreDepartment
 );

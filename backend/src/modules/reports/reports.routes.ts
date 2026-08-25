@@ -1,14 +1,12 @@
 import { Router } from "express";
-import { authenticate } from "../../middleware/authenticate";
 import { authorize } from "../../middleware/authorize";
 import * as reportsController from "./reports.controller";
 
 export const reportsRouter = Router();
 
-reportsRouter.use(authenticate);
-reportsRouter.use(authorize("reports", "read"));
-
-reportsRouter.get("/assets", reportsController.getAssetReport);
-reportsRouter.get("/assets/export", reportsController.exportAssetReport);
-reportsRouter.get("/licenses", reportsController.getLicenseReport);
-reportsRouter.get("/licenses/export", reportsController.exportLicenseReport);
+// Export permission belongs to the resource being exported, not to "viewed the reports page" -
+// deliberately NOT a blanket .use() (that would still require reports:view for export too).
+reportsRouter.get("/assets", authorize("reports", "view"), reportsController.getAssetReport);
+reportsRouter.get("/assets/export", authorize("assets", "export"), reportsController.exportAssetReport);
+reportsRouter.get("/licenses", authorize("reports", "view"), reportsController.getLicenseReport);
+reportsRouter.get("/licenses/export", authorize("licenses", "export"), reportsController.exportLicenseReport);

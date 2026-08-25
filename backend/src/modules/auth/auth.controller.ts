@@ -21,15 +21,17 @@ function clearAuthCookie(res: Response) {
 }
 
 async function serializeCurrentUser(userId: string) {
-  const user = await User.findById(userId).populate("department", "name").populate("location", "name");
+  const user = await User.findById(userId)
+    .populate("organization", "name slug enabledModules")
+    .populate("department", "name")
+    .populate("location", "name");
   if (!user) return null;
-
   return user.toJSON();
 }
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
-  const { email, password } = req.body;
-  const { token, user } = await authService.login(req, email, password);
+  const { email, password, orgSlug } = req.body;
+  const { token, user } = await authService.login(req, email, password, orgSlug);
 
   setAuthCookie(res, token);
   const profile = await serializeCurrentUser(user.id);
@@ -38,9 +40,9 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 
 export const logout = asyncHandler(async (req: Request, res: Response) => {
   if (req.user) {
-    const user = await User.findById(req.user.id).select("email");
+    const user = await User.findById(req.user.id).select("email organization");
     if (user) {
-      await authService.recordLogout(req, user.id, user.email);
+      await authService.recordLogout(req, user.id, user.email, user.organization ? String(user.organization) : null);
     }
   }
 
@@ -54,7 +56,7 @@ export const me = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
-  await authService.forgotPassword(req.body.email);
+  await authService.forgotPassword(req.body.email, req.body.orgSlug);
   ok(res, null, "If that email exists, a reset link has been sent");
 });
 

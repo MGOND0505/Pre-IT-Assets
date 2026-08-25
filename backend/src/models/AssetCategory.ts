@@ -1,6 +1,7 @@
-import { Schema, model } from "mongoose";
+import { Schema, model, type Types } from "mongoose";
 
 export interface IAssetCategory {
+  organization: Types.ObjectId;
   name: string;
   prefix: string;
   description: string;
@@ -10,11 +11,11 @@ export interface IAssetCategory {
 
 const assetCategorySchema = new Schema<IAssetCategory>(
   {
-    name: { type: String, required: true, unique: true, trim: true },
+    organization: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
+    name: { type: String, required: true, trim: true },
     prefix: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
       uppercase: true,
       match: [/^[A-Z0-9]{2,6}$/, "Prefix must be 2-6 letters/digits"],
@@ -25,5 +26,8 @@ const assetCategorySchema = new Schema<IAssetCategory>(
   },
   { timestamps: { createdAt: "createdDate", updatedAt: "updatedDate" } }
 );
+
+assetCategorySchema.index({ organization: 1, name: 1 }, { unique: true });
+assetCategorySchema.index({ organization: 1, prefix: 1 }, { unique: true });
 
 export const AssetCategory = model<IAssetCategory>("AssetCategory", assetCategorySchema);

@@ -14,9 +14,10 @@ export function Pagination({
   if (totalPages <= 1) return null
 
   return (
-    <div className="flex items-center justify-between px-1 py-3">
+    <div className="flex items-center justify-between px-1 py-1">
       <span className="text-sm text-muted-foreground">
-        Page {page} of {totalPages}
+        Page <span className="font-medium text-foreground">{page}</span> of{" "}
+        <span className="font-medium text-foreground">{totalPages}</span>
       </span>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>

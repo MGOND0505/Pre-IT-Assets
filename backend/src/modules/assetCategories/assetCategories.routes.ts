@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { authenticate } from "../../middleware/authenticate";
 import { requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import * as assetCategoriesController from "./assetCategories.controller";
@@ -11,8 +10,6 @@ import {
 } from "./assetCategories.validation";
 
 export const assetCategoriesRouter = Router();
-
-assetCategoriesRouter.use(authenticate);
 
 assetCategoriesRouter.get(
   "/",

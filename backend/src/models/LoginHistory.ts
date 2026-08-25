@@ -1,6 +1,7 @@
 import { Schema, model, type Types } from "mongoose";
 
 export interface ILoginHistory {
+  organization: Types.ObjectId | null;
   user: Types.ObjectId | null;
   emailAttempted: string;
   action: "login_success" | "login_failed" | "logout";
@@ -11,6 +12,8 @@ export interface ILoginHistory {
 
 const loginHistorySchema = new Schema<ILoginHistory>(
   {
+    // null for the org-agnostic superAdmin login flow (no orgSlug given).
+    organization: { type: Schema.Types.ObjectId, ref: "Organization", default: null, index: true },
     user: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
     emailAttempted: { type: String, required: true, trim: true, lowercase: true },
     action: { type: String, enum: ["login_success", "login_failed", "logout"], required: true },

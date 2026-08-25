@@ -4,20 +4,20 @@ import { ok } from "../../utils/response";
 import { logAction } from "../audit/audit.service";
 import * as licensesService from "./licenses.service";
 
-type ListLicensesQuery = Parameters<typeof licensesService.listLicenses>[0];
+type ListLicensesQuery = Parameters<typeof licensesService.listLicenses>[1];
 
 export const listLicenses = asyncHandler(async (req: Request, res: Response) => {
-  const result = await licensesService.listLicenses(req.query as never);
+  const result = await licensesService.listLicenses(req.organization!._id, req.query as never);
   ok(res, result, "Licenses");
 });
 
-export const getLicenseStats = asyncHandler(async (_req: Request, res: Response) => {
-  const stats = await licensesService.getLicenseStats();
+export const getLicenseStats = asyncHandler(async (req: Request, res: Response) => {
+  const stats = await licensesService.getLicenseStats(req.organization!._id);
   ok(res, stats, "License stats");
 });
 
 export const listDeletedLicenses = asyncHandler(async (req: Request, res: Response) => {
-  const result = await licensesService.listLicenses({
+  const result = await licensesService.listLicenses(req.organization!._id, {
     ...(req.query as unknown as ListLicensesQuery),
     includeDeleted: true,
   });
@@ -25,12 +25,12 @@ export const listDeletedLicenses = asyncHandler(async (req: Request, res: Respon
 });
 
 export const getLicense = asyncHandler(async (req: Request, res: Response) => {
-  const license = await licensesService.getLicenseById(req.params.id);
+  const license = await licensesService.getLicenseById(req.organization!._id, req.params.id);
   ok(res, license, "License");
 });
 
 export const createLicense = asyncHandler(async (req: Request, res: Response) => {
-  const license = await licensesService.createLicense(req.body, req.user!.id);
+  const license = await licensesService.createLicense(req.organization!._id, req.body, req.user!.id);
 
   await logAction({
     req,
@@ -45,7 +45,7 @@ export const createLicense = asyncHandler(async (req: Request, res: Response) =>
 });
 
 export const updateLicense = asyncHandler(async (req: Request, res: Response) => {
-  const license = await licensesService.updateLicense(req.params.id, req.body);
+  const license = await licensesService.updateLicense(req.organization!._id, req.params.id, req.body);
 
   await logAction({
     req,
@@ -59,7 +59,7 @@ export const updateLicense = asyncHandler(async (req: Request, res: Response) =>
 });
 
 export const deleteLicense = asyncHandler(async (req: Request, res: Response) => {
-  const license = await licensesService.deleteLicense(req.params.id, req.user!.id);
+  const license = await licensesService.deleteLicense(req.organization!._id, req.params.id, req.user!.id);
 
   await logAction({
     req,
@@ -73,7 +73,7 @@ export const deleteLicense = asyncHandler(async (req: Request, res: Response) =>
 });
 
 export const restoreLicense = asyncHandler(async (req: Request, res: Response) => {
-  const license = await licensesService.restoreLicense(req.params.id);
+  const license = await licensesService.restoreLicense(req.organization!._id, req.params.id);
 
   await logAction({ req, action: "RESTORE", module: "License", recordId: license.id, recordLabel: license.licenseId });
 

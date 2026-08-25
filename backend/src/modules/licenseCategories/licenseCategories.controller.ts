@@ -5,17 +5,17 @@ import { logAction } from "../audit/audit.service";
 import * as licenseCategoriesService from "./licenseCategories.service";
 
 export const listLicenseCategories = asyncHandler(async (req: Request, res: Response) => {
-  const result = await licenseCategoriesService.listLicenseCategories(req.query as never);
+  const result = await licenseCategoriesService.listLicenseCategories(req.query as never, req.organization!._id);
   ok(res, result, "License categories");
 });
 
 export const getLicenseCategory = asyncHandler(async (req: Request, res: Response) => {
-  const category = await licenseCategoriesService.getLicenseCategoryById(req.params.id);
+  const category = await licenseCategoriesService.getLicenseCategoryById(req.params.id, req.organization!._id);
   ok(res, category, "License category");
 });
 
 export const createLicenseCategory = asyncHandler(async (req: Request, res: Response) => {
-  const category = await licenseCategoriesService.createLicenseCategory(req.body);
+  const category = await licenseCategoriesService.createLicenseCategory(req.body, req.organization!._id);
 
   await logAction({
     req,
@@ -30,10 +30,10 @@ export const createLicenseCategory = asyncHandler(async (req: Request, res: Resp
 });
 
 export const updateLicenseCategory = asyncHandler(async (req: Request, res: Response) => {
-  const before = await licenseCategoriesService.getLicenseCategoryById(req.params.id);
+  const before = await licenseCategoriesService.getLicenseCategoryById(req.params.id, req.organization!._id);
   const oldValue = { name: before.name, description: before.description, status: before.status };
 
-  const category = await licenseCategoriesService.updateLicenseCategory(req.params.id, req.body);
+  const category = await licenseCategoriesService.updateLicenseCategory(req.params.id, req.body, req.organization!._id);
 
   await logAction({
     req,
@@ -49,7 +49,7 @@ export const updateLicenseCategory = asyncHandler(async (req: Request, res: Resp
 });
 
 export const deleteLicenseCategory = asyncHandler(async (req: Request, res: Response) => {
-  const category = await licenseCategoriesService.deleteLicenseCategory(req.params.id);
+  const category = await licenseCategoriesService.deleteLicenseCategory(req.params.id, req.organization!._id);
 
   await logAction({
     req,

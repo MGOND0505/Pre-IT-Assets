@@ -13,7 +13,7 @@ export const swaggerSpec = swaggerJsdoc({
     info: {
       title: "IT Asset & License Management API",
       version: "0.1.0",
-      description: "REST API for Vianaar's IT Asset & Software License Management System",
+      description: "REST API for the multi-organization admin platform",
     },
     servers: [{ url: "/api" }],
     components: {

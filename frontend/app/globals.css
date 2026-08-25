@@ -7,9 +7,19 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-app-sans);
+  --font-mono: var(--font-app-mono);
+  --font-heading: var(--font-app-heading);
+  --font-display: var(--font-display-face);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --shadow-soft-sm: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
+  --shadow-soft-md: 0 2px 8px -2px rgb(15 23 42 / 0.08), 0 4px 16px -4px rgb(15 23 42 / 0.06);
+  --shadow-soft-lg: 0 8px 24px -4px rgb(15 23 42 / 0.10), 0 16px 40px -8px rgb(15 23 42 / 0.08);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,73 +58,201 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Enterprise ITSM palette - deep navy + primary blue + cyan accent, on a cool slate
+ * background. Deep Navy (#0F172A) is reserved for the sidebar surface (light AND dark mode -
+ * a stable brand anchor) and reused as the dark-mode card surface below; every other
+ * component reads the same semantic vars (background/card/primary/muted/...) regardless of
+ * theme, unchanged from the app's existing architecture.
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #f8fafc;
+  --foreground: #1e293b;
+  --card: #ffffff;
+  --card-foreground: #1e293b;
+  --popover: #ffffff;
+  --popover-foreground: #1e293b;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #1e293b;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #eff6ff;
+  --accent-foreground: #2563eb;
+  --destructive: #dc2626;
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #1e293b;
+  --info: #06b6d4;
+  --info-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: rgb(37 99 235 / 0.5);
+  --chart-1: #2563eb;
+  --chart-2: #06b6d4;
+  --chart-3: #16a34a;
+  --chart-4: #f59e0b;
+  --chart-5: #64748b;
+  --radius: 0.5rem;
+  --sidebar: #0f172a;
+  --sidebar-foreground: #f1f5f9;
+  /* A lighter blue than the app-wide --primary - #2563eb reads at ~2.9:1 against this navy
+     surface, short of the 3:1 UI-component floor; #60a5fa clears it comfortably. */
+  --sidebar-primary: #60a5fa;
+  --sidebar-primary-foreground: #0f172a;
+  --sidebar-accent: #1e293b;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.08);
+  --sidebar-ring: rgb(37 99 235 / 0.5);
+  /* AI accent pair - blue -> cyan, used only by the .ai-* utilities below. */
+  --ai-from: #2563eb;
+  --ai-to: #06b6d4;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #020617;
+  --foreground: #f1f5f9;
+  --card: #0f172a;
+  --card-foreground: #f1f5f9;
+  --popover: #0f172a;
+  --popover-foreground: #f1f5f9;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #1e293b;
+  --secondary-foreground: #f1f5f9;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: rgb(59 130 246 / 0.15);
+  --accent-foreground: #93c5fd;
+  --destructive: #ef4444;
+  --success: #22c55e;
+  --success-foreground: #052e16;
+  --warning: #f59e0b;
+  --warning-foreground: #1e293b;
+  --info: #22d3ee;
+  --info-foreground: #083344;
+  --border: rgb(255 255 255 / 0.08);
+  --input: rgb(255 255 255 / 0.1);
+  --ring: rgb(59 130 246 / 0.5);
+  --chart-1: #3b82f6;
+  --chart-2: #22d3ee;
+  --chart-3: #22c55e;
+  --chart-4: #f59e0b;
+  --chart-5: #94a3b8;
+  --sidebar: #0f172a;
+  --sidebar-foreground: #f1f5f9;
+  --sidebar-primary: #60a5fa;
+  --sidebar-primary-foreground: #0f172a;
+  --sidebar-accent: #1e293b;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.08);
+  --sidebar-ring: rgb(59 130 246 / 0.5);
+  --ai-from: #3b82f6;
+  --ai-to: #22d3ee;
+}
+
+/*
+ * AI-native visual language - opt-in utilities for the handful of areas that are actually
+ * AI-related (the AI Assistant panel, command palette, insight/summary cards). Deliberately
+ * NOT applied globally - "AI accents only for AI-related areas" per design spec.
+ */
+@layer utilities {
+  .ai-gradient-text {
+    background: linear-gradient(90deg, var(--ai-from), var(--ai-to));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* A soft gradient ring instead of a flat border - standard two-layer background technique
+     (no pseudo-element/mask needed): the inner layer fills the content, the outer layer paints
+     only the border-box gap left by the transparent border. */
+  .ai-border-glow {
+    border: 1px solid transparent;
+    background-image: linear-gradient(var(--card), var(--card)), linear-gradient(120deg, var(--ai-from), var(--ai-to));
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+  }
+  .ai-surface {
+    background: linear-gradient(
+      160deg,
+      color-mix(in oklch, var(--ai-from) 6%, var(--card)),
+      color-mix(in oklch, var(--ai-to) 4%, var(--card))
+    );
+  }
+}
+
+@keyframes ai-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@keyframes ai-glow-move {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/**
+ * Landing-page-only theme: a "premium enterprise tech" dark navy/electric-blue/cyan palette,
+ * scoped entirely to this class so it never touches the authenticated admin app's light/indigo
+ * theme above. Every variable name here matches one the base theme already defines, so every
+ * existing Tailwind utility (bg-background, text-foreground, bg-card, border, bg-primary, ...)
+ * and every existing component (Button, Card, Badge) picks this up automatically inside a
+ * `.landing-theme` subtree - zero component code duplicated or forked for the landing page.
+ */
+.landing-theme {
+  --background: #000010;
+  --foreground: #ffffff;
+  --card: #001020;
+  --card-foreground: #ffffff;
+  --popover: #001020;
+  --popover-foreground: #ffffff;
+  --primary: #0080f0;
+  --primary-foreground: #ffffff;
+  --secondary: #001030;
+  --secondary-foreground: #ffffff;
+  --muted: #001030;
+  --muted-foreground: #94a3b8;
+  --accent: rgba(0, 176, 240, 0.12);
+  --accent-foreground: #00b0f0;
+  --destructive: #f04438;
+  --success: #00b0a0;
+  --success-foreground: #ffffff;
+  --warning: #00a0f0;
+  --warning-foreground: #000010;
+  --info: #00b0f0;
+  --info-foreground: #000010;
+  --border: rgba(0, 176, 240, 0.15);
+  --input: rgba(0, 176, 240, 0.15);
+  --ring: rgba(0, 128, 240, 0.5);
+  --font-sans: var(--font-landing-sans);
+  --font-heading: var(--font-landing-sans);
+  --font-display: var(--font-landing-display);
+
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Ambient motion for the landing hero - pure CSS, no JS animation library needed for these. */
+@keyframes landing-float {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(-16px) translateX(6px); }
+}
+@keyframes landing-spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes landing-spin-slow-reverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+@keyframes landing-twinkle {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.9; }
+}
+@keyframes landing-grid-pan {
+  from { background-position: 0 0; }
+  to { background-position: 48px 48px; }
 }
 
 @layer base {

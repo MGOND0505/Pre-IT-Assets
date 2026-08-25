@@ -3,36 +3,83 @@ import { ASSET_STATUSES } from "../../models/Asset";
 import { ASSET_DOCUMENT_TYPES } from "../../models/AssetDocument";
 
 const objectId = z.string().min(1);
+const str = () => z.string().optional().default("");
 
 export const createAssetSchema = z.object({
+  // Only ever honored when the caller has assets:editAssetId (enforced in the controller, which
+  // strips this field before it reaches the service otherwise) - omitted, it falls back to the
+  // existing auto-generated VNR-<category>-000001 sequence.
+  assetId: z.string().trim().min(1).optional(),
   name: z.string().min(1),
   category: objectId,
-  assetType: z.string().optional().default(""),
-  manufacturer: z.string().optional().default(""),
-  model: z.string().optional().default(""),
-  serialNumber: z.string().optional().default(""),
-  serviceTag: z.string().optional().default(""),
-  imei: z.string().optional().default(""),
-  hostname: z.string().optional().default(""),
-  ipAddress: z.string().optional().default(""),
-  macAddress: z.string().optional().default(""),
-  operatingSystem: z.string().optional().default(""),
-  configuration: z.string().optional().default(""),
+  assetType: str(),
+  deviceType: str(),
+  manufacturer: str(),
+  model: str(),
+  serialNumber: str(),
+  serviceTag: str(),
+  imei: str(),
+  color: str(),
+  hostname: str(),
+  ipAddress: str(),
+  macAddress: str(),
+  operatingSystem: str(),
+  operatingSystemLicense: str(),
+  configuration: str(),
+  processor: str(),
+  laptopGeneration: str(),
+  graphicsCard: str(),
+  ram: str(),
+  storage: str(),
+  adapterSerialNumber: str(),
+  miscAccessories: str(),
+  adMember: str(),
+  antivirusInstalled: str(),
+  remoteSoftware: str(),
+  emailLicense: str(),
+  canvaLicense: str(),
+  microsoftOffice: str(),
+  microsoftProject: str(),
+  powerBi: str(),
+  autoCad: str(),
+  zwCad: str(),
+  photoshop: str(),
+  creativeCloudPro: str(),
+  illustrator: str(),
+  acrobatPro: str(),
+  sketchUpPro: str(),
+  rocketReachPro: str(),
+  d5Render: str(),
+  zoomLicense: str(),
+  sharedFolderAccess: str(),
   purchaseDate: z.coerce.date().optional(),
   purchaseCost: z.coerce.number().nonnegative().optional(),
+  quantity: z.coerce.number().nonnegative().optional(),
   vendor: objectId.optional(),
-  poNumber: z.string().optional().default(""),
-  invoiceNumber: z.string().optional().default(""),
+  companyName: str(),
+  poNumber: str(),
+  invoiceNumber: str(),
   warrantyStart: z.coerce.date().optional(),
   warrantyEnd: z.coerce.date().optional(),
   amcStart: z.coerce.date().optional(),
   amcEnd: z.coerce.date().optional(),
   location: objectId.optional(),
+  subLocation: str(),
   department: objectId.optional(),
   assignedUser: objectId.nullable().optional(),
+  userAccessLevel: str(),
+  employeeId: str(),
+  employeeName: str(),
+  designation: str(),
+  email: str(),
+  currentOwner: str(),
+  previousOwner: str(),
   status: z.enum(ASSET_STATUSES).optional(),
-  condition: z.string().optional().default(""),
-  notes: z.string().optional().default(""),
+  condition: str(),
+  conditionNotes: str(),
+  approvalStatus: str(),
+  repairHistory: str(),
+  notes: str(),
 });
 
 export const updateAssetSchema = createAssetSchema.partial();
@@ -54,6 +101,10 @@ export const listAssetsQuerySchema = z.object({
 
 export const assetIdParamsSchema = z.object({
   id: z.string().min(1),
+});
+
+export const bulkDeleteAssetsSchema = z.object({
+  ids: z.array(objectId).min(1, "Select at least one asset"),
 });
 
 export const assetDocumentParamsSchema = z.object({

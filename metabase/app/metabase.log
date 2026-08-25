@@ -1,0 +1,43 @@
+2026-08-24 11:54:13,116 INFO metabase.util :: Maximum memory available to JVM: 7.9 GB 
+2026-08-24 11:54:15,431 INFO util.encryption :: Saved credentials encryption is DISABLED for this Metabase instance.  
+ For more information, see https://metabase.com/docs/latest/operations-guide/encrypting-database-details-at-rest.html 
+2026-08-24 11:54:15,888 WARN app-db.env :: WARNING: Using Metabase with an H2 application database is not recommended for production deployments. For production deployments, we highly recommend using Postgres, MySQL, or MariaDB instead. If you decide to continue to use H2, please be sure to back up the database file regularly. For more information, see https://metabase.com/docs/latest/operations-guide/migrating-from-h2.html 
+2026-08-24 11:54:24,161 INFO driver.impl :: Registered abstract driver :sql   
+2026-08-24 11:54:24,759 INFO driver.impl :: Registered abstract driver :sql-jdbc (parents: [:sql])  
+2026-08-24 11:54:28,900 INFO driver.impl :: Registered abstract driver :metabase.driver.sql.query-processor.like-escape-char-built-in/like-escape-char-built-in   
+2026-08-24 11:54:28,906 INFO driver.impl :: Registered driver :mysql (parents: [:sql-jdbc :metabase.driver.sql.query-processor.like-escape-char-built-in/like-escape-char-built-in])  
+2026-08-24 11:54:28,950 INFO driver.impl :: Registered abstract driver :sql-mbql5 (parents: [:sql])  
+2026-08-24 11:54:28,955 INFO metabase.util :: Load driver :sql-mbql5 took 6.5 ms 
+2026-08-24 11:54:28,955 INFO driver.impl :: Registered driver :postgres (parents: [:sql-jdbc :metabase.driver.sql.query-processor.like-escape-char-built-in/like-escape-char-built-in :sql-mbql5])  
+2026-08-24 11:54:28,984 INFO driver.impl :: Registered driver :sqlite (parents: [:sql-jdbc])  
+2026-08-24 11:54:29,769 INFO core.core :: 
+Metabase v0.63.14.2 (182f9eb) 
+
+Copyright © 2026 Metabase, Inc. 
+
+Metabase Enterprise Edition extensions are NOT PRESENT. 
+2026-08-24 11:54:29,774 INFO core.core :: Starting Metabase in STANDALONE mode 
+2026-08-24 11:54:30,022 INFO server.instance :: Launching Embedded Jetty Webserver with config: {:port 3000, :send-server-version? false} 
+2026-08-24 11:54:30,128 INFO core.core :: Starting Metabase version v0.63.14.2 (182f9eb) ... 
+2026-08-24 11:54:30,131 INFO core.core :: System info:
+ {"file.encoding" "UTF-8", "java.runtime.name" "OpenJDK Runtime Environment", "java.runtime.version" "21.0.12.1+1-LTS", "java.vendor" "Eclipse Adoptium", "java.vendor.url" "https://adoptium.net/", "java.version" "21.0.12.1", "java.vm.name" "OpenJDK 64-Bit Server VM", "java.vm.version" "21.0.12.1+1-LTS", "jvm.available-processors" 14, "jvm.max-memory" "7.9 GB", "os.name" "Windows 11", "os.version" "10.0", "system.total-memory" "31.5 GB", "user.language" "en", "user.timezone" "Asia/Calcutta"} 
+2026-08-24 11:54:30,133 INFO core.core :: Setting up prometheus metrics 
+2026-08-24 11:54:30,134 INFO analytics.prometheus :: Running prometheus metrics without a webserver 
+2026-08-24 11:54:30,135 INFO analytics.prometheus :: Starting prometheus metrics collector 
+2026-08-24 11:54:30,176 INFO analytics.prometheus :: Installing real prometheus reporter 
+2026-08-24 11:54:30,177 INFO tracing.core :: OpenTelemetry tracing is disabled (MB_TRACING_ENABLED=false) 
+2026-08-24 11:54:30,181 INFO plugins.impl :: Loading plugins in F:\My Projects Ai\IT Assets\metabase\app\plugins... 
+2026-08-24 11:54:30,184 ERROR core.core :: Metabase Initialization FAILED: Illegal character in opaque part at index 15: jar:file:/F:/My Projects Ai/IT Assets/metabase/app/metabase.jar!/ 
+2026-08-24 11:54:30,186 INFO core.core :: Metabase Shutting Down ... 
+2026-08-24 11:54:30,186 INFO server.instance :: Shutting Down Embedded Jetty Webserver 
+2026-08-24 11:54:30,200 INFO analytics.prometheus :: Prometheus web-server shut down 
+2026-08-24 11:54:30,204 INFO notification.send :: Shutting down notification dispatchers... {mb-dispatcher-count=2}
+2026-08-24 11:54:30,213 INFO notification.send :: Starting notification thread pool with 3 threads {mb-dispatcher-count=2}
+2026-08-24 11:54:30,216 INFO notification.send :: Gracefully shutting down notification dispatcher with 0 pending notifications to process {mb-dispatcher-count=2}
+2026-08-24 11:54:31,218 INFO notification.send :: Notification worker shut down successfully {mb-dispatcher-count=2}
+2026-08-24 11:54:31,219 INFO notification.send :: Starting notification thread pool with 5 threads {mb-dispatcher-count=2}
+2026-08-24 11:54:31,220 INFO notification.send :: Gracefully shutting down notification dispatcher with 0 pending notifications to process {mb-dispatcher-count=2}
+2026-08-24 11:54:32,222 INFO notification.send :: Notification worker shut down successfully {mb-dispatcher-count=2}
+2026-08-24 11:54:32,222 INFO notification.send :: All notification workers shut down successfully {mb-dispatcher-count=2}
+2026-08-24 11:54:32,227 WARN app-db.liquibase :: () 
+2026-08-24 11:54:32,228 INFO core.core :: Metabase Shutdown COMPLETE 

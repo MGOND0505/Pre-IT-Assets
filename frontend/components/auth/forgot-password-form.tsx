@@ -14,7 +14,7 @@ import { apiClient, apiErrorMessage } from "@/lib/api-client"
 const schema = z.object({ email: z.string().email("Enter a valid email address") })
 type Values = z.infer<typeof schema>
 
-export function ForgotPasswordForm() {
+export function ForgotPasswordForm({ orgSlug }: { orgSlug?: string } = {}) {
   const [submitting, setSubmitting] = React.useState(false)
   const [sent, setSent] = React.useState(false)
 
@@ -27,7 +27,7 @@ export function ForgotPasswordForm() {
   async function onSubmit(values: Values) {
     setSubmitting(true)
     try {
-      await apiClient.post("/auth/forgot-password", values)
+      await apiClient.post("/auth/forgot-password", { ...values, orgSlug })
       setSent(true)
     } catch (err) {
       toast.error(apiErrorMessage(err, "Something went wrong"))

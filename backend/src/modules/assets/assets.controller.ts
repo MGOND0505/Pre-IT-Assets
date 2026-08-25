@@ -7,27 +7,39 @@ import * as assetsService from "./assets.service";
 type ListAssetsQuery = Parameters<typeof assetsService.listAssets>[0];
 
 export const listAssets = asyncHandler(async (req: Request, res: Response) => {
-  const result = await assetsService.listAssets(req.query as never);
+  const result = await assetsService.listAssets(req.query as never, req.organization!._id);
   ok(res, result, "Assets");
 });
 
-export const getAssetStats = asyncHandler(async (_req: Request, res: Response) => {
-  const stats = await assetsService.getAssetStats();
+export const getAssetStats = asyncHandler(async (req: Request, res: Response) => {
+  const stats = await assetsService.getAssetStats(req.organization!._id);
   ok(res, stats, "Asset stats");
 });
 
 export const listDeletedAssets = asyncHandler(async (req: Request, res: Response) => {
-  const result = await assetsService.listAssets({ ...(req.query as unknown as ListAssetsQuery), includeDeleted: true });
+  const result = await assetsService.listAssets(
+    { ...(req.query as unknown as ListAssetsQuery), includeDeleted: true },
+    req.organization!._id
+  );
   ok(res, result, "Deleted assets");
 });
 
 export const getAsset = asyncHandler(async (req: Request, res: Response) => {
-  const asset = await assetsService.getAssetById(req.params.id);
+  const asset = await assetsService.getAssetById(req.params.id, req.organization!._id);
   ok(res, asset, "Asset");
 });
 
+/** The request body's assetId is only ever honored when the caller actually holds
+ * assets:editAssetId - stripped here regardless of what the frontend does or doesn't show, so a
+ * direct API call from an unauthorized user can never set one. Falls back to auto-generation. */
+function stripAssetIdUnlessAuthorized(req: Request): void {
+  const canEditAssetId = req.user!.isAdmin || req.user!.permissions.assets.editAssetId;
+  if (!canEditAssetId) delete req.body.assetId;
+}
+
 export const createAsset = asyncHandler(async (req: Request, res: Response) => {
-  const asset = await assetsService.createAsset(req.body, req.user!.id);
+  stripAssetIdUnlessAuthorized(req);
+  const asset = await assetsService.createAsset(req.body, req.user!.id, req.organization!._id);
 
   await logAction({
     req,
@@ -42,10 +54,11 @@ export const createAsset = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const updateAsset = asyncHandler(async (req: Request, res: Response) => {
-  const before = await assetsService.getAssetById(req.params.id);
+  stripAssetIdUnlessAuthorized(req);
+  const before = await assetsService.getAssetById(req.params.id, req.organization!._id);
   const oldValue = before.toObject();
 
-  const asset = await assetsService.updateAsset(req.params.id, req.body);
+  const asset = await assetsService.updateAsset(req.params.id, req.body, req.organization!._id);
 
   await logAction({
     req,
@@ -61,7 +74,7 @@ export const updateAsset = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const deleteAsset = asyncHandler(async (req: Request, res: Response) => {
-  const asset = await assetsService.deleteAsset(req.params.id, req.user!.id);
+  const asset = await assetsService.deleteAsset(req.params.id, req.user!.id, req.organization!._id);
 
   await logAction({
     req,
@@ -74,8 +87,23 @@ export const deleteAsset = asyncHandler(async (req: Request, res: Response) => {
   ok(res, null, "Asset deleted");
 });
 
+export const bulkDeleteAssets = asyncHandler(async (req: Request, res: Response) => {
+  const ids = Array.isArray(req.body.ids) ? (req.body.ids as string[]) : [];
+  const deleted = await assetsService.bulkDeleteAssets(ids, req.user!.id, req.organization!._id);
+
+  await logAction({
+    req,
+    action: "BULK_DELETE",
+    module: "Asset",
+    recordLabel: `${deleted} asset(s) deleted`,
+    newValue: { requested: ids.length, deleted },
+  });
+
+  ok(res, { deleted }, "Assets deleted");
+});
+
 export const restoreAsset = asyncHandler(async (req: Request, res: Response) => {
-  const asset = await assetsService.restoreAsset(req.params.id);
+  const asset = await assetsService.restoreAsset(req.params.id, req.organization!._id);
 
   await logAction({ req, action: "RESTORE", module: "Asset", recordId: asset.id, recordLabel: asset.assetId });
 
@@ -83,7 +111,7 @@ export const restoreAsset = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const purgeAsset = asyncHandler(async (req: Request, res: Response) => {
-  const asset = await assetsService.purgeAsset(req.params.id);
+  const asset = await assetsService.purgeAsset(req.params.id, req.organization!._id);
 
   await logAction({ req, action: "PURGE", module: "Asset", recordId: req.params.id, recordLabel: asset.assetId });
 

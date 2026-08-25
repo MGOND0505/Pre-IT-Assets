@@ -10,7 +10,14 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be set to a long random value"),
   JWT_EXPIRES_IN: z.string().default("8h"),
   JWT_COOKIE_NAME: z.string().default("itam_token"),
-  COOKIE_SECURE: z.coerce.boolean().default(false),
+  // z.coerce.boolean() is the wrong tool here: it just runs JS's Boolean(value), and
+  // Boolean("false") is true (any non-empty string is truthy) - so a literal "false" in .env
+  // was silently being read as true. Parse the actual string instead.
+  COOKIE_SECURE: z
+    .string()
+    .optional()
+    .default("false")
+    .transform((v) => v.trim().toLowerCase() === "true"),
 
   FRONTEND_URL: z.string().url(),
 

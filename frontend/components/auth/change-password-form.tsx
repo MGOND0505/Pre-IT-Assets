@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
+import { useAuth } from "@/lib/auth-context"
 
 const schema = z
   .object({
@@ -27,6 +28,7 @@ type Values = z.infer<typeof schema>
 
 export function ChangePasswordForm() {
   const router = useRouter()
+  const { user } = useAuth()
   const [submitting, setSubmitting] = React.useState(false)
 
   const {
@@ -43,7 +45,12 @@ export function ChangePasswordForm() {
         newPassword: values.newPassword,
       })
       toast.success("Password changed. Please log in again.")
-      router.replace("/login")
+      // Only orgAdmin/teamMember can authenticate via an org-scoped login page - a
+      // subSuperAdmin's `organization` field just reflects whichever org they're currently
+      // viewing, not a real home org, so it must not send them to a login page that would
+      // never match their (org-less) account.
+      const canUseOrgLogin = user?.role === "orgAdmin" || user?.role === "teamMember"
+      router.replace(canUseOrgLogin && user?.organization ? `/${user.organization.slug}/login` : "/login")
     } catch (err) {
       toast.error(apiErrorMessage(err, "Could not change password"))
     } finally {

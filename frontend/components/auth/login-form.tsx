@@ -21,7 +21,7 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>
 
-export function LoginForm() {
+export function LoginForm({ orgSlug }: { orgSlug?: string } = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { refresh } = useAuth()
@@ -36,9 +36,9 @@ export function LoginForm() {
   async function onSubmit(values: LoginValues) {
     setSubmitting(true)
     try {
-      await apiClient.post("/auth/login", values)
+      await apiClient.post("/auth/login", { ...values, orgSlug })
       await refresh()
-      const redirectTo = searchParams.get("from") ?? "/"
+      const redirectTo = searchParams.get("from") ?? (orgSlug ? `/${orgSlug}` : "/")
       router.replace(redirectTo)
     } catch (err) {
       toast.error(apiErrorMessage(err, "Login failed"))
@@ -57,7 +57,10 @@ export function LoginForm() {
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <Label htmlFor="password">Password</Label>
-          <Link href="/forgot-password" className="text-xs text-muted-foreground hover:underline">
+          <Link
+            href={orgSlug ? `/${orgSlug}/forgot-password` : "/forgot-password"}
+            className="text-xs text-muted-foreground hover:underline"
+          >
             Forgot password?
           </Link>
         </div>

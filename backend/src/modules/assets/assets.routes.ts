@@ -1,17 +1,18 @@
 import { Router } from "express";
-import { authenticate } from "../../middleware/authenticate";
 import { authorize, requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadAssetDocument, uploadSpreadsheet } from "../../utils/upload";
 import * as assetsController from "./assets.controller";
+import * as assetsService from "./assets.service";
 import * as assetDocumentsController from "./assetDocuments.controller";
-import { previewAssetImport, confirmAssetImport } from "./assets.import";
+import { previewAssetImport, confirmAssetImport, downloadAssetTemplate } from "./assets.import";
 import { listAssetHistory } from "./assetHistory.service";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
 import {
   assetDocumentParamsSchema,
   assetIdParamsSchema,
+  bulkDeleteAssetsSchema,
   createAssetSchema,
   listAssetsQuerySchema,
   updateAssetSchema,
@@ -20,17 +21,16 @@ import {
 
 export const assetsRouter = Router();
 
-assetsRouter.use(authenticate);
-
-assetsRouter.get("/stats", authorize("assets", "read"), assetsController.getAssetStats);
+assetsRouter.get("/stats", authorize("assets", "view"), assetsController.getAssetStats);
 
 assetsRouter.post(
   "/import/preview",
-  authorize("assets", "add"),
+  authorize("assets", "import"),
   uploadSpreadsheet.single("file"),
   previewAssetImport
 );
-assetsRouter.post("/import/confirm", authorize("assets", "add"), confirmAssetImport);
+assetsRouter.post("/import/confirm", authorize("assets", "import"), confirmAssetImport);
+assetsRouter.get("/import/template", authorize("assets", "import"), downloadAssetTemplate);
 
 assetsRouter.get(
   "/deleted",
@@ -39,27 +39,36 @@ assetsRouter.get(
   assetsController.listDeletedAssets
 );
 
+// Bulk delete (multi-select on the list page) is Admin-only, deliberately stricter than
+// the single-asset delete permission - a mass action warrants a higher bar.
+assetsRouter.post(
+  "/bulk-delete",
+  requireAdmin,
+  validate({ body: bulkDeleteAssetsSchema }),
+  assetsController.bulkDeleteAssets
+);
+
 assetsRouter.get(
   "/",
-  authorize("assets", "read"),
+  authorize("assets", "view"),
   validate({ query: listAssetsQuerySchema }),
   assetsController.listAssets
 );
 assetsRouter.post(
   "/",
-  authorize("assets", "add"),
+  authorize("assets", "create"),
   validate({ body: createAssetSchema }),
   assetsController.createAsset
 );
 assetsRouter.get(
   "/:id",
-  authorize("assets", "read"),
+  authorize("assets", "view"),
   validate({ params: assetIdParamsSchema }),
   assetsController.getAsset
 );
 assetsRouter.put(
   "/:id",
-  authorize("assets", "edit"),
+  authorize("assets", "update"),
   validate({ params: assetIdParamsSchema, body: updateAssetSchema }),
   assetsController.updateAsset
 );
@@ -84,13 +93,13 @@ assetsRouter.delete(
 
 assetsRouter.get(
   "/:id/documents",
-  authorize("assets", "read"),
+  authorize("assets", "view"),
   validate({ params: assetIdParamsSchema }),
   assetDocumentsController.listDocuments
 );
 assetsRouter.post(
   "/:id/documents",
-  authorize("assets", "edit"),
+  authorize("assets", "update"),
   validate({ params: assetIdParamsSchema }),
   uploadAssetDocument.single("file"),
   validate({ body: uploadAssetDocumentBodySchema }),
@@ -98,22 +107,23 @@ assetsRouter.post(
 );
 assetsRouter.get(
   "/:id/documents/:docId/download",
-  authorize("assets", "read"),
+  authorize("assets", "view"),
   validate({ params: assetDocumentParamsSchema }),
   assetDocumentsController.downloadDocument
 );
 assetsRouter.delete(
   "/:id/documents/:docId",
-  authorize("assets", "edit"),
+  authorize("assets", "update"),
   validate({ params: assetDocumentParamsSchema }),
   assetDocumentsController.deleteDocument
 );
 
 assetsRouter.get(
   "/:id/history",
-  authorize("assets", "read"),
+  authorize("assets", "view"),
   validate({ params: assetIdParamsSchema }),
   asyncHandler(async (req, res) => {
+    await assetsService.getAssetById(req.params.id, req.organization!._id);
     const history = await listAssetHistory(req.params.id);
     ok(res, history, "Asset history");
   })

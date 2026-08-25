@@ -1,5 +1,7 @@
 export type EmailMessage = {
-  to: string;
+  to: string | string[];
+  cc?: string[];
+  bcc?: string[];
   subject: string;
   html: string;
 };

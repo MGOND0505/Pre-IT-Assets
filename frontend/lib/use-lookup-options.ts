@@ -25,6 +25,14 @@ export type VendorOption = { _id: string; name: string }
 export type LocationOption = { _id: string; name: string }
 export type DepartmentOption = { _id: string; name: string }
 export type UserOption = { _id: string; name: string; email: string; employeeId?: string }
+export type HelpdeskCategoryOption = { _id: string; name: string }
+export type HelpdeskPriorityOption = {
+  _id: string
+  name: string
+  color: string
+  slaResponseMinutes: number
+  slaResolutionMinutes: number
+}
 
 export function useAssetCategoryOptions() {
   return useLookup<AssetCategoryOption>("/asset-categories")
@@ -40,6 +48,12 @@ export function useLocationOptions() {
 }
 export function useDepartmentOptions() {
   return useLookup<DepartmentOption>("/departments")
+}
+export function useHelpdeskCategoryOptions() {
+  return useLookup<HelpdeskCategoryOption>("/helpdesk-categories")
+}
+export function useHelpdeskPriorityOptions() {
+  return useLookup<HelpdeskPriorityOption>("/helpdesk-priorities")
 }
 
 export function useUserOptions() {

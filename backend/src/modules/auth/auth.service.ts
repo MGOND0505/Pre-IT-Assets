@@ -8,17 +8,35 @@ import { ApiError } from "../../utils/ApiError";
 import { signToken } from "../../utils/jwt";
 import { emailProvider } from "../../services/email";
 import { logAction } from "../audit/audit.service";
+import * as organizationsService from "../organizations/organizations.service";
 
 function requestMeta(req: Request) {
   return { ipAddress: req.ip ?? null, userAgent: req.get("user-agent") ?? null };
 }
 
-export async function login(req: Request, email: string, password: string) {
+/** Resolves an optional org slug to an id. Email is unique PER organization (except the
+ * null-org superAdmin/subSuperAdmin accounts, sharing that same global-uniqueness pool), so a
+ * slug-less login can only ever reach one of those two system-level roles - it must never
+ * silently fall through to matching some org-scoped user instead. */
+async function resolveLoginOrganizationId(orgSlug?: string): Promise<string | null> {
+  if (!orgSlug) return null;
+  const org = await organizationsService.findBySlug(orgSlug);
+  if (!org || organizationsService.getSubscriptionState(org) === "Suspended") {
+    throw new ApiError(404, "Organization not found");
+  }
+  return String(org._id);
+}
+
+export async function login(req: Request, email: string, password: string, orgSlug?: string) {
   const normalizedEmail = email.toLowerCase().trim();
-  const user = await User.findOne({ email: normalizedEmail }).select("+passwordHash");
+  const organizationId = await resolveLoginOrganizationId(orgSlug);
+  const user = await User.findOne({ organization: organizationId, email: normalizedEmail, isDeleted: false }).select(
+    "+passwordHash"
+  );
 
   if (!user) {
     await LoginHistory.create({
+      organization: organizationId,
       emailAttempted: normalizedEmail,
       action: "login_failed",
       reason: "not_found",
@@ -29,6 +47,7 @@ export async function login(req: Request, email: string, password: string) {
 
   if (user.status !== "Active") {
     await LoginHistory.create({
+      organization: organizationId,
       user: user.id,
       emailAttempted: normalizedEmail,
       action: "login_failed",
@@ -40,6 +59,7 @@ export async function login(req: Request, email: string, password: string) {
 
   if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
     await LoginHistory.create({
+      organization: organizationId,
       user: user.id,
       emailAttempted: normalizedEmail,
       action: "login_failed",
@@ -64,6 +84,7 @@ export async function login(req: Request, email: string, password: string) {
     await user.save();
 
     await LoginHistory.create({
+      organization: organizationId,
       user: user.id,
       emailAttempted: normalizedEmail,
       action: "login_failed",
@@ -90,6 +111,7 @@ export async function login(req: Request, email: string, password: string) {
   await user.save();
 
   await LoginHistory.create({
+    organization: organizationId,
     user: user.id,
     emailAttempted: normalizedEmail,
     action: "login_success",
@@ -101,8 +123,9 @@ export async function login(req: Request, email: string, password: string) {
   return { token, user };
 }
 
-export async function recordLogout(req: Request, userId: string, email: string) {
+export async function recordLogout(req: Request, userId: string, email: string, organizationId: string | null) {
   await LoginHistory.create({
+    organization: organizationId,
     user: userId,
     emailAttempted: email,
     action: "logout",
@@ -110,11 +133,20 @@ export async function recordLogout(req: Request, userId: string, email: string) 
   });
 }
 
-export async function forgotPassword(email: string) {
+export async function forgotPassword(email: string, orgSlug?: string) {
   const normalizedEmail = email.toLowerCase().trim();
-  const user = await User.findOne({ email: normalizedEmail });
 
-  // Always behave the same way whether or not the account exists, to avoid leaking which emails are registered.
+  // Always behave the same way whether or not the account/org exists, to avoid leaking
+  // which emails (or organizations) are registered - an unknown/inactive orgSlug is treated
+  // as "no such user" (silent no-op), not surfaced as a 404 the way login's does.
+  let organizationId: string | null = null;
+  if (orgSlug) {
+    const org = await organizationsService.findBySlug(orgSlug);
+    if (!org || organizationsService.getSubscriptionState(org) === "Suspended") return;
+    organizationId = String(org._id);
+  }
+
+  const user = await User.findOne({ organization: organizationId, email: normalizedEmail, isDeleted: false });
   if (!user) return;
 
   const rawToken = crypto.randomBytes(32).toString("hex");
@@ -126,11 +158,14 @@ export async function forgotPassword(email: string) {
 
   const resetLink = `${env.FRONTEND_URL}/reset-password/${rawToken}`;
 
-  await emailProvider.send({
-    to: user.email,
-    subject: "Reset your password",
-    html: `<p>Click the link below to reset your password. This link expires in ${env.PASSWORD_RESET_TOKEN_EXPIRY_MINUTES} minutes.</p><p><a href="${resetLink}">${resetLink}</a></p>`,
-  });
+  await emailProvider.send(
+    {
+      to: user.email,
+      subject: "Reset your password",
+      html: `<p>Click the link below to reset your password. This link expires in ${env.PASSWORD_RESET_TOKEN_EXPIRY_MINUTES} minutes.</p><p><a href="${resetLink}">${resetLink}</a></p>`,
+    },
+    organizationId
+  );
 }
 
 export async function resetPassword(rawToken: string, newPassword: string) {

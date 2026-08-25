@@ -1,6 +1,5 @@
 import { Router } from "express";
-import { authenticate } from "../../middleware/authenticate";
-import { requireAdmin } from "../../middleware/authorize";
+import { authorize, requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import * as locationsController from "./locations.controller";
 import {
@@ -12,20 +11,45 @@ import {
 
 export const locationsRouter = Router();
 
-locationsRouter.use(authenticate);
-
-locationsRouter.get("/", validate({ query: listLocationsQuerySchema }), locationsController.listLocations);
-locationsRouter.post("/", requireAdmin, validate({ body: createLocationSchema }), locationsController.createLocation);
-locationsRouter.get("/:id", validate({ params: locationIdParamsSchema }), locationsController.getLocation);
+locationsRouter.get(
+  "/deleted",
+  requireAdmin,
+  validate({ query: listLocationsQuerySchema }),
+  locationsController.listDeletedLocations
+);
+locationsRouter.get(
+  "/",
+  authorize("locations", "view"),
+  validate({ query: listLocationsQuerySchema }),
+  locationsController.listLocations
+);
+locationsRouter.post(
+  "/",
+  authorize("locations", "create"),
+  validate({ body: createLocationSchema }),
+  locationsController.createLocation
+);
+locationsRouter.get(
+  "/:id",
+  authorize("locations", "view"),
+  validate({ params: locationIdParamsSchema }),
+  locationsController.getLocation
+);
 locationsRouter.put(
   "/:id",
-  requireAdmin,
+  authorize("locations", "update"),
   validate({ params: locationIdParamsSchema, body: updateLocationSchema }),
   locationsController.updateLocation
 );
 locationsRouter.delete(
   "/:id",
-  requireAdmin,
+  authorize("locations", "delete"),
   validate({ params: locationIdParamsSchema }),
   locationsController.deleteLocation
+);
+locationsRouter.post(
+  "/:id/restore",
+  requireAdmin,
+  validate({ params: locationIdParamsSchema }),
+  locationsController.restoreLocation
 );

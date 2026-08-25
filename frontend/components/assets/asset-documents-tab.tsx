@@ -6,8 +6,9 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
-import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
+import { apiClient, apiErrorMessage, orgScopedApiUrl, type ApiEnvelope } from "@/lib/api-client"
 import { can } from "@/lib/permissions"
 import { useAuth } from "@/lib/auth-context"
 
@@ -30,7 +31,7 @@ export function AssetDocumentsTab({ assetId }: { assetId: string }) {
   const [pendingDelete, setPendingDelete] = React.useState<AssetDocument | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
-  const canWrite = can(user, "assets", "edit")
+  const canWrite = can(user, "assets", "update")
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -132,23 +133,43 @@ export function AssetDocumentsTab({ assetId }: { assetId: string }) {
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  render={
-                    <a
-                      href={`${process.env.NEXT_PUBLIC_API_BASE_URL}/assets/${assetId}/documents/${doc._id}/download`}
-                      target="_blank"
-                      rel="noreferrer"
-                    />
-                  }
-                >
-                  <Download className="size-4" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Download document"
+                        render={
+                          <a
+                            href={orgScopedApiUrl(`/assets/${assetId}/documents/${doc._id}/download`)}
+                            target="_blank"
+                            rel="noreferrer"
+                          />
+                        }
+                      >
+                        <Download className="size-4" />
+                      </Button>
+                    }
+                  />
+                  <TooltipContent>Download</TooltipContent>
+                </Tooltip>
                 {canWrite && (
-                  <Button variant="ghost" size="icon" onClick={() => setPendingDelete(doc)}>
-                    <Trash2 className="size-4" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Delete document"
+                          onClick={() => setPendingDelete(doc)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      }
+                    />
+                    <TooltipContent>Delete</TooltipContent>
+                  </Tooltip>
                 )}
               </div>
             </li>
