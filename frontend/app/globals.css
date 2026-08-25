@@ -181,6 +181,17 @@
       color-mix(in oklch, var(--ai-to) 4%, var(--card))
     );
   }
+
+  /* Scrollable-but-scrollbar-free - for horizontally-scrolling tab bars/chip rows where a
+     visible scrollbar would look out of place, while the content still scrolls via
+     drag/trackpad/wheel like normal. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @keyframes ai-pulse {

@@ -9,12 +9,16 @@ import { isNavGroup, navConfig, type NavLeaf } from "@/lib/nav-config"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
 import { useOrgHref } from "@/lib/use-org-href"
+import { apiClient, type ApiEnvelope } from "@/lib/api-client"
+import { SEARCH_RESULT_HREF, SEARCH_RESULT_ICON, SEARCH_RESULT_LABEL, type SearchResult } from "@/lib/search-results"
 import { cn } from "@/lib/utils"
 
 type FlatEntry = { label: string; group?: string; href: string; absolute?: boolean }
 
 /** A real, functional quick-navigation search across every page the current user can actually
- * see - not an AI feature, just a fast Cmd/Ctrl+K launcher in the command-palette style. */
+ * see, plus a live search across their organization's own data (assets, licenses, tickets,
+ * tasks, vendors, departments, locations, users) - not an AI feature, just a fast Cmd/Ctrl+K
+ * launcher in the command-palette style, with every result a genuine link to real data. */
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
@@ -58,6 +62,44 @@ export function CommandPalette() {
     return entries.filter((e) => e.label.toLowerCase().includes(q) || e.group?.toLowerCase().includes(q))
   }, [entries, query])
 
+  // Real cross-entity search - assets, licenses, tickets, tasks, vendors, departments,
+  // locations, users - scoped to the current org and filtered server-side to whatever this
+  // user actually has permission to see. Debounced so it doesn't fire on every keystroke, and
+  // skipped below the backend's own 2-character minimum.
+  const [results, setResults] = React.useState<SearchResult[]>([])
+  const [searching, setSearching] = React.useState(false)
+
+  React.useEffect(() => {
+    const q = query.trim()
+    if (q.length < 2) {
+      setResults([])
+      setSearching(false)
+      return
+    }
+    setSearching(true)
+    const timer = setTimeout(async () => {
+      try {
+        const res = await apiClient.get<ApiEnvelope<SearchResult[]>>("/search", { params: { q } })
+        setResults(res.data.data)
+      } catch {
+        setResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  // Pages and data results share one flat, keyboard-navigable list (pages first, then results)
+  // so ArrowUp/ArrowDown/Enter behave the same regardless of which section the match is in.
+  const combined = React.useMemo(
+    () => [
+      ...filtered.map((entry) => ({ kind: "page" as const, entry })),
+      ...results.map((result) => ({ kind: "result" as const, result })),
+    ],
+    [filtered, results]
+  )
+
   React.useEffect(() => setActiveIndex(0), [query])
 
   React.useEffect(() => {
@@ -71,11 +113,15 @@ export function CommandPalette() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
-  function go(entryIndex: number) {
-    const entry = filtered[entryIndex]
-    if (!entry) return
-    const href = entry.absolute ? entry.href : toOrgHref(entry.href)
-    router.push(href)
+  function go(index: number) {
+    const item = combined[index]
+    if (!item) return
+    if (item.kind === "page") {
+      const href = item.entry.absolute ? item.entry.href : toOrgHref(item.entry.href)
+      router.push(href)
+    } else {
+      router.push(toOrgHref(SEARCH_RESULT_HREF[item.result.type](item.result.id)))
+    }
     setOpen(false)
     setQuery("")
   }
@@ -102,12 +148,12 @@ export function CommandPalette() {
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search pages..."
+              placeholder="Search pages, assets, tickets, and more..."
               className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown") {
                   e.preventDefault()
-                  setActiveIndex((i) => Math.min(i + 1, filtered.length - 1))
+                  setActiveIndex((i) => Math.min(i + 1, combined.length - 1))
                 } else if (e.key === "ArrowUp") {
                   e.preventDefault()
                   setActiveIndex((i) => Math.max(i - 1, 0))
@@ -120,25 +166,65 @@ export function CommandPalette() {
             <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">Esc</kbd>
           </div>
 
-          <div className="max-h-80 overflow-y-auto p-2">
-            {filtered.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-muted-foreground">No matching pages.</p>
+          <div className="max-h-96 overflow-y-auto p-2">
+            {combined.length === 0 ? (
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                {searching ? "Searching..." : "No matching pages or records."}
+              </p>
             ) : (
-              filtered.map((entry, index) => (
-                <button
-                  key={`${entry.group ?? ""}-${entry.href}`}
-                  type="button"
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onClick={() => go(index)}
-                  className={cn(
-                    "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors duration-150",
-                    index === activeIndex ? "bg-accent text-accent-foreground" : "text-foreground"
-                  )}
-                >
-                  <span>{entry.label}</span>
-                  {entry.group && <span className="text-xs text-muted-foreground">{entry.group}</span>}
-                </button>
-              ))
+              <>
+                {filtered.length > 0 && (
+                  <div className="flex flex-col gap-0.5">
+                    {query.trim() && (
+                      <p className="px-3 py-1 text-xs font-medium text-muted-foreground">Pages</p>
+                    )}
+                    {filtered.map((entry, index) => (
+                      <button
+                        key={`page-${entry.group ?? ""}-${entry.href}`}
+                        type="button"
+                        onMouseEnter={() => setActiveIndex(index)}
+                        onClick={() => go(index)}
+                        className={cn(
+                          "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors duration-150",
+                          index === activeIndex ? "bg-accent text-accent-foreground" : "text-foreground"
+                        )}
+                      >
+                        <span>{entry.label}</span>
+                        {entry.group && <span className="text-xs text-muted-foreground">{entry.group}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {results.length > 0 && (
+                  <div className="mt-1 flex flex-col gap-0.5">
+                    <p className="px-3 py-1 text-xs font-medium text-muted-foreground">Results</p>
+                    {results.map((result, resultIndex) => {
+                      const index = filtered.length + resultIndex
+                      const Icon = SEARCH_RESULT_ICON[result.type]
+                      return (
+                        <button
+                          key={`result-${result.type}-${result.id}`}
+                          type="button"
+                          onMouseEnter={() => setActiveIndex(index)}
+                          onClick={() => go(index)}
+                          className={cn(
+                            "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors duration-150",
+                            index === activeIndex ? "bg-accent text-accent-foreground" : "text-foreground"
+                          )}
+                        >
+                          <Icon className="size-4 shrink-0 text-muted-foreground" />
+                          <span className="flex-1 truncate">{result.title}</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {SEARCH_RESULT_LABEL[result.type]}
+                            {result.subtitle ? ` · ${result.subtitle}` : ""}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
 

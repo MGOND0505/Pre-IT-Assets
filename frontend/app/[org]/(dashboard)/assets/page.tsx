@@ -158,23 +158,68 @@ export default function AssetsPage() {
       accessorKey: "assetId",
       header: "Asset ID",
       cell: ({ row }) => (
-        <Link href={toOrgHref(`/assets/${row.original._id}`)} className="font-medium text-primary hover:underline">
+        <Link
+          href={toOrgHref(`/assets/${row.original._id}`)}
+          title={row.original.assetId}
+          className="block min-w-[90px] max-w-[130px] font-medium text-primary whitespace-normal break-words hover:underline"
+        >
           {row.original.assetId}
         </Link>
       ),
     },
-    { accessorKey: "name", header: "Name" },
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => (
+        <span title={row.original.name} className="block min-w-[140px] max-w-[220px] whitespace-normal break-words">
+          {row.original.name}
+        </span>
+      ),
+    },
     {
       accessorKey: "category",
       header: "Category",
-      cell: ({ row }) => row.original.category?.name ?? "-",
+      cell: ({ row }) => (
+        <span
+          title={row.original.category?.name}
+          className="block min-w-[100px] max-w-[140px] whitespace-normal break-words"
+        >
+          {row.original.category?.name ?? "-"}
+        </span>
+      ),
     },
-    { accessorKey: "manufacturer", header: "Manufacturer" },
-    { accessorKey: "model", header: "Model" },
+    {
+      accessorKey: "manufacturer",
+      header: "Manufacturer",
+      cell: ({ row }) => (
+        <span
+          title={row.original.manufacturer}
+          className="block min-w-[100px] max-w-[140px] whitespace-normal break-words"
+        >
+          {row.original.manufacturer || "-"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "model",
+      header: "Model",
+      cell: ({ row }) => (
+        <span title={row.original.model} className="block min-w-[110px] max-w-[150px] whitespace-normal break-words">
+          {row.original.model || "-"}
+        </span>
+      ),
+    },
     {
       accessorKey: "location",
       header: "Location",
-      cell: ({ row }) => row.original.location?.name ?? "-",
+      cell: ({ row }) => (
+        <span
+          title={row.original.location?.name}
+          className="block min-w-[120px] max-w-[170px] whitespace-normal break-words"
+        >
+          {row.original.location?.name ?? "-"}
+        </span>
+      ),
     },
     {
       accessorKey: "status",

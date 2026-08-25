@@ -267,14 +267,19 @@ export function AssetForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      <Tabs defaultValue="basic">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="basic">Basic</TabsTrigger>
-          <TabsTrigger value="assignment">Employee &amp; assignment</TabsTrigger>
-          <TabsTrigger value="hardware">Hardware</TabsTrigger>
-          <TabsTrigger value="software">OS &amp; software licenses</TabsTrigger>
-          <TabsTrigger value="purchase">Purchase &amp; vendor</TabsTrigger>
-          <TabsTrigger value="condition">Condition &amp; notes</TabsTrigger>
+      <Tabs defaultValue="basic" className="gap-6">
+        {/* Six tabs never all fit on one line at typical dialog/page widths - rather than
+            wrapping to a second row (which the fixed-height tab bar doesn't grow to fit,
+            causing it to visually collide with the form fields below), this scrolls
+            horizontally instead. Each trigger keeps `shrink-0` so its label is never squeezed
+            or clipped - the row overflows and scrolls, it never wraps. */}
+        <TabsList className="w-full justify-start gap-2 overflow-x-auto no-scrollbar">
+          <TabsTrigger value="basic" className="shrink-0">Basic</TabsTrigger>
+          <TabsTrigger value="assignment" className="shrink-0">Employee &amp; assignment</TabsTrigger>
+          <TabsTrigger value="hardware" className="shrink-0">Hardware</TabsTrigger>
+          <TabsTrigger value="software" className="shrink-0">OS &amp; software licenses</TabsTrigger>
+          <TabsTrigger value="purchase" className="shrink-0">Purchase &amp; vendor</TabsTrigger>
+          <TabsTrigger value="condition" className="shrink-0">Condition &amp; notes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="basic">
