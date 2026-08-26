@@ -122,7 +122,7 @@ export function VendorFormDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit vendor" : "Add vendor"}</DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="col-span-2 flex flex-col gap-2">
             <Label htmlFor="vendor-name">Vendor name</Label>
             <Input id="vendor-name" value={form.name} onChange={set("name")} />

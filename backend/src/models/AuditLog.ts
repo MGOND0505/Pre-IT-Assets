@@ -12,6 +12,11 @@ export interface IAuditLog {
   newValue: unknown;
   ipAddress: string | null;
   userAgent: string | null;
+  // Added by the schema's `timestamps: { createdAt: true }` option below - declared here just
+  // so TypeScript knows it exists on a hydrated document (Organization/Ticket/etc. use a custom
+  // `createdDate` name instead; this model kept Mongoose's default, so the field really is
+  // named `createdAt`, not fabricated).
+  createdAt: Date;
 }
 
 const auditLogSchema = new Schema<IAuditLog>(

@@ -24,6 +24,7 @@ import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { AppLogo } from "@/components/layout/app-logo"
 import { SuperAdminShell } from "@/components/layout/super-admin-shell"
+import { FullPageLoader } from "@/components/layout/full-page-loader"
 import { CreateOrganizationDialog } from "@/components/organizations/create-organization-dialog"
 import { ModuleAccessPanel } from "@/components/organizations/module-access-panel"
 import { OrganizationsPagination } from "@/components/organizations/organizations-pagination"
@@ -441,9 +442,9 @@ export default function RootPage() {
     },
   ]
 
-  if (authLoading) return null
+  if (authLoading) return <FullPageLoader />
   if (!user) return <LandingPage />
-  if (user.organization) return null
+  if (user.organization) return <FullPageLoader />
 
   const isSuperAdmin = user.role === "superAdmin"
 
@@ -692,7 +693,7 @@ export default function RootPage() {
     return <SuperAdminShell>{pageBody}</SuperAdminShell>
   }
 
-  return <div className="min-h-screen p-6">{pageBody}</div>
+  return <div className="min-h-dvh p-6">{pageBody}</div>
 }
 
 function EditOrgRetentionDialog({

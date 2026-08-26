@@ -104,7 +104,7 @@ export function HelpdeskPriorityFormDialog({
             <Label htmlFor="hdpri-name">Name</Label>
             <Input id="hdpri-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Critical" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="hdpri-order">Sort order</Label>
               <Input id="hdpri-order" type="number" value={order} onChange={(e) => setOrder(e.target.value)} />
@@ -114,7 +114,7 @@ export function HelpdeskPriorityFormDialog({
               <Input id="hdpri-color" type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-8 p-1" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 border-t pt-4">
+          <div className="grid grid-cols-1 gap-4 border-t pt-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="hdpri-response">SLA response (minutes)</Label>
               <Input

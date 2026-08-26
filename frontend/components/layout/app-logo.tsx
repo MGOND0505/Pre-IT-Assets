@@ -39,7 +39,11 @@ export function AppLogo({
     }
   }, [logoUrl])
 
-  if (hasLogo) {
+  {/* hasLogo can still be stale-true for one render right after logoUrl itself changes to null
+     (e.g. navigating from an org-scoped page into the Super Admin panel, which has no org in the
+     URL at all) - state updates commit before the effect that would reset it runs. Requiring
+     logoUrl here too, not just hasLogo, makes that transitional render safe as well. */}
+  if (hasLogo && logoUrl) {
     return (
       <span className="flex items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}

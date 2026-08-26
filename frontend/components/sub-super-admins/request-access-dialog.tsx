@@ -70,7 +70,7 @@ export function RequestAccessDialog({
         <DialogHeader>
           <DialogTitle>Request organization access</DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="access-request-org">Organization</Label>
             <Select value={organizationId} onValueChange={(v) => setOrganizationId(v ?? "")}>

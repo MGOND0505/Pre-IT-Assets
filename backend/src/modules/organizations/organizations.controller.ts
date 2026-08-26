@@ -9,6 +9,18 @@ export const listOrganizations = asyncHandler(async (req: Request, res: Response
   ok(res, result, "Organizations");
 });
 
+export const getDashboardStats = asyncHandler(async (req: Request, res: Response) => {
+  const { days, organizationId } = req.query as unknown as { days?: number; organizationId?: string };
+  const stats = await organizationsService.getSuperAdminDashboardStats({ days, organizationId });
+  ok(res, stats, "Dashboard stats");
+});
+
+export const globalSearch = asyncHandler(async (req: Request, res: Response) => {
+  const { q } = req.query as unknown as { q: string };
+  const results = await organizationsService.searchAllOrganizations(q);
+  ok(res, results, "Search results");
+});
+
 export const createOrganization = asyncHandler(async (req: Request, res: Response) => {
   const org = await organizationsService.createOrganization(req.body, req.user!.id);
 

@@ -2,6 +2,8 @@ import { Organization, type IOrganization } from "../../models/Organization";
 import { User } from "../../models/User";
 import { Asset } from "../../models/Asset";
 import { License } from "../../models/License";
+import { Ticket } from "../../models/Ticket";
+import { AuditLog } from "../../models/AuditLog";
 import { ApiError } from "../../utils/ApiError";
 import { getAssetStats } from "../assets/assets.service";
 import { getLicenseStats } from "../licenses/licenses.service";
@@ -389,4 +391,301 @@ export async function restoreOrganization(id: string) {
   org.deletedBy = null;
   await org.save();
   return org;
+}
+
+// Same "not yet responded/resolved past its due date" definition helpdesk.service.ts's
+// getHelpdeskStats() already uses for one org - reused verbatim here, just without the
+// organization filter, so a ticket counts as breached the same way everywhere in the app.
+const DASHBOARD_TERMINAL_STATUSES = ["Resolved", "Closed"];
+
+function lastNDays(now: Date, days: number): string[] {
+  const result: string[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * DAY_MS);
+    result.push(d.toISOString().slice(0, 10));
+  }
+  return result;
+}
+
+export type SuperAdminDashboardOptions = {
+  /** Trend window in days - 7/14/30 from the dashboard's date-range filter. */
+  days?: number;
+  /** When set, narrows Users/Assets/Tickets/activity to just this org - the platform-wide
+   * "Organizations" count itself never scopes to a single org, since "how many organizations
+   * does org X have" isn't a meaningful question. */
+  organizationId?: string;
+};
+
+/**
+ * Platform-wide, read-only counts for the Super Admin dashboard - every number here is a real
+ * aggregate over existing collections (no new concepts, no invented metrics). Deliberately does
+ * NOT include anything this app has no actual data for (system health, storage, security
+ * events) - there is nothing honest to report for those yet.
+ */
+export async function getSuperAdminDashboardStats(options: SuperAdminDashboardOptions = {}) {
+  const days = options.days ?? 7;
+  const now = new Date();
+  const periodAgo = new Date(now.getTime() - days * DAY_MS);
+  const priorPeriodAgo = new Date(now.getTime() - 2 * days * DAY_MS);
+
+  // Applied to User/Asset/Ticket/AuditLog queries only - see SuperAdminDashboardOptions above.
+  const scope: Record<string, unknown> = options.organizationId ? { organization: options.organizationId } : {};
+
+  const [
+    totalOrganizations,
+    activeOrganizations,
+    totalUsers,
+    newUsersThisPeriod,
+    totalAssets,
+    newAssetsThisPeriod,
+    openTickets,
+    newTicketsThisPeriod,
+    ticketsByStatusRaw,
+    slaBreaches,
+    topCategoriesRaw,
+    trendRaw,
+    recentActivityRaw,
+    ticketsCreatedPriorPeriod,
+    breachedTicketsRaw,
+    topCategoryThisPeriodRaw,
+  ] = await Promise.all([
+    Organization.countDocuments({ isDeleted: false }),
+    Organization.countDocuments({ isDeleted: false, status: "Active" }),
+    User.countDocuments({ ...scope, isDeleted: false, organization: scope.organization ?? { $ne: null } }),
+    User.countDocuments({
+      ...scope,
+      isDeleted: false,
+      organization: scope.organization ?? { $ne: null },
+      createdDate: { $gte: periodAgo },
+    }),
+    Asset.countDocuments({ ...scope, isDeleted: false }),
+    Asset.countDocuments({ ...scope, isDeleted: false, createdDate: { $gte: periodAgo } }),
+    Ticket.countDocuments({ ...scope, isDeleted: false, status: { $nin: DASHBOARD_TERMINAL_STATUSES } }),
+    Ticket.countDocuments({ ...scope, isDeleted: false, createdDate: { $gte: periodAgo } }),
+    Ticket.aggregate([{ $match: { ...scope, isDeleted: false } }, { $group: { _id: "$status", count: { $sum: 1 } } }]),
+    Ticket.countDocuments({
+      ...scope,
+      isDeleted: false,
+      status: { $nin: DASHBOARD_TERMINAL_STATUSES },
+      slaResolutionDueAt: { $ne: null, $lt: now },
+    }),
+    Ticket.aggregate([
+      { $match: { ...scope, isDeleted: false, category: { $ne: null } } },
+      { $lookup: { from: "helpdeskcategories", localField: "category", foreignField: "_id", as: "cat" } },
+      { $unwind: "$cat" },
+      { $group: { _id: "$cat.name", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 },
+    ]),
+    Ticket.aggregate([
+      { $match: { ...scope, isDeleted: false, createdDate: { $gte: periodAgo } } },
+      {
+        $project: {
+          day: { $dateToString: { format: "%Y-%m-%d", date: "$createdDate" } },
+          bucket: {
+            $switch: {
+              branches: [
+                { case: { $eq: ["$status", "Resolved"] }, then: "resolved" },
+                { case: { $eq: ["$status", "Closed"] }, then: "closed" },
+              ],
+              default: "open",
+            },
+          },
+        },
+      },
+      { $group: { _id: { day: "$day", bucket: "$bucket" }, count: { $sum: 1 } } },
+    ]),
+    AuditLog.find(scope)
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .populate({ path: "organization", select: "name" }),
+    // The period immediately before the trailing window above - both are plain createdDate
+    // range counts (no historical snapshot needed), so "volume vs last period" is a real,
+    // honestly-computable comparison rather than something requiring state we don't store.
+    Ticket.countDocuments({ ...scope, isDeleted: false, createdDate: { $gte: priorPeriodAgo, $lt: periodAgo } }),
+    Ticket.find({
+      ...scope,
+      isDeleted: false,
+      status: { $nin: DASHBOARD_TERMINAL_STATUSES },
+      slaResolutionDueAt: { $ne: null, $lt: now },
+    })
+      .select("ticketId subject slaResolutionDueAt organization")
+      .sort({ slaResolutionDueAt: 1 })
+      .limit(5)
+      .populate({ path: "organization", select: "name slug" }),
+    Ticket.aggregate([
+      { $match: { ...scope, isDeleted: false, category: { $ne: null }, createdDate: { $gte: periodAgo } } },
+      { $lookup: { from: "helpdeskcategories", localField: "category", foreignField: "_id", as: "cat" } },
+      { $unwind: "$cat" },
+      { $group: { _id: "$cat.name", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 1 },
+    ]),
+  ]);
+
+  const byStatus: Record<string, number> = {};
+  for (const row of ticketsByStatusRaw as { _id: string | null; count: number }[]) {
+    byStatus[row._id ?? "Unknown"] = row.count;
+  }
+
+  const trendByDay = new Map<string, { open: number; resolved: number; closed: number }>();
+  for (const day of lastNDays(now, days)) trendByDay.set(day, { open: 0, resolved: 0, closed: 0 });
+  for (const row of trendRaw as { _id: { day: string; bucket: "open" | "resolved" | "closed" }; count: number }[]) {
+    const bucket = trendByDay.get(row._id.day);
+    if (bucket) bucket[row._id.bucket] = row.count;
+  }
+
+  return {
+    organizations: { total: totalOrganizations, active: activeOrganizations },
+    users: { total: totalUsers, newInPeriod: newUsersThisPeriod },
+    assets: { total: totalAssets, newInPeriod: newAssetsThisPeriod },
+    tickets: {
+      open: openTickets,
+      newInPeriod: newTicketsThisPeriod,
+      byStatus,
+      slaBreaches,
+      topCategories: (topCategoriesRaw as { _id: string; count: number }[]).map((r) => ({
+        name: r._id,
+        count: r.count,
+      })),
+      trend: Array.from(trendByDay.entries()).map(([date, counts]) => ({ date, ...counts })),
+    },
+    // Real, computed observations only - no invented "AI" narrative. Both numbers come directly
+    // from createdDate range counts (this period vs the one before it), never a fabricated trend.
+    insights: {
+      days,
+      ticketVolumeChangePct:
+        ticketsCreatedPriorPeriod > 0
+          ? Math.round(((newTicketsThisPeriod - ticketsCreatedPriorPeriod) / ticketsCreatedPriorPeriod) * 100)
+          : null,
+      ticketsInPeriod: newTicketsThisPeriod,
+      ticketsInPriorPeriod: ticketsCreatedPriorPeriod,
+      topCategoryInPeriod: (topCategoryThisPeriodRaw as { _id: string; count: number }[])[0]?._id ?? null,
+    },
+    // Only ever populated with real, currently-breached tickets - never a placeholder alert
+    // type this app has no way to actually detect (no backup/disk/uptime monitoring exists).
+    alerts: (
+      breachedTicketsRaw as {
+        _id: unknown;
+        ticketId: string;
+        subject: string;
+        slaResolutionDueAt: Date;
+        organization: { name?: string; slug?: string } | null;
+      }[]
+    ).map((t) => ({
+      id: String(t._id),
+      ticketId: t.ticketId,
+      subject: t.subject,
+      organizationName: t.organization?.name ?? null,
+      organizationSlug: t.organization?.slug ?? null,
+      slaResolutionDueAt: t.slaResolutionDueAt,
+    })),
+    // Shaped to match the existing ActivityEntry type the org-scoped dashboard's activity feed
+    // already renders (_id/action/module/recordLabel/userSnapshot.name/createdAt) - just with an
+    // added organizationName, since a cross-org feed is meaningless without saying which org.
+    recentActivity: recentActivityRaw.map((log) => ({
+      _id: String(log._id),
+      action: log.action,
+      module: log.module,
+      recordLabel: log.recordLabel,
+      userSnapshot: { name: log.userSnapshot.name },
+      organizationName: (log.organization as unknown as { name?: string } | null)?.name ?? null,
+      createdAt: log.createdAt,
+    })),
+  };
+}
+
+export type GlobalSearchResultType = "organization" | "user" | "asset" | "ticket";
+export type GlobalSearchResult = {
+  type: GlobalSearchResultType;
+  id: string;
+  title: string;
+  subtitle: string;
+  // The org this result lives in - for type "organization" this is the result's own slug (so
+  // the frontend can build one consistent href-building rule regardless of result type).
+  organizationSlug: string | null;
+  organizationName: string | null;
+};
+
+const GLOBAL_SEARCH_RESULTS_PER_TYPE = 5;
+
+// Same escaping as search.service.ts's org-scoped search - duplicated rather than imported
+// since this lives in a different module and the function is a one-line pure utility.
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Super Admin only, cross-organization: the platform-wide counterpart to the org-scoped
+ * /search endpoint. No permission/entitlement filtering needed - a Super Admin already sees
+ * every organization's data unconditionally everywhere else in the app.
+ */
+export async function searchAllOrganizations(rawQuery: string): Promise<GlobalSearchResult[]> {
+  const rx = { $regex: escapeRegex(rawQuery), $options: "i" };
+
+  const [orgs, users, assets, tickets] = await Promise.all([
+    Organization.find({ isDeleted: false, $or: [{ name: rx }, { slug: rx }] })
+      .select("name slug")
+      .limit(GLOBAL_SEARCH_RESULTS_PER_TYPE)
+      .lean(),
+    User.find({
+      isDeleted: false,
+      organization: { $ne: null },
+      $or: [{ name: rx }, { email: rx }, { employeeId: rx }],
+    })
+      .select("name email organization")
+      .populate({ path: "organization", select: "name slug" })
+      .limit(GLOBAL_SEARCH_RESULTS_PER_TYPE)
+      .lean(),
+    Asset.find({
+      isDeleted: false,
+      $or: [{ name: rx }, { assetId: rx }, { serialNumber: rx }, { serviceTag: rx }, { imei: rx }],
+    })
+      .select("name assetId organization")
+      .populate({ path: "organization", select: "name slug" })
+      .limit(GLOBAL_SEARCH_RESULTS_PER_TYPE)
+      .lean(),
+    Ticket.find({ isDeleted: false, $or: [{ subject: rx }, { ticketId: rx }] })
+      .select("subject ticketId organization")
+      .populate({ path: "organization", select: "name slug" })
+      .limit(GLOBAL_SEARCH_RESULTS_PER_TYPE)
+      .lean(),
+  ]);
+
+  type OrgRef = { name?: string; slug?: string } | null;
+
+  return [
+    ...orgs.map((o) => ({
+      type: "organization" as const,
+      id: String(o._id),
+      title: o.name,
+      subtitle: o.slug,
+      organizationSlug: o.slug,
+      organizationName: o.name,
+    })),
+    ...users.map((u) => ({
+      type: "user" as const,
+      id: String(u._id),
+      title: u.name,
+      subtitle: u.email,
+      organizationSlug: (u.organization as OrgRef)?.slug ?? null,
+      organizationName: (u.organization as OrgRef)?.name ?? null,
+    })),
+    ...assets.map((a) => ({
+      type: "asset" as const,
+      id: String(a._id),
+      title: a.name,
+      subtitle: a.assetId,
+      organizationSlug: (a.organization as OrgRef)?.slug ?? null,
+      organizationName: (a.organization as OrgRef)?.name ?? null,
+    })),
+    ...tickets.map((t) => ({
+      type: "ticket" as const,
+      id: String(t._id),
+      title: t.subject,
+      subtitle: t.ticketId,
+      organizationSlug: (t.organization as OrgRef)?.slug ?? null,
+      organizationName: (t.organization as OrgRef)?.name ?? null,
+    })),
+  ];
 }

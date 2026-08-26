@@ -39,11 +39,11 @@ export function OrgAccessEditor({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       {organizations.map((org) => {
         const granted = isGranted(org._id)
         return (
-          <div key={org._id} className="rounded-md border p-3">
+          <div key={org._id} className="min-w-0 rounded-md border p-3">
             <div className="flex items-center gap-2">
               <Checkbox
                 id={`org-access-${org._id}`}
@@ -55,7 +55,7 @@ export function OrgAccessEditor({
               </Label>
             </div>
             {granted && (
-              <div className="mt-3">
+              <div className="mt-3 min-w-0">
                 <ModulePermissionGrid
                   permissions={value.find((g) => g.organization === org._id)!.permissions}
                   onPermissionsChange={(p) => updateGrant(org._id, p)}

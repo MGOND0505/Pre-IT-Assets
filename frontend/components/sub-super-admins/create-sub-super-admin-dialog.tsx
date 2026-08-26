@@ -69,7 +69,7 @@ export function CreateSubSuperAdminDialog({
         <DialogHeader>
           <DialogTitle>Create Sub-Super Admin</DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="ssa-name">Name</Label>
             <Input id="ssa-name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -83,7 +83,7 @@ export function CreateSubSuperAdminDialog({
             <Input id="ssa-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
 
-          <div className="border-t pt-4">
+          <div className="min-w-0 border-t pt-4">
             <p className="mb-3 text-sm font-medium">Organization access</p>
             <OrgAccessEditor organizations={organizations} value={orgAccess} onChange={setOrgAccess} />
           </div>

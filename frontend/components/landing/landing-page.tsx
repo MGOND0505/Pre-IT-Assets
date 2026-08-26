@@ -6,7 +6,7 @@ import { LandingCta, LandingFooter } from "@/components/landing/landing-footer"
 
 export function LandingPage() {
   return (
-    <div className="landing-theme flex min-h-screen flex-col bg-background text-foreground">
+    <div className="landing-theme flex min-h-dvh flex-col bg-background text-foreground">
       <LandingHeader />
       <main className="flex-1">
         <LandingHero />

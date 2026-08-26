@@ -9,6 +9,7 @@ import { z } from "zod"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { MagneticButton } from "@/components/ui/magnetic-button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
@@ -51,7 +52,7 @@ export function LoginForm({ orgSlug }: { orgSlug?: string } = {}) {
     <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" placeholder="you@vianaar.com" {...register("email")} />
+        <Input id="email" type="email" placeholder="you@company.com" {...register("email")} />
         {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
       </div>
       <div className="flex flex-col gap-2">
@@ -67,9 +68,11 @@ export function LoginForm({ orgSlug }: { orgSlug?: string } = {}) {
         <Input id="password" type="password" {...register("password")} />
         {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
       </div>
-      <Button type="submit" className="w-full" disabled={submitting}>
-        {submitting ? "Signing in..." : "Sign in"}
-      </Button>
+      <MagneticButton className="w-full">
+        <Button type="submit" className="w-full" disabled={submitting}>
+          {submitting ? "Signing in..." : "Sign in"}
+        </Button>
+      </MagneticButton>
     </form>
   )
 }

@@ -14,14 +14,14 @@ export function AuthBackground({ children, className }: { children: React.ReactN
   // simple centered layout rather than fighting a custom color against the brand gradient below.
   if (hasCustomBg) {
     return (
-      <div className={cn("flex min-h-screen flex-col items-center justify-center gap-6 p-4", className)} style={style}>
+      <div className={cn("flex min-h-dvh flex-col items-center justify-center gap-6 p-4", className)} style={style}>
         {children}
       </div>
     )
   }
 
   return (
-    <div className="relative flex min-h-screen bg-muted/20">
+    <div className="relative flex min-h-dvh bg-muted/20">
       <div className="relative hidden w-[42%] shrink-0 flex-col justify-between overflow-hidden bg-gradient-to-br from-primary to-[oklch(0.32_0.19_277)] p-10 text-primary-foreground lg:flex">
         <div
           aria-hidden

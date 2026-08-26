@@ -19,6 +19,7 @@ import { helpdeskPrioritiesRouter } from "../modules/helpdeskPriorities/helpdesk
 import { supportTeamsRouter } from "../modules/supportTeams/supportTeams.routes";
 import { tasksRouter } from "../modules/tasks/tasks.routes";
 import { searchRouter } from "../modules/search/search.routes";
+import { analyticsRouter } from "../modules/analytics/analytics.routes";
 
 /** Mounted under /api/:orgSlug - authenticate + resolveOrganization already ran by the time
  * any of these routers see the request (see app.ts), so none of them need their own
@@ -49,6 +50,7 @@ orgScopedRouter.use("/settings", settingsRouter);
 orgScopedRouter.use("/assets", requireModuleEnabled("assets"), assetsRouter);
 orgScopedRouter.use("/licenses", requireModuleEnabled("licenses"), licensesRouter);
 orgScopedRouter.use("/reports", requireModuleEnabled("reports"), reportsRouter);
+orgScopedRouter.use("/analytics", requireModuleEnabled("reports"), analyticsRouter);
 orgScopedRouter.use("/helpdesk", requireModuleEnabled("helpdesk"), helpdeskRouter);
 orgScopedRouter.use("/helpdesk-categories", requireModuleEnabled("helpdesk"), helpdeskCategoriesRouter);
 orgScopedRouter.use("/helpdesk-priorities", requireModuleEnabled("helpdesk"), helpdeskPrioritiesRouter);

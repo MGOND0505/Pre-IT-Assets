@@ -9,6 +9,9 @@ export type ActivityEntry = {
   recordLabel: string | null
   userSnapshot: { name: string | null }
   createdAt: string
+  // Only present on the cross-organization Super Admin feed - the org-scoped dashboard's own
+  // feed never sends this (its org is already implicit), so it stays undefined there.
+  organizationName?: string | null
 }
 
 const ACTION_VERB: Record<string, string> = {
@@ -55,7 +58,11 @@ export function ActivityFeedSkeleton() {
 
 export function ActivityFeed({ entries }: { entries: ActivityEntry[] }) {
   if (entries.length === 0) {
-    return <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+      </div>
+    )
   }
 
   return (
@@ -84,6 +91,11 @@ export function ActivityFeed({ entries }: { entries: ActivityEntry[] }) {
                 <span className="font-medium">{entry.userSnapshot.name ?? "System"}</span>{" "}
                 <span className="text-muted-foreground">{ACTION_VERB[entry.action] ?? entry.action.toLowerCase()}</span>{" "}
                 {entry.recordLabel ?? entry.module}
+                {entry.organizationName && (
+                  <span className="ml-1.5 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    {entry.organizationName}
+                  </span>
+                )}
               </span>
               <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(entry.createdAt)}</span>
             </div>

@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AiAssistant } from "@/components/ai/ai-assistant"
 import { CommandPalette } from "@/components/ai/command-palette"
 import { CursorGlow } from "@/components/ai/cursor-glow"
+import { FullPageLoader } from "@/components/layout/full-page-loader"
 import { useAuth } from "@/lib/auth-context"
 import { useBranding } from "@/lib/branding-context"
 import { isValidHexColor } from "@/lib/color-utils"
@@ -46,14 +47,14 @@ export default function DashboardLayout({ children }: LayoutProps<"/[org]">) {
     router.replace(user?.organization ? `/${user.organization.slug}` : "/")
   }, [wrongOrg, user, router])
 
-  if (loading || !user || wrongOrg) return null
+  if (loading || !user || wrongOrg) return <FullPageLoader />
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-dvh min-h-0">
       <div className="hidden w-64 shrink-0 md:block">
         <Sidebar />
       </div>
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Topbar />
         {(user.role === "superAdmin" || user.role === "subSuperAdmin") && (
           <Alert variant="warning" className="rounded-none border-x-0 border-t-0 py-2">

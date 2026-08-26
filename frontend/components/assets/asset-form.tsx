@@ -283,7 +283,7 @@ export function AssetForm({
         </TabsList>
 
         <TabsContent value="basic">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {canEditAssetId && (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="asset-id">Asset ID</Label>
@@ -333,7 +333,7 @@ export function AssetForm({
         </TabsContent>
 
         <TabsContent value="assignment">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="asset-location">Location</Label>
               <Select value={form.location} onValueChange={setSelect("location")}>
@@ -392,7 +392,7 @@ export function AssetForm({
         </TabsContent>
 
         <TabsContent value="hardware">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Manufacturer" id="asset-manufacturer" value={form.manufacturer} onChange={set("manufacturer")} />
             <Field label="Model" id="asset-model" value={form.model} onChange={set("model")} />
             <Field label="Serial number" id="asset-serial" value={form.serialNumber} onChange={set("serialNumber")} />
@@ -417,7 +417,7 @@ export function AssetForm({
         </TabsContent>
 
         <TabsContent value="software">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Operating system" id="asset-os" value={form.operatingSystem} onChange={set("operatingSystem")} />
             <Field label="OS license" id="asset-os-license" value={form.operatingSystemLicense} onChange={set("operatingSystemLicense")} />
             <Field label="AD member" id="asset-ad-member" value={form.adMember} onChange={set("adMember")} />
@@ -443,7 +443,7 @@ export function AssetForm({
         </TabsContent>
 
         <TabsContent value="purchase">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Purchase date" id="asset-purchase-date" type="date" value={form.purchaseDate} onChange={set("purchaseDate")} />
             <Field label="Purchase cost" id="asset-purchase-cost" type="number" value={form.purchaseCost} onChange={set("purchaseCost")} />
             <Field label="Quantity" id="asset-quantity" type="number" value={form.quantity} onChange={set("quantity")} />
@@ -473,7 +473,7 @@ export function AssetForm({
         </TabsContent>
 
         <TabsContent value="condition">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Condition" id="asset-condition" value={form.condition} onChange={set("condition")} />
             <Field label="Approval status" id="asset-approval-status" value={form.approvalStatus} onChange={set("approvalStatus")} />
             <div className="col-span-2">

@@ -152,7 +152,7 @@ export default function LicenseDetailPage() {
       </div>
 
       <Card>
-        <CardContent className="grid grid-cols-3 gap-4 pt-6">
+        <CardContent className="grid grid-cols-1 gap-4 pt-6 sm:grid-cols-2 lg:grid-cols-3">
           <Row label="Software" value={license.softwareName} />
           <Row label="Product" value={license.productName} />
           <Row label="Publisher" value={license.publisher} />

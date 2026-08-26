@@ -39,6 +39,13 @@ const envSchema = z.object({
   SUPERADMIN_SEED_NAME: z.string().optional(),
   SUPERADMIN_SEED_EMAIL: z.string().email().optional(),
   SUPERADMIN_SEED_PASSWORD: z.string().min(8).optional(),
+
+  // Optional: only set once the Metabase analytics embed is provisioned (see
+  // metabase/README.md). Absent in dev environments that haven't set it up - the analytics
+  // endpoint below returns a clear 501 rather than crashing at boot when these are missing.
+  METABASE_URL: z.string().url().optional(),
+  METABASE_EMBEDDING_SECRET_KEY: z.string().min(16).optional(),
+  METABASE_DASHBOARD_ID: z.coerce.number().int().positive().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

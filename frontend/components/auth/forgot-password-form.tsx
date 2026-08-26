@@ -49,7 +49,7 @@ export function ForgotPasswordForm({ orgSlug }: { orgSlug?: string } = {}) {
     <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" placeholder="you@vianaar.com" {...register("email")} />
+        <Input id="email" type="email" placeholder="you@company.com" {...register("email")} />
         {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
       </div>
       <Button type="submit" className="w-full" disabled={submitting}>

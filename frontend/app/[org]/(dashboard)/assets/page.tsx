@@ -2,11 +2,12 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { type ColumnDef } from "@tanstack/react-table"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { MagneticButton } from "@/components/ui/magnetic-button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -38,13 +39,19 @@ const ALL = "__all__"
 export default function AssetsPage() {
   const router = useRouter()
   const toOrgHref = useOrgHref()
+  const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
   const { items: categories } = useAssetCategoryOptions()
   const [data, setData] = React.useState<Paginated | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState("")
-  const [status, setStatus] = React.useState<string>(ALL)
+  // Pre-filters from a dashboard drill-down link (e.g. clicking "Under Repair" on the Assets by
+  // status chart) - read once on mount so the list opens already scoped to what was clicked.
+  const [status, setStatus] = React.useState<string>(() => {
+    const fromUrl = searchParams.get("status")
+    return fromUrl && (ASSET_STATUSES as readonly string[]).includes(fromUrl) ? fromUrl : ALL
+  })
   const [category, setCategory] = React.useState<string>(ALL)
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [confirmingBulkDelete, setConfirmingBulkDelete] = React.useState(false)
@@ -179,6 +186,7 @@ export default function AssetsPage() {
     {
       accessorKey: "category",
       header: "Category",
+      meta: { hideBelow: "md" },
       cell: ({ row }) => (
         <span
           title={row.original.category?.name}
@@ -191,6 +199,7 @@ export default function AssetsPage() {
     {
       accessorKey: "manufacturer",
       header: "Manufacturer",
+      meta: { hideBelow: "md" },
       cell: ({ row }) => (
         <span
           title={row.original.manufacturer}
@@ -203,6 +212,7 @@ export default function AssetsPage() {
     {
       accessorKey: "model",
       header: "Model",
+      meta: { hideBelow: "md" },
       cell: ({ row }) => (
         <span title={row.original.model} className="block min-w-[110px] max-w-[150px] whitespace-normal break-words">
           {row.original.model || "-"}
@@ -212,6 +222,7 @@ export default function AssetsPage() {
     {
       accessorKey: "location",
       header: "Location",
+      meta: { hideBelow: "md" },
       cell: ({ row }) => (
         <span
           title={row.original.location?.name}
@@ -244,7 +255,11 @@ export default function AssetsPage() {
           <Button variant="outline" onClick={handleDownloadCsv}>
             Download CSV
           </Button>
-          {canCreate && <Button render={<Link href={toOrgHref("/assets/add")} />}>Add Asset</Button>}
+          {canCreate && (
+            <MagneticButton>
+              <Button render={<Link href={toOrgHref("/assets/add")} />}>Add Asset</Button>
+            </MagneticButton>
+          )}
         </div>
       </div>
 

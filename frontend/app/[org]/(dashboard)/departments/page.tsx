@@ -65,8 +65,25 @@ export default function DepartmentsPage() {
   }
 
   const columns: ColumnDef<Department, unknown>[] = [
-    { accessorKey: "name", header: "Name" },
-    { accessorKey: "description", header: "Description" },
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => (
+        <span title={row.original.name} className="block min-w-[110px] max-w-[180px] whitespace-normal break-words">
+          {row.original.name}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "description",
+      header: "Description",
+      meta: { hideBelow: "md" },
+      cell: ({ row }) => (
+        <span title={row.original.description} className="block min-w-[200px] max-w-[360px] whitespace-normal break-words">
+          {row.original.description || "-"}
+        </span>
+      ),
+    },
     {
       accessorKey: "status",
       header: "Status",

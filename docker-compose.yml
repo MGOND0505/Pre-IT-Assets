@@ -37,7 +37,7 @@ services:
       - "3001:3001"
     environment:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:5001/api}
-      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Vianaar IT Asset & License Management}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-IT Asset & License Management}
     depends_on:
       - backend
 

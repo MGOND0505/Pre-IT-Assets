@@ -7,6 +7,7 @@ import {
   addCommentSchema,
   assignTicketSchema,
   createTicketSchema,
+  dashboardSummaryQuerySchema,
   listTicketsQuerySchema,
   setTicketStatusSchema,
   ticketIdParamsSchema,
@@ -16,6 +17,12 @@ import {
 export const helpdeskRouter = Router();
 
 helpdeskRouter.get("/stats", authorize("helpdesk", "view"), helpdeskController.getHelpdeskStats);
+helpdeskRouter.get(
+  "/dashboard-summary",
+  authorize("helpdesk", "view"),
+  validate({ query: dashboardSummaryQuerySchema }),
+  helpdeskController.getHelpdeskDashboardSummary
+);
 
 helpdeskRouter.get(
   "/deleted",

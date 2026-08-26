@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { TICKET_STATUSES } from "../../models/Ticket";
 
+export const dashboardSummaryQuerySchema = z.object({
+  days: z.coerce.number().int().refine((v) => [7, 14, 30].includes(v), "days must be 7, 14, or 30").optional(),
+});
+
 export const createTicketSchema = z.object({
   subject: z.string().min(1),
   description: z.string().optional().default(""),

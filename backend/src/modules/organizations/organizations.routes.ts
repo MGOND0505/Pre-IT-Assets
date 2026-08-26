@@ -3,6 +3,8 @@ import { validate } from "../../middleware/validate";
 import * as organizationsController from "./organizations.controller";
 import {
   createOrganizationSchema,
+  dashboardStatsQuerySchema,
+  globalSearchQuerySchema,
   listOrganizationsQuerySchema,
   organizationIdParamsSchema,
   setOrganizationStatusSchema,
@@ -17,6 +19,16 @@ export const organizationsRouter = Router();
 
 organizationsRouter.get("/", validate({ query: listOrganizationsQuerySchema }), organizationsController.listOrganizations);
 organizationsRouter.post("/", validate({ body: createOrganizationSchema }), organizationsController.createOrganization);
+organizationsRouter.get(
+  "/dashboard-stats",
+  validate({ query: dashboardStatsQuerySchema }),
+  organizationsController.getDashboardStats
+);
+organizationsRouter.get(
+  "/global-search",
+  validate({ query: globalSearchQuerySchema }),
+  organizationsController.globalSearch
+);
 organizationsRouter.get(
   "/deleted",
   validate({ query: listOrganizationsQuerySchema }),

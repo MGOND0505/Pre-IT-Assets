@@ -120,12 +120,34 @@ export default function UsersPage() {
   }
 
   const columns: ColumnDef<User, unknown>[] = [
-    { accessorKey: "name", header: "Name" },
-    { accessorKey: "email", header: "Email" },
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => (
+        <span title={row.original.name} className="block min-w-[110px] max-w-[170px] whitespace-normal break-words">
+          {row.original.name}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      meta: { hideBelow: "sm" },
+      cell: ({ row }) => (
+        <span title={row.original.email} className="block min-w-[150px] max-w-[220px] whitespace-normal break-words">
+          {row.original.email}
+        </span>
+      ),
+    },
     {
       accessorKey: "department",
       header: "Department",
-      cell: ({ row }) => row.original.department?.name ?? "-",
+      meta: { hideBelow: "md" },
+      cell: ({ row }) => (
+        <span title={row.original.department?.name} className="block min-w-[100px] max-w-[150px] whitespace-normal break-words">
+          {row.original.department?.name ?? "-"}
+        </span>
+      ),
     },
     {
       id: "permissions",

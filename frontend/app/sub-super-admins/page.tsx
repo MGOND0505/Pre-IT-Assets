@@ -18,6 +18,7 @@ import { DataTable } from "@/components/common/data-table"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { UserStatusBadge } from "@/components/users/user-status-badge"
 import { SuperAdminShell } from "@/components/layout/super-admin-shell"
+import { FullPageLoader } from "@/components/layout/full-page-loader"
 import { CreateSubSuperAdminDialog } from "@/components/sub-super-admins/create-sub-super-admin-dialog"
 import { EditSubOrgAccessDialog } from "@/components/sub-super-admins/edit-sub-org-access-dialog"
 import { ResetSubSuperAdminPasswordDialog } from "@/components/sub-super-admins/reset-sub-super-admin-password-dialog"
@@ -185,7 +186,7 @@ export default function SubSuperAdminsPage() {
     },
   ]
 
-  if (authLoading || !user || user.role !== "superAdmin") return null
+  if (authLoading || !user || user.role !== "superAdmin") return <FullPageLoader />
 
   return (
     <SuperAdminShell>

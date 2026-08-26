@@ -65,9 +65,17 @@ export default function LocationsPage() {
   }
 
   const columns: ColumnDef<Location, unknown>[] = [
-    { accessorKey: "name", header: "Name" },
-    { accessorKey: "city", header: "City" },
-    { accessorKey: "country", header: "Country" },
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => (
+        <span title={row.original.name} className="block min-w-[130px] max-w-[220px] whitespace-normal break-words">
+          {row.original.name}
+        </span>
+      ),
+    },
+    { accessorKey: "city", header: "City", meta: { hideBelow: "sm" } },
+    { accessorKey: "country", header: "Country", meta: { hideBelow: "md" } },
     {
       accessorKey: "status",
       header: "Status",

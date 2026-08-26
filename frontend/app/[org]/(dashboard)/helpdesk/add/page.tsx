@@ -84,7 +84,7 @@ export default function AddTicketPage() {
               className="min-h-32"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="ticket-category">Category</Label>
               <Select value={category} onValueChange={(v) => setCategory(v ?? "")}>

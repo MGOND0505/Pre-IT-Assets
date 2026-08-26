@@ -41,6 +41,10 @@ const LOOKUPS = [
   { from: "departments", localField: "department", as: "departmentDoc" },
   { from: "vendors", localField: "vendor", as: "vendorDoc" },
   { from: "users", localField: "assignedUser", as: "assignedUserDoc" },
+  // Powers the per-organization Metabase embedding filter (see metabase/README.md) - without
+  // this, both views mix every organization's assets into one undifferentiated dataset, which
+  // would leak every org's data to every org's embedded dashboard.
+  { from: "organizations", localField: "organization", as: "organizationDoc" },
 ];
 
 function lookupStages() {
@@ -131,6 +135,8 @@ const ASSET_REPORT_PIPELINE = [
   {
     $project: {
       _id: 1,
+      organization: { $toString: "$organization" },
+      organizationName: str("$organizationDoc.name"),
       assetId: str("$assetId"),
       name: str("$name"),
       category: str("$categoryDoc.name"),
@@ -223,6 +229,8 @@ const LICENSE_USAGE_PIPELINE = [
   {
     $project: {
       _id: 1,
+      organization: { $toString: "$organization" },
+      organizationName: str("$organizationDoc.name"),
       assetId: str("$assetId"),
       status: str("$status"),
       location: str("$locationDoc.name"),
@@ -233,10 +241,25 @@ const LICENSE_USAGE_PIPELINE = [
       software: SOFTWARE_FIELDS,
     },
   },
-  { $project: { assetId: 1, status: 1, location: 1, department: 1, employeeId: 1, employeeName: 1, designation: 1, software: { $objectToArray: "$software" } } },
+  {
+    $project: {
+      organization: 1,
+      organizationName: 1,
+      assetId: 1,
+      status: 1,
+      location: 1,
+      department: 1,
+      employeeId: 1,
+      employeeName: 1,
+      designation: 1,
+      software: { $objectToArray: "$software" },
+    },
+  },
   { $unwind: "$software" },
   {
     $project: {
+      organization: 1,
+      organizationName: 1,
       assetId: 1,
       status: 1,
       location: 1,

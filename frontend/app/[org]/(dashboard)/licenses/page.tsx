@@ -6,6 +6,7 @@ import { type ColumnDef } from "@tanstack/react-table"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { MagneticButton } from "@/components/ui/magnetic-button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DataTable } from "@/components/common/data-table"
@@ -71,20 +72,38 @@ export default function LicensesPage() {
       accessorKey: "licenseId",
       header: "License ID",
       cell: ({ row }) => (
-        <Link href={toOrgHref(`/licenses/${row.original._id}`)} className="font-medium text-primary hover:underline">
+        <Link
+          href={toOrgHref(`/licenses/${row.original._id}`)}
+          title={row.original.licenseId}
+          className="block min-w-[100px] max-w-[130px] font-medium text-primary whitespace-normal break-words hover:underline"
+        >
           {row.original.licenseId}
         </Link>
       ),
     },
-    { accessorKey: "softwareName", header: "Software" },
+    {
+      accessorKey: "softwareName",
+      header: "Software",
+      cell: ({ row }) => (
+        <span title={row.original.softwareName} className="block min-w-[160px] max-w-[240px] whitespace-normal break-words">
+          {row.original.softwareName}
+        </span>
+      ),
+    },
     {
       accessorKey: "vendor",
       header: "Vendor",
-      cell: ({ row }) => row.original.vendor?.name ?? "-",
+      meta: { hideBelow: "md" },
+      cell: ({ row }) => (
+        <span title={row.original.vendor?.name} className="block min-w-[100px] max-w-[150px] whitespace-normal break-words">
+          {row.original.vendor?.name ?? "-"}
+        </span>
+      ),
     },
     {
       id: "seats",
       header: "Used / Total",
+      meta: { hideBelow: "sm" },
       cell: ({ row }) => `${row.original.assignedUsers.length} / ${row.original.totalLicenses}`,
     },
     {
@@ -111,7 +130,11 @@ export default function LicensesPage() {
           <h1 className="text-2xl font-semibold tracking-tight">All Licenses</h1>
           <p className="text-sm text-muted-foreground">Search, filter, and manage every software license.</p>
         </div>
-        {canCreate && <Button render={<Link href={toOrgHref("/licenses/add")} />}>Add License</Button>}
+        {canCreate && (
+          <MagneticButton>
+            <Button render={<Link href={toOrgHref("/licenses/add")} />}>Add License</Button>
+          </MagneticButton>
+        )}
       </div>
 
       <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">

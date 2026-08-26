@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { MagneticButton } from "@/components/ui/magnetic-button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DataTable } from "@/components/common/data-table"
@@ -79,10 +80,40 @@ export default function TasksPage() {
   }, [canView, load])
 
   const columns: ColumnDef<Task, unknown>[] = [
-    { accessorKey: "taskId", header: "Task" },
-    { accessorKey: "title", header: "Title" },
-    { id: "assignee", header: "Assigned To", cell: ({ row }) => row.original.assignedTo?.name ?? "Unassigned" },
-    { accessorKey: "priority", header: "Priority", cell: ({ row }) => <Badge variant="outline">{row.original.priority}</Badge> },
+    {
+      accessorKey: "taskId",
+      header: "Task",
+      cell: ({ row }) => (
+        <span title={row.original.taskId} className="block min-w-[90px] max-w-[110px] whitespace-normal break-words">
+          {row.original.taskId}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "title",
+      header: "Title",
+      cell: ({ row }) => (
+        <span title={row.original.title} className="block min-w-[180px] max-w-[280px] whitespace-normal break-words">
+          {row.original.title}
+        </span>
+      ),
+    },
+    {
+      id: "assignee",
+      header: "Assigned To",
+      meta: { hideBelow: "md" },
+      cell: ({ row }) => (
+        <span title={row.original.assignedTo?.name} className="block min-w-[100px] max-w-[140px] whitespace-normal break-words">
+          {row.original.assignedTo?.name ?? "Unassigned"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "priority",
+      header: "Priority",
+      meta: { hideBelow: "sm" },
+      cell: ({ row }) => <Badge variant="outline">{row.original.priority}</Badge>,
+    },
     {
       id: "dueDate",
       header: "Due",
@@ -107,7 +138,11 @@ export default function TasksPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
           <p className="text-sm text-muted-foreground">Track work assigned to you and your team.</p>
         </div>
-        {canCreate && <Button render={<Link href={toOrgHref("/tasks/add")} />}>Add Task</Button>}
+        {canCreate && (
+          <MagneticButton>
+            <Button render={<Link href={toOrgHref("/tasks/add")} />}>Add Task</Button>
+          </MagneticButton>
+        )}
       </div>
 
       <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">

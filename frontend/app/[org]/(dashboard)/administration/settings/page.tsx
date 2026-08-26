@@ -261,7 +261,7 @@ export default function SettingsPage() {
             {settings.logoFileName ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={logoUrl}
+                src={logoUrl ?? undefined}
                 alt="Current logo"
                 className="h-12 max-w-40 rounded border bg-background object-contain p-1"
               />
@@ -473,7 +473,7 @@ export default function SettingsPage() {
             <p className="text-xs text-muted-foreground">Add as many recipients as needed, separated by commas.</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="cc-emails">Cc (comma-separated)</Label>
               <Input
@@ -555,7 +555,7 @@ export default function SettingsPage() {
 
           {settings.notificationChannel === "smtp" && (
             <>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="smtp-host">SMTP host</Label>
                   <Input
@@ -638,7 +638,7 @@ export default function SettingsPage() {
                 Requires an Azure AD app registration with the application permission <b>Mail.Send</b> and admin
                 consent granted. The sender must be a real mailbox in the tenant.
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="m365-tenant">Tenant ID</Label>
                   <Input
@@ -689,7 +689,7 @@ export default function SettingsPage() {
                 console, with the Gmail scope <b>https://www.googleapis.com/auth/gmail.send</b>. The sender must be a
                 real mailbox in the Workspace domain.
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="google-sa-email">Service account email</Label>
                   <Input

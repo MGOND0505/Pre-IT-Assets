@@ -21,6 +21,21 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 
+// Lets any column opt into disappearing below a breakpoint (secondary/contact-style columns on
+// narrow screens) while the table falls back to horizontal scroll for whatever's left - never
+// required, so every existing column definition that doesn't set this is completely unaffected.
+declare module "@tanstack/react-table" {
+  interface ColumnMeta<TData, TValue> {
+    hideBelow?: "sm" | "md" | "lg"
+  }
+}
+
+const HIDE_BELOW_CLASS: Record<"sm" | "md" | "lg", string> = {
+  sm: "hidden sm:table-cell",
+  md: "hidden md:table-cell",
+  lg: "hidden lg:table-cell",
+}
+
 type DataTableProps<TData> = {
   columns: ColumnDef<TData, unknown>[]
   data: TData[]
@@ -55,9 +70,10 @@ export function DataTable<TData>({
               {headerGroup.headers.map((header) => {
                 const canSort = header.column.getCanSort()
                 const sorted = header.column.getIsSorted()
+                const hideBelow = header.column.columnDef.meta?.hideBelow
 
                 return (
-                  <TableHead key={header.id}>
+                  <TableHead key={header.id} className={hideBelow ? HIDE_BELOW_CLASS[hideBelow] : undefined}>
                     {header.isPlaceholder ? null : canSort ? (
                       <Button
                         variant="ghost"
@@ -87,11 +103,14 @@ export function DataTable<TData>({
           {isLoading ? (
             Array.from({ length: 5 }).map((_, rowIndex) => (
               <TableRow key={rowIndex} className="hover:bg-transparent">
-                {columns.map((_, colIndex) => (
-                  <TableCell key={colIndex}>
-                    <Skeleton className="h-4 w-full max-w-40" />
-                  </TableCell>
-                ))}
+                {columns.map((col, colIndex) => {
+                  const hideBelow = col.meta?.hideBelow
+                  return (
+                    <TableCell key={colIndex} className={hideBelow ? HIDE_BELOW_CLASS[hideBelow] : undefined}>
+                      <Skeleton className="h-4 w-full max-w-40" />
+                    </TableCell>
+                  )
+                })}
               </TableRow>
             ))
           ) : table.getRowModel().rows.length === 0 ? (
@@ -118,9 +137,14 @@ export function DataTable<TData>({
                     : undefined
                 }
               >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-                ))}
+                {row.getVisibleCells().map((cell) => {
+                  const hideBelow = cell.column.columnDef.meta?.hideBelow
+                  return (
+                    <TableCell key={cell.id} className={hideBelow ? HIDE_BELOW_CLASS[hideBelow] : undefined}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  )
+                })}
               </TableRow>
             ))
           )}

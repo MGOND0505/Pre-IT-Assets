@@ -82,7 +82,7 @@ export const navConfig: NavEntry[] = [
     ],
   },
   {
-    label: "Helpdesk",
+    label: "Tickets",
     icon: LifeBuoy,
     children: [
       { label: "All Tickets", href: "/helpdesk", permission: { area: "helpdesk", action: "view" }, requiresModule: "helpdesk" },
@@ -100,7 +100,7 @@ export const navConfig: NavEntry[] = [
       { label: "Add Task", href: "/tasks/add", permission: { area: "tasks", action: "create" }, requiresModule: "tasks" },
     ],
   },
-  { label: "Reports", href: "/reports", permission: { area: "reports", action: "view" }, requiresModule: "reports", icon: BarChart3 },
+  { label: "Reports & Analytics", href: "/reports", permission: { area: "reports", action: "view" }, requiresModule: "reports", icon: BarChart3 },
   {
     label: "Upload Data",
     href: "/upload",

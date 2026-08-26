@@ -145,6 +145,12 @@ export const getHelpdeskStats = asyncHandler(async (req: Request, res: Response)
   ok(res, stats, "Helpdesk stats");
 });
 
+export const getHelpdeskDashboardSummary = asyncHandler(async (req: Request, res: Response) => {
+  const { days } = req.query as unknown as { days?: number };
+  const summary = await helpdeskService.getHelpdeskDashboardSummary(req.organization!._id, days);
+  ok(res, summary, "Helpdesk dashboard summary");
+});
+
 export const listDeletedTickets = asyncHandler(async (req: Request, res: Response) => {
   const result = await helpdeskService.listTickets(
     { ...(req.query as unknown as Record<string, unknown>), includeDeleted: true },

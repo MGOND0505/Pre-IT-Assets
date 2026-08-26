@@ -324,7 +324,7 @@ export default function AssetDetailPage() {
             </TabsList>
 
             <TabsContent value="overview">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Row label="Asset ID" value={asset.assetId} />
                 <Row label="Name" value={asset.name} />
                 <Row label="Category" value={asset.category?.name} />
@@ -339,7 +339,7 @@ export default function AssetDetailPage() {
             </TabsContent>
 
             <TabsContent value="employee">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Row
                   label="Assigned to (system user)"
                   value={
@@ -357,7 +357,7 @@ export default function AssetDetailPage() {
             </TabsContent>
 
             <TabsContent value="hardware">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Row label="Manufacturer" value={asset.manufacturer} />
                 <Row label="Model" value={asset.model} />
                 <Row label="Serial number" value={asset.serialNumber} />
@@ -378,7 +378,7 @@ export default function AssetDetailPage() {
             </TabsContent>
 
             <TabsContent value="software">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Row label="Operating system" value={asset.operatingSystem} />
                 <Row label="OS license" value={asset.operatingSystemLicense} />
                 <Row label="AD member" value={asset.adMember} />
@@ -404,7 +404,7 @@ export default function AssetDetailPage() {
             </TabsContent>
 
             <TabsContent value="financial">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Row label="Purchase date" value={formatDate(asset.purchaseDate)} />
                 <Row label="Purchase cost" value={asset.purchaseCost != null ? `₹${asset.purchaseCost}` : "-"} />
                 <Row label="Quantity" value={asset.quantity ?? "-"} />
@@ -420,7 +420,7 @@ export default function AssetDetailPage() {
             </TabsContent>
 
             <TabsContent value="condition">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Row label="Condition" value={asset.condition} />
                 <Row label="Approval status" value={asset.approvalStatus} />
                 <Row label="Condition notes" value={asset.conditionNotes} />

@@ -203,6 +203,12 @@
   100% { background-position: 200% 50%; }
 }
 
+/* A single click-ripple on MagneticButton's important CTAs - scales up while fading out. */
+@keyframes btn-ripple {
+  from { transform: scale(0); opacity: 0.55; }
+  to { transform: scale(1); opacity: 0; }
+}
+
 /**
  * Landing-page-only theme: a "premium enterprise tech" dark navy/electric-blue/cyan palette,
  * scoped entirely to this class so it never touches the authenticated admin app's light/indigo

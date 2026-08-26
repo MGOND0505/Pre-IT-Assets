@@ -169,7 +169,7 @@ export function LicenseForm({
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <section className="flex flex-col gap-4">
         <h3 className="text-sm font-semibold text-muted-foreground">Basic information</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Software name" id="lic-software-name" value={form.softwareName} onChange={set("softwareName")} />
           <Field label="Product name" id="lic-product-name" value={form.productName} onChange={set("productName")} />
           <Field label="Publisher" id="lic-publisher" value={form.publisher} onChange={set("publisher")} />
@@ -225,7 +225,7 @@ export function LicenseForm({
 
       <section className="flex flex-col gap-4">
         <h3 className="text-sm font-semibold text-muted-foreground">Dates &amp; quantity</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Purchase date" id="lic-purchase-date" type="date" value={form.purchaseDate} onChange={set("purchaseDate")} />
           <Field label="Start date" id="lic-start-date" type="date" value={form.startDate} onChange={set("startDate")} />
           <Field label="Expiry date" id="lic-expiry-date" type="date" value={form.expiryDate} onChange={set("expiryDate")} />
@@ -238,7 +238,7 @@ export function LicenseForm({
 
       <section className="flex flex-col gap-4">
         <h3 className="text-sm font-semibold text-muted-foreground">Financial &amp; vendor</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Cost per license" id="lic-cost-per" type="number" value={form.costPerLicense} onChange={set("costPerLicense")} />
           <Field label="Total cost" id="lic-total-cost" type="number" value={form.totalCost} onChange={set("totalCost")} />
           <div className="flex flex-col gap-2">
@@ -265,7 +265,7 @@ export function LicenseForm({
 
       <section className="flex flex-col gap-4">
         <h3 className="text-sm font-semibold text-muted-foreground">Department &amp; assigned users</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label htmlFor="lic-department">Department</Label>
             <Select value={form.department} onValueChange={setSelect("department")}>

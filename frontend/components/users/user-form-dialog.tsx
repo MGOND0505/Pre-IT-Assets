@@ -98,8 +98,8 @@ export function UserFormDialog({ onCreated }: { onCreated: () => void }) {
             They&apos;ll be required to change this password the first time they log in.
           </DialogDescription>
         </DialogHeader>
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="grid grid-cols-2 gap-4">
+        <form className="flex min-w-0 flex-col gap-4" onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="user-name">Name</Label>
               <Input id="user-name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -155,7 +155,7 @@ export function UserFormDialog({ onCreated }: { onCreated: () => void }) {
             <Input id="user-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex min-w-0 flex-col gap-2">
             <Label>Permissions</Label>
             <PermissionGrid
               isAdmin={isAdmin}

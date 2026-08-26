@@ -249,3 +249,120 @@ export async function getHelpdeskStats(organizationId: string) {
     avgResolutionMinutes: resolutionTimings[0] ? Math.round(resolutionTimings[0].avgResolutionMs / 60000) : null,
   };
 }
+
+const DASHBOARD_DAY_MS = 24 * 60 * 60 * 1000;
+
+function dashboardLastNDays(now: Date, days: number): string[] {
+  const result: string[] = [];
+  for (let i = days - 1; i >= 0; i--) result.push(new Date(now.getTime() - i * DASHBOARD_DAY_MS).toISOString().slice(0, 10));
+  return result;
+}
+
+/**
+ * The org-scoped dashboard's ticket widgets (donut, trend, top categories, insights, alerts) -
+ * the exact same shape and computation as the Super Admin platform-wide dashboard
+ * (organizations.service.ts#getSuperAdminDashboardStats), just filtered to one organization
+ * instead of aggregating across all of them. Every number is real; nothing here is invented.
+ */
+export async function getHelpdeskDashboardSummary(organizationId: string, days = 7) {
+  const base = { organization: organizationId, isDeleted: false };
+  const now = new Date();
+  const periodAgo = new Date(now.getTime() - days * DASHBOARD_DAY_MS);
+  const priorPeriodAgo = new Date(now.getTime() - 2 * days * DASHBOARD_DAY_MS);
+
+  const [
+    open,
+    newInPeriod,
+    byStatusRaw,
+    slaBreaches,
+    topCategoriesRaw,
+    trendRaw,
+    ticketsInPriorPeriod,
+    breachedTicketsRaw,
+    topCategoryInPeriodRaw,
+  ] = await Promise.all([
+    Ticket.countDocuments({ ...base, status: { $nin: TERMINAL_STATUSES } }),
+    Ticket.countDocuments({ ...base, createdDate: { $gte: periodAgo } }),
+    Ticket.aggregate([{ $match: base }, { $group: { _id: "$status", count: { $sum: 1 } } }]),
+    Ticket.countDocuments({
+      ...base,
+      status: { $nin: TERMINAL_STATUSES },
+      slaResolutionDueAt: { $ne: null, $lt: now },
+    }),
+    Ticket.aggregate([
+      { $match: { ...base, category: { $ne: null } } },
+      { $lookup: { from: "helpdeskcategories", localField: "category", foreignField: "_id", as: "cat" } },
+      { $unwind: "$cat" },
+      { $group: { _id: "$cat.name", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 },
+    ]),
+    Ticket.aggregate([
+      { $match: { ...base, createdDate: { $gte: periodAgo } } },
+      {
+        $project: {
+          day: { $dateToString: { format: "%Y-%m-%d", date: "$createdDate" } },
+          bucket: {
+            $switch: {
+              branches: [
+                { case: { $eq: ["$status", "Resolved"] }, then: "resolved" },
+                { case: { $eq: ["$status", "Closed"] }, then: "closed" },
+              ],
+              default: "open",
+            },
+          },
+        },
+      },
+      { $group: { _id: { day: "$day", bucket: "$bucket" }, count: { $sum: 1 } } },
+    ]),
+    Ticket.countDocuments({ ...base, createdDate: { $gte: priorPeriodAgo, $lt: periodAgo } }),
+    Ticket.find({
+      ...base,
+      status: { $nin: TERMINAL_STATUSES },
+      slaResolutionDueAt: { $ne: null, $lt: now },
+    })
+      .select("ticketId subject slaResolutionDueAt")
+      .sort({ slaResolutionDueAt: 1 })
+      .limit(5),
+    Ticket.aggregate([
+      { $match: { ...base, category: { $ne: null }, createdDate: { $gte: periodAgo } } },
+      { $lookup: { from: "helpdeskcategories", localField: "category", foreignField: "_id", as: "cat" } },
+      { $unwind: "$cat" },
+      { $group: { _id: "$cat.name", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 1 },
+    ]),
+  ]);
+
+  const byStatus: Record<string, number> = {};
+  for (const row of byStatusRaw as { _id: string | null; count: number }[]) {
+    byStatus[row._id ?? "Unknown"] = row.count;
+  }
+
+  const trendByDay = new Map<string, { open: number; resolved: number; closed: number }>();
+  for (const day of dashboardLastNDays(now, days)) trendByDay.set(day, { open: 0, resolved: 0, closed: 0 });
+  for (const row of trendRaw as { _id: { day: string; bucket: "open" | "resolved" | "closed" }; count: number }[]) {
+    const bucket = trendByDay.get(row._id.day);
+    if (bucket) bucket[row._id.bucket] = row.count;
+  }
+
+  return {
+    open,
+    newInPeriod,
+    byStatus,
+    slaBreaches,
+    topCategories: (topCategoriesRaw as { _id: string; count: number }[]).map((r) => ({ name: r._id, count: r.count })),
+    trend: Array.from(trendByDay.entries()).map(([date, counts]) => ({ date, ...counts })),
+    insights: {
+      days,
+      ticketVolumeChangePct:
+        ticketsInPriorPeriod > 0 ? Math.round(((newInPeriod - ticketsInPriorPeriod) / ticketsInPriorPeriod) * 100) : null,
+      ticketsInPeriod: newInPeriod,
+      ticketsInPriorPeriod,
+      topCategoryInPeriod: (topCategoryInPeriodRaw as { _id: string; count: number }[])[0]?._id ?? null,
+    },
+    alerts: (breachedTicketsRaw as { _id: unknown; ticketId: string; subject: string; slaResolutionDueAt: Date }[]).map(
+      (t) => ({ id: String(t._id), ticketId: t.ticketId, subject: t.subject, slaResolutionDueAt: t.slaResolutionDueAt })
+    ),
+  };
+}

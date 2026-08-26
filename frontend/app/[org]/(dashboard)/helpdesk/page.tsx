@@ -2,12 +2,13 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { type ColumnDef } from "@tanstack/react-table"
 import { toast } from "sonner"
 import { Ticket as TicketIcon, Inbox, Clock3, CheckCircle2, AlertTriangle, Timer } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { MagneticButton } from "@/components/ui/magnetic-button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -65,6 +66,7 @@ function KpiCard({ label, value, icon: Icon }: { label: string; value: number | 
 export default function HelpdeskPage() {
   const router = useRouter()
   const toOrgHref = useOrgHref()
+  const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
   const { items: priorities } = useHelpdeskPriorityOptions()
   const [data, setData] = React.useState<Paginated | null>(null)
@@ -72,7 +74,12 @@ export default function HelpdeskPage() {
   const [loading, setLoading] = React.useState(true)
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState("")
-  const [status, setStatus] = React.useState<string>(ALL)
+  // Pre-filtered from a dashboard drill-down link (e.g. clicking a slice on the Tickets by
+  // status donut) - read once on mount so the list opens already scoped to what was clicked.
+  const [status, setStatus] = React.useState<string>(() => {
+    const fromUrl = searchParams.get("status")
+    return fromUrl && (TICKET_STATUSES as readonly string[]).includes(fromUrl) ? fromUrl : ALL
+  })
   const [priority, setPriority] = React.useState<string>(ALL)
 
   const canView = can(user, "helpdesk", "view")
@@ -111,29 +118,68 @@ export default function HelpdeskPage() {
       accessorKey: "ticketId",
       header: "Ticket",
       cell: ({ row }) => (
-        <Link href={toOrgHref(`/helpdesk/${row.original._id}`)} className="font-medium text-primary hover:underline">
+        <Link
+          href={toOrgHref(`/helpdesk/${row.original._id}`)}
+          title={row.original.ticketId}
+          className="block min-w-[90px] max-w-[110px] font-medium text-primary whitespace-normal break-words hover:underline"
+        >
           {row.original.ticketId}
         </Link>
       ),
     },
-    { accessorKey: "subject", header: "Subject" },
+    {
+      accessorKey: "subject",
+      header: "Subject",
+      cell: ({ row }) => (
+        <span title={row.original.subject} className="block min-w-[180px] max-w-[280px] whitespace-normal break-words">
+          {row.original.subject}
+        </span>
+      ),
+    },
     {
       id: "priority",
       header: "Priority",
       cell: ({ row }) =>
         row.original.priority ? (
           <span className="flex items-center gap-1.5">
-            <span className="size-2 rounded-full" style={{ backgroundColor: row.original.priority.color }} />
+            <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: row.original.priority.color }} />
             {row.original.priority.name}
           </span>
         ) : (
           "-"
         ),
     },
-    { id: "category", header: "Category", cell: ({ row }) => row.original.category?.name ?? "-" },
-    { id: "requester", header: "Requester", cell: ({ row }) => row.original.requester?.name ?? "-" },
-    { id: "agent", header: "Agent", cell: ({ row }) => row.original.assignedAgent?.name ?? "Unassigned" },
-    { accessorKey: "tier", header: "Tier" },
+    {
+      id: "category",
+      header: "Category",
+      meta: { hideBelow: "lg" },
+      cell: ({ row }) => (
+        <span title={row.original.category?.name} className="block min-w-[90px] max-w-[130px] whitespace-normal break-words">
+          {row.original.category?.name ?? "-"}
+        </span>
+      ),
+    },
+    {
+      id: "requester",
+      header: "Requester",
+      meta: { hideBelow: "md" },
+      cell: ({ row }) => (
+        <span title={row.original.requester?.name} className="block min-w-[100px] max-w-[140px] whitespace-normal break-words">
+          {row.original.requester?.name ?? "-"}
+        </span>
+      ),
+    },
+    {
+      id: "agent",
+      header: "Agent",
+      meta: { hideBelow: "md" },
+      cell: ({ row }) => (
+        <span title={row.original.assignedAgent?.name} className="block min-w-[100px] max-w-[140px] whitespace-normal break-words">
+          {row.original.assignedAgent?.name ?? "Unassigned"}
+        </span>
+      ),
+    },
+    { accessorKey: "tier", header: "Tier", meta: { hideBelow: "lg" } },
     { id: "status", header: "Status", cell: ({ row }) => <TicketStatusBadge status={row.original.status} /> },
   ]
 
@@ -149,7 +195,11 @@ export default function HelpdeskPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Helpdesk</h1>
           <p className="text-sm text-muted-foreground">Track and manage support tickets.</p>
         </div>
-        {canCreate && <Button render={<Link href={toOrgHref("/helpdesk/add")} />}>Add Ticket</Button>}
+        {canCreate && (
+          <MagneticButton>
+            <Button render={<Link href={toOrgHref("/helpdesk/add")} />}>Add Ticket</Button>
+          </MagneticButton>
+        )}
       </div>
 
       {stats && (

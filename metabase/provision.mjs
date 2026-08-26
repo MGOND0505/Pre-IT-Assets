@@ -389,6 +389,11 @@ const CARDS = [
 // ---------------------------------------------------------------------------
 
 const FILTERS = [
+  // Always first and always mapped on every card of both tables - this is the one filter the
+  // backend locks to the current organization's real ID when generating a signed embed URL
+  // (see metabase/README.md's Embedding section), so it must resolve on every single card or a
+  // card would silently show every organization's rows to an embedded viewer.
+  { name: "Organization", type: "string/=", map: { asset: "organization", license: "organization" } },
   { name: "Location", type: "string/=", map: { asset: "location", license: "location" } },
   { name: "Sub-Location", type: "string/=", map: { asset: "subLocation" } },
   { name: "Department", type: "string/=", map: { asset: "department", license: "department" } },
@@ -539,6 +544,18 @@ dashResult = await put(`/api/dashboard/${dashboard.id}`, {
   parameters,
   dashcards: mappedDashcards,
 });
+
+// --- Embedding: lock the Organization filter so a signed embed URL can only ever show the one
+// organization the backend put in the token - every other filter stays editable by the embedded
+// viewer, but this one specifically can never be overridden client-side. Re-run-safe: the
+// dashboard is recreated each time provision.mjs runs, so this has to be re-applied every run
+// (the account-wide secret key itself is separate - see setup_embedding.mjs, run once).
+const orgFilter = parameters.find((p) => p.name === "Organization");
+await put(`/api/dashboard/${dashboard.id}`, {
+  enable_embedding: true,
+  embedding_params: { [orgFilter.slug]: "locked" },
+});
+console.log(`Embedding enabled, "${orgFilter.name}" filter locked (slug: ${orgFilter.slug}).`);
 
 console.log("\nDone.");
 console.log(`Dashboard URL: ${BASE}/dashboard/${dashboard.id}`);

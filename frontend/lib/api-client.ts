@@ -26,7 +26,12 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use((config) => {
   const url = config.url ?? ""
   const isUnprefixedRoute =
-    url === "/auth" || url.startsWith("/auth/") || url === "/organizations" || url.startsWith("/organizations/")
+    url === "/auth" ||
+    url.startsWith("/auth/") ||
+    url === "/organizations" ||
+    url.startsWith("/organizations/") ||
+    url === "/health" ||
+    url.startsWith("/health/")
   if (!isUnprefixedRoute && typeof window !== "undefined") {
     const orgSlug = getOrgSlugFromPathname(window.location.pathname)
     if (orgSlug) {
@@ -62,9 +67,13 @@ export function orgScopedApiUrl(path: string): string {
 }
 
 /** The logo is served from the public, unauthenticated /public/logo endpoint (raw <img src>,
- * never through axios/the interceptor above) - build its URL the same org-slug-prefixed way. */
-export function publicLogoUrl(extraQuery = ""): string {
-  return orgScopedApiUrl(`/public/logo${extraQuery}`)
+ * never through axios/the interceptor above) - build its URL the same org-slug-prefixed way.
+ * Returns null (not "") when there's no org in the URL (e.g. the Super Admin panel's own
+ * pages) - an <img src=""> re-requests the current document, which is exactly the mistake this
+ * return type exists to make impossible for callers to make. */
+export function publicLogoUrl(extraQuery = ""): string | null {
+  const url = orgScopedApiUrl(`/public/logo${extraQuery}`)
+  return url || null
 }
 
 export function apiErrorMessage(error: unknown, fallback = "Something went wrong"): string {

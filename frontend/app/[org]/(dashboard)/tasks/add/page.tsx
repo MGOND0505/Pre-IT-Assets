@@ -87,7 +87,7 @@ export default function AddTaskPage() {
               className="min-h-32"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="task-assignee">Assign to</Label>
               <Select value={assignedTo} onValueChange={(v) => setAssignedTo(v ?? "")}>

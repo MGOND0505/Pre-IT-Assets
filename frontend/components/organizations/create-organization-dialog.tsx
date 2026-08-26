@@ -157,7 +157,7 @@ export function CreateOrganizationDialog({ onCreated }: { onCreated: (slug: stri
 
           <div className="border-t pt-4">
             <p className="mb-3 text-sm font-medium">Validity period</p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="org-create-valid-from">Valid from</Label>
                 <Input id="org-create-valid-from" type="date" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />

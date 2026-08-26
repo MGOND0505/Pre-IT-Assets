@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Bell } from "lucide-react"
+import { Bell, CheckCircle2 } from "lucide-react"
 
 function AttentionChip({ label, count, href, color }: { label: string; count: number; href: string; color: string }) {
   if (count === 0) return null
@@ -23,11 +23,26 @@ function AttentionChip({ label, count, href, color }: { label: string; count: nu
 
 export function AttentionBanner({
   items,
+  loading,
 }: {
   items: { label: string; count: number; href: string; color: string }[]
+  /** Skips rendering entirely while the underlying stats are still loading, so this never
+   * briefly flashes "all clear" before the real (possibly non-zero) counts arrive. */
+  loading?: boolean
 }) {
+  if (loading) return null
+
   const hasItems = items.some((item) => item.count > 0)
-  if (!hasItems) return null
+
+  if (!hasItems) {
+    return (
+      <div className="flex items-center gap-2.5 rounded-xl border border-success/25 bg-success/5 p-4 text-sm">
+        <CheckCircle2 className="size-4 shrink-0 text-success" />
+        <span className="font-medium text-foreground">All clear</span>
+        <span className="text-muted-foreground">Nothing needs your attention right now.</span>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/8 via-amber-500/5 to-transparent p-4">

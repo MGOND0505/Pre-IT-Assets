@@ -6,7 +6,47 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+/** Walks the JSX as authored (SelectContent/SelectGroup/.map() arrays and all) to build a
+ * value -> label map, without needing to reach into Base UI's own portal/popup internals -
+ * those wrap this exact children tree unchanged once the popup actually opens. */
+function extractSelectItems(children: React.ReactNode): Record<string, React.ReactNode> {
+  const items: Record<string, React.ReactNode> = {}
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return
+    const props = child.props as { value?: unknown; children?: React.ReactNode }
+    if (child.type === SelectItem) {
+      if (props.value != null) items[String(props.value)] = props.children
+      return
+    }
+    if (props.children != null) {
+      Object.assign(items, extractSelectItems(props.children))
+    }
+  })
+  return items
+}
+
+/** Base UI's <Select.Value> can only show a real label once it knows about the item - normally
+ * that happens when the popup opens for the first time and its <Select.Item>s register
+ * themselves. Until then (e.g. a freshly-opened dialog whose Select already has a value, before
+ * the user has ever clicked it open), it falls back to printing the raw value string - visible
+ * as things like "__none__" or "noAccess" instead of "None"/"No Access". Passing `items` (a
+ * plain value->label map, Base UI's own documented fix for exactly this) up front closes that
+ * gap for every Select in the app that renders its options as SelectItem children, with no
+ * change needed at any individual call site. */
+function Select<Value = string, Multiple extends boolean | undefined = false>({
+  children,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  const items = React.useMemo(() => extractSelectItems(children), [children])
+  return (
+    // Every Select in this codebase uses plain string values/SelectItems, so the extracted
+    // Record<string, ReactNode> always matches at runtime - cast narrowly here rather than
+    // widening the whole component's public (generic, inference-preserving) signature to fit.
+    <SelectPrimitive.Root items={items as never} {...props}>
+      {children}
+    </SelectPrimitive.Root>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (

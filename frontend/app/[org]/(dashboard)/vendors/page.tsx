@@ -65,10 +65,45 @@ export default function VendorsPage() {
   }
 
   const columns: ColumnDef<Vendor, unknown>[] = [
-    { accessorKey: "name", header: "Name" },
-    { accessorKey: "contactPerson", header: "Contact" },
-    { accessorKey: "service", header: "Service" },
-    { accessorKey: "email", header: "Email" },
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => (
+        <span title={row.original.name} className="block min-w-[110px] max-w-[170px] whitespace-normal break-words">
+          {row.original.name}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "contactPerson",
+      header: "Contact",
+      meta: { hideBelow: "md" },
+      cell: ({ row }) => (
+        <span title={row.original.contactPerson} className="block min-w-[100px] max-w-[150px] whitespace-normal break-words">
+          {row.original.contactPerson || "-"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "service",
+      header: "Service",
+      meta: { hideBelow: "lg" },
+      cell: ({ row }) => (
+        <span title={row.original.service} className="block min-w-[120px] max-w-[200px] whitespace-normal break-words">
+          {row.original.service || "-"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      meta: { hideBelow: "md" },
+      cell: ({ row }) => (
+        <span title={row.original.email} className="block min-w-[140px] max-w-[220px] whitespace-normal break-words">
+          {row.original.email || "-"}
+        </span>
+      ),
+    },
     {
       accessorKey: "status",
       header: "Status",

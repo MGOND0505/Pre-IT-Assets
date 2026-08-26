@@ -16,6 +16,15 @@ function refineValidityWindow<T extends { validFrom?: Date; validUntil?: Date }>
   });
 }
 
+export const globalSearchQuerySchema = z.object({
+  q: z.string().trim().min(2).max(100),
+});
+
+export const dashboardStatsQuerySchema = z.object({
+  days: z.coerce.number().int().refine((v) => [7, 14, 30].includes(v), "days must be 7, 14, or 30").optional(),
+  organizationId: z.string().length(24).optional(),
+});
+
 export const listOrganizationsQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().max(100).optional(),
