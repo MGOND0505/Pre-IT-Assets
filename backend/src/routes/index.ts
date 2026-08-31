@@ -20,6 +20,7 @@ import { supportTeamsRouter } from "../modules/supportTeams/supportTeams.routes"
 import { tasksRouter } from "../modules/tasks/tasks.routes";
 import { searchRouter } from "../modules/search/search.routes";
 import { analyticsRouter } from "../modules/analytics/analytics.routes";
+import { aiAssistantRouter } from "../modules/ai-assistant/ai-assistant.routes";
 
 /** Mounted under /api/:orgSlug - authenticate + resolveOrganization already ran by the time
  * any of these routers see the request (see app.ts), so none of them need their own
@@ -57,3 +58,4 @@ orgScopedRouter.use("/helpdesk-priorities", requireModuleEnabled("helpdesk"), he
 orgScopedRouter.use("/support-teams", requireModuleEnabled("helpdesk"), supportTeamsRouter);
 orgScopedRouter.use("/tasks", requireModuleEnabled("tasks"), tasksRouter);
 orgScopedRouter.use("/search", searchRouter);
+orgScopedRouter.use("/ai-assistant", aiAssistantRouter);

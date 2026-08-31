@@ -50,6 +50,11 @@ type ListInput = {
   location?: string;
   department?: string;
   vendor?: string;
+  assignedUser?: string;
+  /** "active" = warrantyEnd in the future, "expired" = warrantyEnd in the past, "expiringSoon" =
+   * warrantyEnd within the next 30 days. Only assets with a warrantyEnd set ever match any of
+   * these - an asset with no warranty data isn't silently counted as "expired". */
+  warrantyStatus?: "active" | "expired" | "expiringSoon";
   purchaseDateFrom?: Date;
   purchaseDateTo?: Date;
   sortBy?: string;
@@ -70,11 +75,22 @@ export async function listAssets(input: ListInput, organizationId: string) {
   if (input.location) filter.location = input.location;
   if (input.department) filter.department = input.department;
   if (input.vendor) filter.vendor = input.vendor;
+  if (input.assignedUser) filter.assignedUser = input.assignedUser;
   if (input.purchaseDateFrom || input.purchaseDateTo) {
     filter.purchaseDate = {
       ...(input.purchaseDateFrom ? { $gte: input.purchaseDateFrom } : {}),
       ...(input.purchaseDateTo ? { $lte: input.purchaseDateTo } : {}),
     };
+  }
+  if (input.warrantyStatus) {
+    const now = new Date();
+    if (input.warrantyStatus === "active") {
+      filter.warrantyEnd = { $ne: null, $gte: now };
+    } else if (input.warrantyStatus === "expired") {
+      filter.warrantyEnd = { $ne: null, $lt: now };
+    } else {
+      filter.warrantyEnd = { $ne: null, $gte: now, $lte: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) };
+    }
   }
   if (input.search) {
     const matchingUsers = await User.find({

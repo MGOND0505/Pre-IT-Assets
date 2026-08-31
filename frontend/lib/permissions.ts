@@ -13,6 +13,7 @@ export const PERMISSION_MODULES = [
   "settings",
   "helpdesk",
   "tasks",
+  "aiAssistant",
 ] as const
 export type PermissionModule = (typeof PERMISSION_MODULES)[number]
 
@@ -76,6 +77,7 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
     "export",
   ],
   tasks: ["view", "create", "update", "delete", "assign"],
+  aiAssistant: ["view"],
 }
 
 export const MODULE_LABELS: Record<PermissionModule, string> = {
@@ -91,6 +93,7 @@ export const MODULE_LABELS: Record<PermissionModule, string> = {
   settings: "Settings",
   helpdesk: "Helpdesk",
   tasks: "Tasks",
+  aiAssistant: "AssetIQ AI",
 }
 
 type ModulePermissions = { [action in PermissionAction]: boolean }

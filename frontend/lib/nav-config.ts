@@ -8,6 +8,7 @@ import {
   BarChart3,
   UploadCloud,
   Settings,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react"
 import type { EntitlementModule, PermissionAction, PermissionModule } from "@/lib/permissions"
@@ -62,6 +63,7 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
  */
 export const navConfig: NavEntry[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  { label: "AssetIQ AI", href: "/ai-assistant", icon: Sparkles, permission: { area: "aiAssistant", action: "view" } },
   { label: "Organization", href: "/organization", superAdminOnly: true, icon: Building2 },
   {
     label: "Assets",

@@ -11,6 +11,7 @@ export const PERMISSION_MODULES = [
   "settings",
   "helpdesk",
   "tasks",
+  "aiAssistant",
 ] as const;
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];
 
@@ -79,6 +80,7 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
     "export",
   ],
   tasks: ["view", "create", "update", "delete", "assign"],
+  aiAssistant: ["view"],
 };
 
 type ModulePermissions = { [action in PermissionAction]: boolean };
