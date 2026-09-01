@@ -102,10 +102,31 @@ export function publicLogoUrl(extraQuery = ""): string | null {
   return url || null
 }
 
+/** Shape of zod's `.flatten()`, which the backend's validate() middleware attaches as the
+ * envelope's `error` field on a 422 - see backend/src/middleware/validate.ts. */
+type ZodFlattenedError = { formErrors?: string[]; fieldErrors?: Record<string, string[] | undefined> }
+
+function isZodFlattenedError(value: unknown): value is ZodFlattenedError {
+  return typeof value === "object" && value !== null && ("fieldErrors" in value || "formErrors" in value)
+}
+
+/** A 422's top-level message is always the generic "Validation failed" - genuinely useless on its
+ * own (which field?). Appends the first message per offending field from the zod details the
+ * backend already sends, so e.g. "Validation failed" becomes "Validation failed - email: Invalid
+ * email". Every other error shape (409 conflicts, 403s, etc.) is unaffected - those already carry
+ * a real message. */
 export function apiErrorMessage(error: unknown, fallback = "Something went wrong"): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as ApiEnvelope<null> | undefined
-    return data?.message ?? fallback
+    const message = data?.message ?? fallback
+    if (isZodFlattenedError(data?.error)) {
+      const fieldErrors = data.error.fieldErrors ?? {}
+      const details = Object.entries(fieldErrors)
+        .filter((entry): entry is [string, string[]] => Boolean(entry[1]?.length))
+        .map(([field, messages]) => `${field}: ${messages[0]}`)
+      if (details.length > 0) return `${message} - ${details.join("; ")}`
+    }
+    return message
   }
   return fallback
 }
