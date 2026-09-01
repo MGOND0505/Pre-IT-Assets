@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import { License, type ILicense } from "../../models/License";
 import { ApiError } from "../../utils/ApiError";
 import { claimNextLicenseSequence } from "../settings/settings.service";
@@ -10,6 +11,15 @@ const POPULATE_FIELDS = [
   { path: "department", select: "name" },
   { path: "assignedUsers", select: "name email employeeId" },
 ];
+
+type RequestingUser = { id: string; isAdmin: boolean; permissions: { licenses: { update: boolean } } };
+
+/** A caller can only see the whole org's licenses if they can act on them beyond what's assigned
+ * to them (update rights) - anyone with just view/create only sees licenses they're personally
+ * assigned to. Same pattern as canViewAllAssets/canViewAllTickets/canViewAllTasks. */
+export function canViewAllLicenses(user: RequestingUser) {
+  return user.isAdmin || user.permissions.licenses.update;
+}
 
 async function generateLicenseId(organizationId: string): Promise<string> {
   const { prefix, sequence } = await claimNextLicenseSequence(organizationId);
@@ -26,7 +36,7 @@ type ListInput = {
   includeDeleted?: boolean;
 };
 
-export async function listLicenses(organizationId: string, input: ListInput) {
+export async function listLicenses(organizationId: string, input: ListInput, requestingUser: RequestingUser) {
   const page = input.page ?? 1;
   const limit = input.limit ?? 20;
 
@@ -34,6 +44,9 @@ export async function listLicenses(organizationId: string, input: ListInput) {
     organization: organizationId,
     isDeleted: input.includeDeleted ? true : false,
   };
+  if (!canViewAllLicenses(requestingUser)) {
+    filter.assignedUsers = requestingUser.id;
+  }
   if (input.status) filter.status = input.status;
   if (input.category) filter.category = input.category;
   if (input.vendor) filter.vendor = input.vendor;
@@ -66,6 +79,21 @@ export async function getLicenseById(organizationId: string, id: string) {
   return license;
 }
 
+/** 404, not 403, for a non-owner - same pattern as assets/tickets/tasks (getAssetByIdForRequester
+ * etc.), so a non-view-all caller can't distinguish "doesn't exist" from "not yours" by probing
+ * ids directly. */
+export async function getLicenseByIdForRequester(organizationId: string, id: string, requestingUser: RequestingUser) {
+  const license = await getLicenseById(organizationId, id);
+  if (!canViewAllLicenses(requestingUser)) {
+    const isAssignedToMe = license.assignedUsers.some((u) => {
+      const assignedUser = u as unknown as { _id?: unknown };
+      return String(assignedUser._id ?? assignedUser) === requestingUser.id;
+    });
+    if (!isAssignedToMe) throw new ApiError(404, "License not found");
+  }
+  return license;
+}
+
 type LicenseInput = Partial<Omit<ILicense, "licenseId" | "organization">>;
 
 export async function createLicense(organizationId: string, input: LicenseInput, createdBy: string) {
@@ -91,7 +119,12 @@ export async function updateLicense(organizationId: string, id: string, input: L
     throw new ApiError(409, "Cannot assign more users than the total license seats");
   }
 
+  // Merge, not replace - a request that doesn't mention a given custom field key (or one
+  // belonging to a now-Inactive definition) must leave its previously-stored value untouched.
+  // See customFieldValues.service.ts#validateCustomFieldValues.
+  const customFields = input.customFields ? { ...license.customFields, ...input.customFields } : undefined;
   Object.assign(license, input);
+  if (customFields) license.customFields = customFields;
   await license.save();
   return license;
 }
@@ -123,6 +156,27 @@ export async function getLicenseStats(organizationId: string) {
   ]);
 
   return { total, active, expiringSoon, expired };
+}
+
+/** Unlike getLicenseStats above (always org-wide), this is always scoped to exactly one user's
+ * own assigned licenses, regardless of their view-all permission - powers the Employee Portal's
+ * "My Licenses" widget. */
+export async function getMyLicenseSummary(organizationId: string, userId: string) {
+  const filter = {
+    organization: new Types.ObjectId(organizationId),
+    isDeleted: false,
+    assignedUsers: new Types.ObjectId(userId),
+  };
+
+  const [total, byStatusRaw] = await Promise.all([
+    License.countDocuments(filter),
+    License.aggregate([{ $match: filter }, { $group: { _id: "$status", count: { $sum: 1 } } }]),
+  ]);
+
+  const byStatus: Record<string, number> = {};
+  for (const row of byStatusRaw as { _id: string; count: number }[]) byStatus[row._id] = row.count;
+
+  return { total, byStatus };
 }
 
 export async function restoreLicense(organizationId: string, id: string) {

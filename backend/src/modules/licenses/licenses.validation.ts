@@ -23,6 +23,9 @@ export const createLicenseSchema = z.object({
   poNumber: z.string().optional().default(""),
   invoiceNumber: z.string().optional().default(""),
   notes: z.string().optional().default(""),
+  // Real per-field validation (required-ness, type, select options) happens server-side in
+  // validateCustomFieldValues, not here - this just needs to not strip or reject the field.
+  customFields: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const updateLicenseSchema = createLicenseSchema.partial();

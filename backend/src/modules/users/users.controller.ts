@@ -75,7 +75,7 @@ export const updateUserPermissions = asyncHandler(async (req: Request, res: Resp
 });
 
 export const bulkApplyDefaultPermissions = asyncHandler(async (req: Request, res: Response) => {
-  const result = await usersService.bulkApplyDefaultPermissions(req.body.userIds, req.organization!._id);
+  const result = await usersService.bulkApplyDefaultPermissions(req.body.userIds, req.organization!._id, req.body.roleId);
 
   await logAction({
     req,

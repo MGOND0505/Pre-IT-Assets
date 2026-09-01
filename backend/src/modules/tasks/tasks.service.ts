@@ -164,11 +164,12 @@ export async function updateTask(id: string, input: UpdateInput, organizationId:
   return getTaskById(id, organizationId);
 }
 
-export async function setTaskStatus(id: string, status: TaskStatus, organizationId: string) {
+export async function setTaskStatus(id: string, status: TaskStatus, remark: string, organizationId: string) {
   if (!TASK_STATUSES.includes(status)) throw new ApiError(400, "Invalid task status");
   const task = await getTaskById(id, organizationId);
 
   task.status = status;
+  task.lastRemark = remark;
   task.completedAt = status === "Done" ? new Date() : null;
   // A task that comes back to life (reopened from Done/Cancelled) deserves a fresh overdue
   // read rather than being silently skipped forever because a notice already went out once.

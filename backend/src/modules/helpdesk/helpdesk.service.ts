@@ -138,6 +138,7 @@ type CreateInput = {
   priority: string;
   department?: string;
   location?: string;
+  customFields?: Record<string, unknown>;
 };
 
 export async function createTicket(input: CreateInput, organizationId: string, requesterId: string) {
@@ -169,6 +170,7 @@ export async function createTicket(input: CreateInput, organizationId: string, r
         slaResponseDueAt: new Date(now.getTime() + priority.slaResponseMinutes * 60 * 1000),
         slaResolutionDueAt: new Date(now.getTime() + priority.slaResolutionMinutes * 60 * 1000),
         createdBy: requesterId,
+        customFields: input.customFields ?? {},
       });
 
       const autoAssign = await resolveAutoAssignee(input.category, organizationId);
@@ -194,11 +196,18 @@ type UpdateInput = Partial<{
   priority: string;
   department: string;
   location: string;
+  customFields: Record<string, unknown>;
 }>;
 
 export async function updateTicket(id: string, input: UpdateInput, organizationId: string) {
   const ticket = await getTicketById(id, organizationId);
+
+  // Merge, not replace - a request that doesn't mention a given custom field key (or one
+  // belonging to a now-Inactive definition) must leave its previously-stored value untouched.
+  // See customFieldValues.service.ts#validateCustomFieldValues.
+  const customFields = input.customFields ? { ...ticket.customFields, ...input.customFields } : undefined;
   Object.assign(ticket, input);
+  if (customFields) ticket.customFields = customFields;
   await ticket.save();
   return getTicketById(id, organizationId);
 }

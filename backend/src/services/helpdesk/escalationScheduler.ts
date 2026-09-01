@@ -5,6 +5,7 @@ import { AuditLog } from "../../models/AuditLog";
 import { notifyTicketEvent, buildAssignmentVars, idOf } from "../../modules/helpdesk/helpdeskNotifications";
 import { notifyTaskEvent } from "../../modules/tasks/taskNotifications";
 import { logger } from "../../utils/logger";
+import { recordSchedulerRun, SCHEDULER_KEYS } from "../monitoring/schedulerRun.service";
 
 const ESCALATION_POPULATE_FIELDS = [
   { path: "category", select: "name" },
@@ -34,10 +35,13 @@ async function sendSlaWarnings(): Promise<number> {
     ticket.slaWarningSent = true;
     await ticket.save();
     if (ticket.assignedAgent) {
-      await notifyTicketEvent("ticketSlaWarning", String(ticket.assignedAgent), String(ticket.organization), {
-        ticketId: ticket.ticketId,
-        subject: ticket.subject,
-      });
+      await notifyTicketEvent(
+        "ticketSlaWarning",
+        String(ticket.assignedAgent),
+        String(ticket.organization),
+        { ticketId: ticket.ticketId, subject: ticket.subject },
+        String(ticket._id)
+      );
     }
   }
   return tickets.length;
@@ -80,7 +84,7 @@ async function escalateBreachedTickets(): Promise<number> {
 
       if (ticket.assignedAgent) {
         const vars = buildAssignmentVars(ticket, { assignedBy: "System (SLA breach)", tier: ticket.tier });
-        await notifyTicketEvent("ticketEscalated", idOf(ticket.assignedAgent), String(ticket.organization), vars);
+        await notifyTicketEvent("ticketEscalated", idOf(ticket.assignedAgent), String(ticket.organization), vars, String(ticket._id));
       }
     } else {
       await ticket.save();
@@ -113,7 +117,7 @@ async function notifyOverdueTasks(): Promise<number> {
   return tasks.length;
 }
 
-export async function runEscalationCheck(): Promise<void> {
+export async function runEscalationCheck(): Promise<number> {
   const [warned, escalated, overdueTasks] = await Promise.all([
     sendSlaWarnings(),
     escalateBreachedTickets(),
@@ -124,15 +128,20 @@ export async function runEscalationCheck(): Promise<void> {
       `Helpdesk SLA check: ${warned} warning(s) sent, ${escalated} ticket(s) escalated/breach-flagged, ${overdueTasks} overdue task notice(s) sent`
     );
   }
+  return warned + escalated + overdueTasks;
 }
 
 /** Runs every 15 minutes - SLA breach detection needs much finer granularity than the once-daily
  * jobs elsewhere in this codebase (organization expiry, asset/license alerts). */
 export function startEscalationScheduler(): void {
   cron.schedule("*/15 * * * *", () => {
-    runEscalationCheck().catch((err) => {
-      logger.error(`Helpdesk escalation check failed: ${err instanceof Error ? err.message : err}`);
-    });
+    runEscalationCheck()
+      .then((count) => recordSchedulerRun(SCHEDULER_KEYS.helpdeskEscalation, { success: true, itemCount: count, errorMessage: null }))
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.error(`Helpdesk escalation check failed: ${message}`);
+        recordSchedulerRun(SCHEDULER_KEYS.helpdeskEscalation, { success: false, itemCount: 0, errorMessage: message }).catch(() => {});
+      });
   });
   logger.info("Helpdesk SLA/escalation scheduler started (every 15 minutes)");
 }

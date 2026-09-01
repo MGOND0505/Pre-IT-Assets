@@ -28,10 +28,10 @@ function section(title: string, rows: string[]): string {
  * license only appears on the exact day(s) it crosses one of those configured markers, not
  * every day in between.
  */
-async function runExpiryAlertCheckForOrg(organizationId: string): Promise<void> {
+async function runExpiryAlertCheckForOrg(organizationId: string): Promise<number> {
   const settings = await getSettings(organizationId);
-  if (!settings.expiryAlertsEnabled) return;
-  if (settings.alertEmails.length === 0) return;
+  if (!settings.expiryAlertsEnabled) return 0;
+  if (settings.alertEmails.length === 0) return 0;
 
   const now = new Date();
 
@@ -68,7 +68,7 @@ async function runExpiryAlertCheckForOrg(organizationId: string): Promise<void> 
   );
 
   const total = warrantyExpiring.length + amcExpiring.length + licenseExpiring.length;
-  if (total === 0) return;
+  if (total === 0) return 0;
 
   const { subject, html } = await renderTemplate(
     "expiryDigest",
@@ -103,15 +103,21 @@ async function runExpiryAlertCheckForOrg(organizationId: string): Promise<void> 
   );
 
   logger.info(`Expiry alert digest (${total} item(s)) sent to ${settings.alertEmails.join(", ")} for org ${organizationId}`);
+  return total;
 }
 
-export async function runExpiryAlertCheck(): Promise<void> {
+/** Returns the total number of expiry-alert items sent across every active organization (sum of
+ * each org's warranty/AMC/license digest item count), used by the scheduler to record its last-run
+ * outcome (see services/monitoring/schedulerRun.service.ts). */
+export async function runExpiryAlertCheck(): Promise<number> {
   const organizations = await Organization.find({ status: "Active", isDeleted: false }).select("_id");
+  let total = 0;
   for (const org of organizations) {
     try {
-      await runExpiryAlertCheckForOrg(String(org._id));
+      total += await runExpiryAlertCheckForOrg(String(org._id));
     } catch (err) {
       logger.error(`Expiry alert check failed for org ${org._id}: ${err instanceof Error ? err.message : err}`);
     }
   }
+  return total;
 }

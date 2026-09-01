@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  Bell,
   Building2,
   Boxes,
   KeyRound,
@@ -9,6 +10,7 @@ import {
   UploadCloud,
   Settings,
   Sparkles,
+  User,
   Users,
   type LucideIcon,
 } from "lucide-react"
@@ -46,6 +48,12 @@ export type NavLeaf = {
    * still technically pass (Categories/Priorities share their parent's `view` action) but
    * shouldn't see. Sub Admin and every other role are unaffected. */
   employeeHidden?: boolean
+  /** The inverse of employeeHidden - visible ONLY for the Employee Portal
+   * (`user.employeeTier === "employee"`). For pages that already exist and are reachable by
+   * every role today (My Profile, Change Password - both live in the topbar user-menu, not the
+   * sidebar) but are worth calling out explicitly in the Employee Portal's own short nav, without
+   * cluttering the regular Admin/Sub Admin sidebar with a redundant duplicate link. */
+  employeeOnly?: boolean
 }
 
 export type NavGroup = {
@@ -69,6 +77,7 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
  */
 export const navConfig: NavEntry[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  { label: "Notifications", href: "/notifications", icon: Bell },
   {
     label: "AssetIQ AI",
     href: "/ai-assistant",
@@ -92,7 +101,7 @@ export const navConfig: NavEntry[] = [
     children: [
       { label: "All Licenses", href: "/licenses", permission: { area: "licenses", action: "view" }, requiresModule: "licenses" },
       { label: "Add License", href: "/licenses/add", permission: { area: "licenses", action: "create" }, requiresModule: "licenses" },
-      { label: "Categories", href: "/licenses/categories", permission: { area: "licenses", action: "view" }, requiresModule: "licenses" },
+      { label: "Categories", href: "/licenses/categories", permission: { area: "licenses", action: "view" }, requiresModule: "licenses", employeeHidden: true },
     ],
   },
   {
@@ -157,7 +166,10 @@ export const navConfig: NavEntry[] = [
     icon: Settings,
     children: [
       { label: "Departments", href: "/departments", permission: { area: "departments", action: "view" }, requiresModule: "departments", employeeHidden: true },
+      { label: "Designations", href: "/designations", permission: { area: "designations", action: "view" }, employeeHidden: true },
       { label: "Locations", href: "/locations", permission: { area: "locations", action: "view" }, requiresModule: "locations", employeeHidden: true },
+      { label: "Custom Fields", href: "/custom-fields", permission: { area: "customFields", action: "view" }, employeeHidden: true },
+      { label: "Roles & Permissions", href: "/roles", permission: { area: "roles", action: "view" }, employeeHidden: true },
       { label: "Audit Logs", href: "/administration/audit-logs", permission: { area: "auditLogs", action: "view" }, employeeHidden: true },
       {
         label: "Notification Templates",
@@ -173,6 +185,14 @@ export const navConfig: NavEntry[] = [
       },
       { label: "System Settings", href: "/administration/settings", permission: { area: "settings", action: "view" }, employeeHidden: true },
       { label: "Recycle Bin", href: "/administration/recycle-bin", adminOnly: true },
+    ],
+  },
+  {
+    label: "My Account",
+    icon: User,
+    children: [
+      { label: "My Profile", href: "/profile", employeeOnly: true },
+      { label: "Account & Password Settings", href: "/profile/change-password", employeeOnly: true },
     ],
   },
 ]

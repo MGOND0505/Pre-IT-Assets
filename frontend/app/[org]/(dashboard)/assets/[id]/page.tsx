@@ -12,6 +12,7 @@ import { AssetStatusBadge, type AssetStatus } from "@/components/assets/asset-st
 import { AssetForm, type AssetFormValues } from "@/components/assets/asset-form"
 import { AssetDocumentsTab } from "@/components/assets/asset-documents-tab"
 import { AssetHistoryTab } from "@/components/assets/asset-history-tab"
+import { CustomFieldValuesList } from "@/components/custom-fields/custom-fields-section"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
@@ -92,6 +93,7 @@ type Asset = {
   currentOwner: string
   previousOwner: string
   notes: string
+  customFields: Record<string, unknown>
 }
 
 const TAB_VALUES = [
@@ -101,6 +103,7 @@ const TAB_VALUES = [
   "software",
   "financial",
   "condition",
+  "customFields",
   "documents",
   "history",
 ] as const
@@ -147,6 +150,10 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 
 function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleDateString() : "-"
+}
+
+function hasCustomFieldValues(customFields: Record<string, unknown>) {
+  return Object.values(customFields).some((v) => v !== undefined && v !== null && v !== "")
 }
 
 function toFormValues(asset: Asset): AssetFormValues {
@@ -223,6 +230,7 @@ function toFormValues(asset: Asset): AssetFormValues {
     currentOwner: asset.currentOwner,
     previousOwner: asset.previousOwner,
     notes: asset.notes,
+    customFields: asset.customFields ?? {},
   }
 }
 
@@ -319,6 +327,7 @@ export default function AssetDetailPage() {
                 Condition
                 {conditionNeedsAttention && needsAttentionDot("#d03b3b")}
               </TabsTrigger>
+              {hasCustomFieldValues(asset.customFields) && <TabsTrigger value="customFields">Custom fields</TabsTrigger>}
               <TabsTrigger value="documents">Documents</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
@@ -427,6 +436,10 @@ export default function AssetDetailPage() {
                 <Row label="Repair history" value={asset.repairHistory} />
                 <Row label="Notes" value={asset.notes} />
               </div>
+            </TabsContent>
+
+            <TabsContent value="customFields">
+              <CustomFieldValuesList module="assets" values={asset.customFields} />
             </TabsContent>
 
             <TabsContent value="documents">

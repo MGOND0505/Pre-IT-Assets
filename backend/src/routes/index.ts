@@ -5,6 +5,9 @@ import { requireModuleEnabled } from "../middleware/authorize";
 import { usersRouter } from "../modules/users/users.routes";
 import { auditRouter, loginHistoryRouter } from "../modules/audit/audit.routes";
 import { departmentsRouter } from "../modules/departments/departments.routes";
+import { designationsRouter } from "../modules/designations/designations.routes";
+import { customFieldDefinitionsRouter } from "../modules/customFieldDefinitions/customFieldDefinitions.routes";
+import { rolesRouter } from "../modules/roles/roles.routes";
 import { locationsRouter } from "../modules/locations/locations.routes";
 import { vendorsRouter } from "../modules/vendors/vendors.routes";
 import { assetCategoriesRouter } from "../modules/assetCategories/assetCategories.routes";
@@ -20,6 +23,7 @@ import { tasksRouter } from "../modules/tasks/tasks.routes";
 import { searchRouter } from "../modules/search/search.routes";
 import { analyticsRouter } from "../modules/analytics/analytics.routes";
 import { aiAssistantRouter } from "../modules/ai-assistant/ai-assistant.routes";
+import { notificationsRouter } from "../modules/notifications/notifications.routes";
 
 /** Mounted under /api/:orgSlug - authenticate + resolveOrganization already ran by the time
  * any of these routers see the request (see app.ts), so none of them need their own
@@ -42,6 +46,14 @@ orgScopedRouter.use("/users", usersRouter);
 orgScopedRouter.use("/audit-logs", auditRouter);
 orgScopedRouter.use("/login-history", loginHistoryRouter);
 orgScopedRouter.use("/departments", requireModuleEnabled("departments"), departmentsRouter);
+// Not requireModuleEnabled-gated - see permissions.ts's ENTITLEMENT_MODULES comment for why
+// designations is treated as always-on core admin surface, same as users/auditLogs/settings.
+orgScopedRouter.use("/designations", designationsRouter);
+// Not requireModuleEnabled-gated either - same always-on admin config surface reasoning.
+orgScopedRouter.use("/custom-field-definitions", customFieldDefinitionsRouter);
+// Not requireModuleEnabled-gated either - same always-on admin config surface reasoning (see
+// permissions.ts's ENTITLEMENT_MODULES comment).
+orgScopedRouter.use("/roles", rolesRouter);
 orgScopedRouter.use("/locations", requireModuleEnabled("locations"), locationsRouter);
 orgScopedRouter.use("/vendors", requireModuleEnabled("vendors"), vendorsRouter);
 orgScopedRouter.use("/asset-categories", requireModuleEnabled("assets"), assetCategoriesRouter);
@@ -57,3 +69,4 @@ orgScopedRouter.use("/helpdesk-priorities", requireModuleEnabled("helpdesk"), he
 orgScopedRouter.use("/tasks", requireModuleEnabled("tasks"), tasksRouter);
 orgScopedRouter.use("/search", searchRouter);
 orgScopedRouter.use("/ai-assistant", requireModuleEnabled("aiAssistant"), aiAssistantRouter);
+orgScopedRouter.use("/notifications", notificationsRouter);

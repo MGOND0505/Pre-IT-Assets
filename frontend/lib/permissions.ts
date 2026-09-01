@@ -6,6 +6,7 @@ export const PERMISSION_MODULES = [
   "licenses",
   "vendors",
   "departments",
+  "designations",
   "locations",
   "users",
   "reports",
@@ -14,6 +15,8 @@ export const PERMISSION_MODULES = [
   "helpdesk",
   "tasks",
   "aiAssistant",
+  "customFields",
+  "roles",
 ] as const
 export type PermissionModule = (typeof PERMISSION_MODULES)[number]
 
@@ -58,6 +61,7 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
   licenses: ["view", "create", "update", "delete", "import", "export"],
   vendors: ["view", "create", "update", "delete", "import"],
   departments: ["view", "create", "update", "delete", "import"],
+  designations: ["view", "create", "update", "delete"],
   locations: ["view", "create", "update", "delete", "import"],
   users: ["view", "create", "update", "delete"],
   reports: ["view"],
@@ -79,6 +83,8 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
   ],
   tasks: ["view", "create", "update", "delete", "assign", "comment"],
   aiAssistant: ["view"],
+  customFields: ["view", "create", "update", "delete"],
+  roles: ["view", "create", "update", "delete"],
 }
 
 export const MODULE_LABELS: Record<PermissionModule, string> = {
@@ -87,6 +93,7 @@ export const MODULE_LABELS: Record<PermissionModule, string> = {
   licenses: "Licenses",
   vendors: "Vendors",
   departments: "Departments",
+  designations: "Designations",
   locations: "Locations",
   users: "Users",
   reports: "Reports",
@@ -95,6 +102,8 @@ export const MODULE_LABELS: Record<PermissionModule, string> = {
   helpdesk: "Helpdesk",
   tasks: "Tasks",
   aiAssistant: "AssetIQ AI",
+  customFields: "Custom Fields",
+  roles: "Roles & Permissions",
 }
 
 type ModulePermissions = { [action in PermissionAction]: boolean }

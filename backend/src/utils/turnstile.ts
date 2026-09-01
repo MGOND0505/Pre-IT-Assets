@@ -1,4 +1,4 @@
-import { env } from "../config/env";
+import { getEffectiveTurnstileKeys } from "../modules/platformSettings/platformSettings.service";
 
 const VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
@@ -8,12 +8,15 @@ type SiteverifyResponse = { success: boolean };
  * secret key isn't configured or Cloudflare's endpoint is unreachable - callers treat that the
  * same as a failed challenge, since CAPTCHA can only be enabled per-org once the key is set
  * (see settings.service.ts#updateSettings), so an unset key here would indicate a genuine
- * misconfiguration, not a legitimate "not required" case. */
+ * misconfiguration, not a legitimate "not required" case. The key itself may come from a Super
+ * Admin's Global/Security Settings override or from env.TURNSTILE_SECRET_KEY - see
+ * platformSettings.service.ts#getEffectiveTurnstileKeys. */
 export async function verifyTurnstileToken(token: string, remoteIp?: string): Promise<boolean> {
-  if (!env.TURNSTILE_SECRET_KEY) return false;
+  const { secretKey } = await getEffectiveTurnstileKeys();
+  if (!secretKey) return false;
 
   try {
-    const body = new URLSearchParams({ secret: env.TURNSTILE_SECRET_KEY, response: token });
+    const body = new URLSearchParams({ secret: secretKey, response: token });
     if (remoteIp) body.set("remoteip", remoteIp);
 
     const res = await fetch(VERIFY_URL, {

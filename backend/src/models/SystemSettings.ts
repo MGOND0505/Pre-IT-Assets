@@ -50,6 +50,9 @@ export interface ISystemSettings {
   passwordExpiryDays: number;
   passwordExpiryWarningDays: number;
   captchaEnabled: boolean;
+  // 0 = disabled (never expire from inactivity - just the fixed JWT_EXPIRES_IN lifetime).
+  // Enforced by middleware/authenticate.ts against the token's own sliding `lastActivity` claim.
+  idleTimeoutMinutes: number;
 }
 
 const systemSettingsSchema = new Schema<ISystemSettings>(
@@ -98,6 +101,7 @@ const systemSettingsSchema = new Schema<ISystemSettings>(
     passwordExpiryDays: { type: Number, default: 0, min: 0, max: 180 },
     passwordExpiryWarningDays: { type: Number, default: 14, min: 0, max: 180 },
     captchaEnabled: { type: Boolean, default: false },
+    idleTimeoutMinutes: { type: Number, default: 30, min: 0, max: 1440 },
   },
   { timestamps: { createdAt: "createdDate", updatedAt: "updatedDate" } }
 );

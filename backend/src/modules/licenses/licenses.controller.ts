@@ -2,12 +2,17 @@ import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
 import { logAction } from "../audit/audit.service";
+import { validateCustomFieldValues } from "../customFieldDefinitions/customFieldValues.service";
 import * as licensesService from "./licenses.service";
 
 type ListLicensesQuery = Parameters<typeof licensesService.listLicenses>[1];
 
+function requestingUserFrom(req: Request) {
+  return { id: req.user!.id, isAdmin: req.user!.isAdmin, permissions: req.user!.permissions };
+}
+
 export const listLicenses = asyncHandler(async (req: Request, res: Response) => {
-  const result = await licensesService.listLicenses(req.organization!._id, req.query as never);
+  const result = await licensesService.listLicenses(req.organization!._id, req.query as never, requestingUserFrom(req));
   ok(res, result, "Licenses");
 });
 
@@ -16,20 +21,27 @@ export const getLicenseStats = asyncHandler(async (req: Request, res: Response) 
   ok(res, stats, "License stats");
 });
 
+export const getMyLicenseSummary = asyncHandler(async (req: Request, res: Response) => {
+  const summary = await licensesService.getMyLicenseSummary(req.organization!._id, req.user!.id);
+  ok(res, summary, "My license summary");
+});
+
 export const listDeletedLicenses = asyncHandler(async (req: Request, res: Response) => {
-  const result = await licensesService.listLicenses(req.organization!._id, {
-    ...(req.query as unknown as ListLicensesQuery),
-    includeDeleted: true,
-  });
+  const result = await licensesService.listLicenses(
+    req.organization!._id,
+    { ...(req.query as unknown as ListLicensesQuery), includeDeleted: true },
+    requestingUserFrom(req)
+  );
   ok(res, result, "Deleted licenses");
 });
 
 export const getLicense = asyncHandler(async (req: Request, res: Response) => {
-  const license = await licensesService.getLicenseById(req.organization!._id, req.params.id);
+  const license = await licensesService.getLicenseByIdForRequester(req.organization!._id, req.params.id, requestingUserFrom(req));
   ok(res, license, "License");
 });
 
 export const createLicense = asyncHandler(async (req: Request, res: Response) => {
+  req.body.customFields = await validateCustomFieldValues(req.body.customFields, "licenses", req.organization!._id);
   const license = await licensesService.createLicense(req.organization!._id, req.body, req.user!.id);
 
   await logAction({
@@ -45,6 +57,7 @@ export const createLicense = asyncHandler(async (req: Request, res: Response) =>
 });
 
 export const updateLicense = asyncHandler(async (req: Request, res: Response) => {
+  req.body.customFields = await validateCustomFieldValues(req.body.customFields, "licenses", req.organization!._id);
   const license = await licensesService.updateLicense(req.organization!._id, req.params.id, req.body);
 
   await logAction({

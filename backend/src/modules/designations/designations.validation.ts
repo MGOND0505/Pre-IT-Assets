@@ -1,0 +1,23 @@
+import { z } from "zod";
+
+export const createDesignationSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional().default(""),
+});
+
+export const updateDesignationSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+  status: z.enum(["Active", "Inactive"]).optional(),
+});
+
+export const listDesignationsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+  search: z.string().max(100).optional(),
+  status: z.enum(["Active", "Inactive"]).optional(),
+});
+
+export const designationIdParamsSchema = z.object({
+  id: z.string().min(1),
+});

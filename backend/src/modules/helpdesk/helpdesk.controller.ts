@@ -6,6 +6,7 @@ import { ApiError } from "../../utils/ApiError";
 import { User } from "../../models/User";
 import { TICKET_ATTACHMENTS_DIR } from "../../utils/upload";
 import { logAction } from "../audit/audit.service";
+import { validateCustomFieldValues } from "../customFieldDefinitions/customFieldValues.service";
 import * as helpdeskService from "./helpdesk.service";
 import { REOPEN_WINDOW_HOURS, canViewAllTickets } from "./helpdesk.service";
 import * as ticketCommentsService from "./ticketComments.service";
@@ -27,6 +28,7 @@ export const getTicket = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const createTicket = asyncHandler(async (req: Request, res: Response) => {
+  req.body.customFields = await validateCustomFieldValues(req.body.customFields, "helpdesk", req.organization!._id);
   const ticket = await helpdeskService.createTicket(req.body, req.organization!._id, req.user!.id);
 
   await logAction({
@@ -38,10 +40,13 @@ export const createTicket = asyncHandler(async (req: Request, res: Response) => 
     newValue: { subject: ticket.subject, priority: req.body.priority },
   });
 
-  await notifyTicketEvent("ticketCreated", idOf(ticket.requester), req.organization!._id, {
-    ticketId: ticket.ticketId,
-    subject: ticket.subject,
-  });
+  await notifyTicketEvent(
+    "ticketCreated",
+    idOf(ticket.requester),
+    req.organization!._id,
+    { ticketId: ticket.ticketId, subject: ticket.subject },
+    ticket.id
+  );
 
   // Auto-assigned via the ticket's category defaultAgent (helpdesk.service.ts#resolveAutoAssignee)
   // - status "Auto-Forwarded" is the signal that it went to the backup agent instead of the
@@ -51,13 +56,14 @@ export const createTicket = asyncHandler(async (req: Request, res: Response) => 
     const vars = buildAssignmentVars(ticket, {
       assignedBy: wasAutoForwarded ? "Auto-forwarded (category default agent on leave)" : "Category default agent",
     });
-    await notifyTicketEvent("ticketAssigned", idOf(ticket.assignedAgent), req.organization!._id, vars);
+    await notifyTicketEvent("ticketAssigned", idOf(ticket.assignedAgent), req.organization!._id, vars, ticket.id);
   }
 
   ok(res, ticket, "Ticket created", 201);
 });
 
 export const updateTicket = asyncHandler(async (req: Request, res: Response) => {
+  req.body.customFields = await validateCustomFieldValues(req.body.customFields, "helpdesk", req.organization!._id);
   const ticket = await helpdeskService.updateTicket(req.params.id, req.body, req.organization!._id);
 
   await logAction({
@@ -106,7 +112,7 @@ export const setTicketStatus = asyncHandler(async (req: Request, res: Response) 
 
   const vars = { ticketId: ticket.ticketId, subject: ticket.subject, status: ticket.status };
   const templateKey = ticket.status === "Resolved" ? "ticketResolved" : ticket.status === "Closed" ? "ticketClosed" : "ticketStatusChanged";
-  await notifyTicketEvent(templateKey, idOf(ticket.requester), req.organization!._id, vars);
+  await notifyTicketEvent(templateKey, idOf(ticket.requester), req.organization!._id, vars, ticket.id);
 
   ok(res, ticket, "Ticket status updated");
 });
@@ -152,13 +158,13 @@ export async function reassignTicketAndNotify(
     assignedBy: actorName,
     previousAgent: wasAssigned ? nameOf(before.assignedAgent) : undefined,
   });
-  await notifyTicketEvent(wasAssigned ? "ticketReassigned" : "ticketAssigned", newAgentId, organizationId, vars);
+  await notifyTicketEvent(wasAssigned ? "ticketReassigned" : "ticketAssigned", newAgentId, organizationId, vars, ticket.id);
 
   // The outgoing agent (if any, and if actually different from the new one) is no longer on the
   // hook for this ticket - they should know it left their queue rather than find out by it
   // silently disappearing from their list.
   if (wasAssigned && previousAgentId && previousAgentId !== newAgentId) {
-    await notifyTicketEvent("ticketUnassigned", previousAgentId, organizationId, vars);
+    await notifyTicketEvent("ticketUnassigned", previousAgentId, organizationId, vars, ticket.id);
   }
 
   return ticket;
@@ -276,10 +282,13 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
     const requesterId = idOf(ticket.requester);
     const agentId = idOf(ticket.assignedAgent);
     const recipientId = req.user!.id === requesterId ? agentId : requesterId;
-    await notifyTicketEvent("ticketCommentAdded", recipientId, req.organization!._id, {
-      ticketId: ticket.ticketId,
-      subject: ticket.subject,
-    });
+    await notifyTicketEvent(
+      "ticketCommentAdded",
+      recipientId,
+      req.organization!._id,
+      { ticketId: ticket.ticketId, subject: ticket.subject },
+      ticket.id
+    );
   }
 
   ok(res, comment, "Comment added", 201);

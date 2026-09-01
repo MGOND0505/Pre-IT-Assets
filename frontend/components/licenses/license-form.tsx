@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { CustomFieldsSection } from "@/components/custom-fields/custom-fields-section"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
 import {
+  useCustomFieldDefinitionOptions,
   useDepartmentOptions,
   useLicenseCategoryOptions,
   useUserOptions,
@@ -40,6 +42,7 @@ export type LicenseFormValues = {
   poNumber: string
   invoiceNumber: string
   notes: string
+  customFields: Record<string, unknown>
 }
 
 export const EMPTY_LICENSE_FORM: LicenseFormValues = {
@@ -62,6 +65,7 @@ export const EMPTY_LICENSE_FORM: LicenseFormValues = {
   poNumber: "",
   invoiceNumber: "",
   notes: "",
+  customFields: {},
 }
 
 function Field({
@@ -101,6 +105,10 @@ export function LicenseForm({
   const { items: vendors } = useVendorOptions()
   const { items: departments } = useDepartmentOptions()
   const { items: users } = useUserOptions()
+  // Gates the "Custom fields" section's very existence, not just its contents - a form with none
+  // configured must look exactly like it did before this feature existed.
+  const { items: customFieldDefinitions } = useCustomFieldDefinitionOptions("licenses")
+  const hasCustomFields = customFieldDefinitions.length > 0
 
   function set<K extends keyof LicenseFormValues>(field: K) {
     return (value: LicenseFormValues[K]) => setForm((f) => ({ ...f, [field]: value }))
@@ -304,6 +312,20 @@ export function LicenseForm({
           <Field label="Notes" id="lic-notes" value={form.notes} onChange={set("notes")} />
         </div>
       </section>
+
+      {hasCustomFields && (
+        <>
+          <Separator />
+          <section className="flex flex-col gap-4">
+            <h3 className="text-sm font-semibold text-muted-foreground">Custom fields</h3>
+            <CustomFieldsSection
+              module="licenses"
+              value={form.customFields}
+              onChange={(customFields) => setForm((f) => ({ ...f, customFields }))}
+            />
+          </section>
+        </>
+      )}
 
       <div className="flex justify-end gap-2">
         {onCancel && (

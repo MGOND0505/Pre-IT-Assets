@@ -57,6 +57,7 @@ export const updateSettingsSchema = z.object({
   passwordExpiryDays: z.coerce.number().int().min(0).max(180).optional(),
   passwordExpiryWarningDays: z.coerce.number().int().min(0).max(180).optional(),
   captchaEnabled: z.boolean().optional(),
+  idleTimeoutMinutes: z.coerce.number().int().min(0).max(1440).optional(),
 });
 
 export const updateTemplateSchema = z.object({

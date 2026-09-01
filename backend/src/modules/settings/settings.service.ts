@@ -1,8 +1,8 @@
 import { SystemSettings, type ISystemSettings } from "../../models/SystemSettings";
 import { BASELINE_POLICY, type PasswordPolicy } from "../../utils/passwordPolicy";
-import { env } from "../../config/env";
 import { ApiError } from "../../utils/ApiError";
 import { basicUserDefaultPermissions, type PermissionsShape } from "../../config/permissions";
+import { getEffectiveTurnstileKeys } from "../platformSettings/platformSettings.service";
 
 /** Defaults for fields added after the singleton was first created - schema defaults only
  * apply to brand-new documents, not ones already persisted without the field. */
@@ -45,6 +45,7 @@ const BACKFILL_DEFAULTS: Partial<ISystemSettings> = {
   passwordExpiryDays: 0,
   passwordExpiryWarningDays: 14,
   captchaEnabled: false,
+  idleTimeoutMinutes: 30,
 };
 
 /** One settings document per organization, created lazily on first access. */
@@ -98,8 +99,15 @@ export async function claimNextTaskSequence(organizationId: string): Promise<{ p
 }
 
 export async function updateSettings(organizationId: string, input: Partial<ISystemSettings>) {
-  if (input.captchaEnabled && !env.TURNSTILE_SECRET_KEY) {
-    throw new ApiError(400, "Configure TURNSTILE_SITE_KEY/TURNSTILE_SECRET_KEY on the server first.");
+  if (input.captchaEnabled) {
+    // Effective key - either a Super Admin's Global/Security Settings override or the .env
+    // value (see platformSettings.service.ts#getEffectiveTurnstileKeys) - so an org can enable
+    // CAPTCHA once a key has been provisioned through that new admin UI, even with no .env
+    // value set at all.
+    const { secretKey } = await getEffectiveTurnstileKeys();
+    if (!secretKey) {
+      throw new ApiError(400, "Configure a Turnstile site/secret key pair (Global Settings > Security, or TURNSTILE_SITE_KEY/TURNSTILE_SECRET_KEY on the server) first.");
+    }
   }
 
   const settings = await getSettings(organizationId);
@@ -116,6 +124,14 @@ export async function updateSettings(organizationId: string, input: Partial<ISys
 export async function getDefaultEmployeePermissions(organizationId: string): Promise<PermissionsShape> {
   const settings = await getSettings(organizationId);
   return settings.defaultEmployeePermissions ?? basicUserDefaultPermissions();
+}
+
+/** 0 = disabled. Used only by middleware/authenticate.ts's sliding idle-timeout check - kept as
+ * its own tiny lookup (not bundled into getPasswordPolicy) since it's read on every single
+ * authenticated request, not just login/password-change flows. */
+export async function getIdleTimeoutMinutes(organizationId: string): Promise<number> {
+  const settings = await getSettings(organizationId);
+  return settings.idleTimeoutMinutes;
 }
 
 export async function getPasswordPolicy(organizationId: string): Promise<PasswordPolicy> {

@@ -9,7 +9,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { MagneticButton } from "@/components/ui/magnetic-button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { DataTable } from "@/components/common/data-table"
 import { Pagination } from "@/components/common/pagination"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
@@ -28,6 +31,7 @@ type Task = {
   assignedTo: { _id: string; name: string; email: string } | null
   priority: (typeof TASK_PRIORITIES)[number]
   status: TaskStatus
+  lastRemark: string
   dueDate: string | null
 }
 
@@ -54,6 +58,11 @@ export default function TasksPage() {
 
   const canView = can(user, "tasks", "view")
   const canCreate = can(user, "tasks", "create")
+  const canUpdate = can(user, "tasks", "update")
+
+  const [statusChange, setStatusChange] = React.useState<{ task: Task; status: TaskStatus } | null>(null)
+  const [reason, setReason] = React.useState("")
+  const [submittingStatus, setSubmittingStatus] = React.useState(false)
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -78,6 +87,21 @@ export default function TasksPage() {
   React.useEffect(() => {
     if (canView) load()
   }, [canView, load])
+
+  async function confirmStatusChange() {
+    if (!statusChange || !reason.trim()) return
+    setSubmittingStatus(true)
+    try {
+      await apiClient.patch(`/tasks/${statusChange.task._id}/status`, { status: statusChange.status, reason: reason.trim() })
+      setStatusChange(null)
+      setReason("")
+      load()
+    } catch (err) {
+      toast.error(apiErrorMessage(err, "Could not update task status"))
+    } finally {
+      setSubmittingStatus(false)
+    }
+  }
 
   const columns: ColumnDef<Task, unknown>[] = [
     {
@@ -122,7 +146,43 @@ export default function TasksPage() {
     {
       id: "status",
       header: "Status",
-      cell: ({ row }) => <Badge variant={STATUS_VARIANT[row.original.status]}>{row.original.status}</Badge>,
+      // The backend also lets a task's own assignee change its status without tasks:update (see
+      // tasks.controller.ts#setTaskStatus's isOwnTask bypass) - shown here too, not just to
+      // callers with the broader update permission. Mirrors components/tasks/task-list.tsx's
+      // identical control for the ticket-embedded sub-task view.
+      cell: ({ row }) =>
+        canUpdate || row.original.assignedTo?._id === user?._id ? (
+          <Select
+            value={row.original.status}
+            onValueChange={(v) => v && setStatusChange({ task: row.original, status: v as TaskStatus })}
+          >
+            <SelectTrigger className="h-8 w-32 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TASK_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Badge variant={STATUS_VARIANT[row.original.status]}>{row.original.status}</Badge>
+        ),
+    },
+    {
+      id: "remarks",
+      header: "Remarks",
+      meta: { hideBelow: "lg" },
+      cell: ({ row }) => (
+        <span
+          title={row.original.lastRemark}
+          className="block min-w-[140px] max-w-[240px] whitespace-normal break-words text-muted-foreground"
+        >
+          {row.original.lastRemark || "-"}
+        </span>
+      ),
     },
   ]
 
@@ -197,6 +257,34 @@ export default function TasksPage() {
 
       <DataTable columns={columns} data={data?.items ?? []} isLoading={loading} emptyMessage="No tasks yet." />
       {data && <Pagination page={data.page} totalPages={data.totalPages} onPageChange={setPage} />}
+
+      <Dialog open={statusChange !== null} onOpenChange={(open) => !open && setStatusChange(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Mark &quot;{statusChange?.task.title}&quot; as {statusChange?.status}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="task-status-remark">Remarks (required)</Label>
+            <Textarea
+              id="task-status-remark"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Add a response for this status change..."
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusChange(null)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmStatusChange} disabled={!reason.trim() || submittingStatus}>
+              {submittingStatus ? "Saving..." : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

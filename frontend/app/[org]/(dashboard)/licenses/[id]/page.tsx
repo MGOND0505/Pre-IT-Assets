@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { LicenseStatusBadge, LicenseExpiryBadge } from "@/components/licenses/license-status-badge"
 import { LicenseForm, type LicenseFormValues } from "@/components/licenses/license-form"
+import { CustomFieldValuesList } from "@/components/custom-fields/custom-fields-section"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
@@ -39,6 +40,7 @@ type License = {
   poNumber: string
   invoiceNumber: string
   notes: string
+  customFields: Record<string, unknown>
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -76,6 +78,7 @@ function toFormValues(license: License): LicenseFormValues {
     poNumber: license.poNumber,
     invoiceNumber: license.invoiceNumber,
     notes: license.notes,
+    customFields: license.customFields ?? {},
   }
 }
 
@@ -172,6 +175,15 @@ export default function LicenseDetailPage() {
           <Row label="Notes" value={license.notes} />
         </CardContent>
       </Card>
+
+      {Object.values(license.customFields ?? {}).some((v) => v !== undefined && v !== null && v !== "") && (
+        <Card>
+          <CardContent className="pt-6">
+            <h3 className="mb-3 text-sm font-semibold text-muted-foreground">Custom fields</h3>
+            <CustomFieldValuesList module="licenses" values={license.customFields} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="pt-6">

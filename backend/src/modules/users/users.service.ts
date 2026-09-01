@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { User, type IUser } from "../../models/User";
+import { Role } from "../../models/Role";
 import { env } from "../../config/env";
 import { ApiError } from "../../utils/ApiError";
 import { emptyPermissions, subAdminDefaultPermissions, type PermissionsShape } from "../../config/permissions";
@@ -7,6 +8,15 @@ import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin"
 import { getPasswordPolicy, getDefaultEmployeePermissions } from "../settings/settings.service";
 import { validatePasswordAgainstPolicy, assertPasswordNotReused, pushPasswordHistory } from "../../utils/passwordPolicy";
 import { escapeRegex } from "../../utils/regex";
+
+/** Looks up a saved Role template for this org, 400s if it doesn't exist/belong here - shared by
+ * createUser, updateUserPermissions, and bulkApplyDefaultPermissions, the three places a Role is
+ * ever applied (copied) onto a user. */
+async function findRoleOrThrow(roleId: string, organizationId: string) {
+  const role = await Role.findOne({ _id: roleId, organization: organizationId, isDeleted: false });
+  if (!role) throw new ApiError(400, "Role not found");
+  return role;
+}
 
 type CreateUserInput = {
   name: string;
@@ -20,6 +30,11 @@ type CreateUserInput = {
   isAdmin?: boolean;
   employeeTier?: "subAdmin" | "employee";
   permissions?: Partial<PermissionsShape>;
+  // A saved Role template to apply at creation time - see findRoleOrThrow. When provided, its
+  // permissions/portalType take precedence over both `permissions` and `employeeTier` below, and
+  // `roleTemplate` is set on the created user for labeling/reuse traceability. Purely a one-time
+  // copy - never a live binding (see models/Role.ts's doc comment).
+  roleId?: string;
   createdBy: string;
 };
 
@@ -50,17 +65,21 @@ export async function createUser(input: CreateUserInput, organizationId: string)
 
   const passwordHash = await bcrypt.hash(input.password, env.BCRYPT_SALT_ROUNDS);
 
+  const role = input.roleId ? await findRoleOrThrow(input.roleId, organizationId) : null;
+
   // Explicit permissions (the manual "Add user" dialog always sends its own for Admin/Sub Admin,
   // whatever the admin left checked) are honored verbatim; omitting the field entirely (the
   // dialog's "Employee" selection, or bulk import) falls back to a tier-appropriate default -
   // subAdminDefaultPermissions() for Sub Admin, the org's configured default employee template
   // otherwise - see settings.service.ts#getDefaultEmployeePermissions, the one place THAT
-  // decision is made.
-  const permissions = input.permissions
-    ? { ...emptyPermissions(), ...input.permissions }
-    : input.employeeTier === "subAdmin"
-      ? subAdminDefaultPermissions()
-      : await getDefaultEmployeePermissions(organizationId);
+  // decision is made. A saved Role (if given) takes precedence over all of that.
+  const permissions = role
+    ? role.permissions
+    : input.permissions
+      ? { ...emptyPermissions(), ...input.permissions }
+      : input.employeeTier === "subAdmin"
+        ? subAdminDefaultPermissions()
+        : await getDefaultEmployeePermissions(organizationId);
 
   return User.create({
     organization: organizationId,
@@ -68,13 +87,14 @@ export async function createUser(input: CreateUserInput, organizationId: string)
     email: input.email,
     employeeId: input.employeeId,
     passwordHash,
-    designation: input.designation,
+    designation: input.designation || null,
     phone: input.phone,
     department: input.department || null,
     location: input.location || null,
     role: input.isAdmin ? "orgAdmin" : "teamMember",
-    employeeTier: input.isAdmin ? null : (input.employeeTier ?? null),
+    employeeTier: input.isAdmin ? null : role ? role.portalType : (input.employeeTier ?? null),
     permissions,
+    roleTemplate: role ? role._id : null,
     createdBy: input.createdBy,
     mustChangePassword: true,
     passwordChangedAt: new Date(),
@@ -110,6 +130,8 @@ export async function listUsers(input: ListUsersInput, organizationId: string) {
     User.find(filter)
       .populate("department", "name")
       .populate("location", "name")
+      .populate("designation", "name")
+      .populate("roleTemplate", "name portalType")
       .sort({ createdDate: -1 })
       .skip((page - 1) * limit)
       .limit(limit),
@@ -123,7 +145,8 @@ export async function listUsers(input: ListUsersInput, organizationId: string) {
 export async function getUserById(id: string, organizationId: string) {
   const user = await User.findOne({ _id: id, organization: organizationId, isDeleted: false })
     .populate("department", "name")
-    .populate("location", "name");
+    .populate("location", "name")
+    .populate("roleTemplate", "name portalType");
   if (!user) throw new ApiError(404, "User not found");
   return user;
 }
@@ -158,7 +181,16 @@ export async function updateUser(id: string, input: UpdateUserInput, organizatio
 
 export async function updateUserPermissions(
   id: string,
-  input: { isAdmin?: boolean; employeeTier?: "subAdmin" | "employee" | null; permissions?: Partial<PermissionsShape> },
+  input: {
+    isAdmin?: boolean;
+    employeeTier?: "subAdmin" | "employee" | null;
+    permissions?: Partial<PermissionsShape>;
+    // undefined: unchanged (default). A saved Role id: copy its permissions/portalType onto this
+    // user and remember it via roleTemplate - same one-time-copy semantics as createUser. Explicit
+    // null: clear roleTemplate only (an admin reverting to manual/no-template permissions),
+    // without otherwise touching permissions/employeeTier.
+    roleId?: string | null;
+  },
   organizationId: string
 ) {
   const user = await getUserById(id, organizationId);
@@ -185,20 +217,32 @@ export async function updateUserPermissions(
   if (input.permissions) {
     user.permissions = { ...user.permissions, ...input.permissions } as PermissionsShape;
   }
+
+  if (input.roleId) {
+    const role = await findRoleOrThrow(input.roleId, organizationId);
+    user.permissions = role.permissions;
+    user.employeeTier = role.portalType;
+    user.roleTemplate = role._id as never;
+  } else if (input.roleId === null) {
+    user.roleTemplate = null;
+  }
+
   user.tokenVersion += 1; // permission change takes effect immediately, everywhere
   await user.save();
   return user;
 }
 
-/** Re-applies the org's current default employee permission template to a batch of existing
- * users at once - e.g. after an admin changes the template and wants everyone still on the old
- * one to catch up, without re-editing each account by hand. Only ever touches `teamMember`
- * accounts - an `orgAdmin`'s access comes from their role's `isAdmin` bypass, not this matrix, so
- * silently overwriting their permissions object here would be pointless at best. Skips (rather
- * than fails the whole batch for) anyone not found or not a teamMember, same "isolate the bad
- * rows" convention as every bulk-import confirm handler in this app. */
-export async function bulkApplyDefaultPermissions(userIds: string[], organizationId: string) {
-  const permissions = await getDefaultEmployeePermissions(organizationId);
+/** Re-applies either the org's current default employee permission template, or (when `roleId`
+ * is given) one saved Role's permissions+portalType+roleTemplate, to a batch of existing users at
+ * once - e.g. after an admin changes the template and wants everyone still on the old one to
+ * catch up, without re-editing each account by hand. Only ever touches `teamMember` accounts - an
+ * `orgAdmin`'s access comes from their role's `isAdmin` bypass, not this matrix, so silently
+ * overwriting their permissions object here would be pointless at best. Skips (rather than fails
+ * the whole batch for) anyone not found or not a teamMember, same "isolate the bad rows"
+ * convention as every bulk-import confirm handler in this app. */
+export async function bulkApplyDefaultPermissions(userIds: string[], organizationId: string, roleId?: string) {
+  const role = roleId ? await findRoleOrThrow(roleId, organizationId) : null;
+  const permissions = role ? role.permissions : await getDefaultEmployeePermissions(organizationId);
 
   let updated = 0;
   const skipped: string[] = [];
@@ -214,6 +258,10 @@ export async function bulkApplyDefaultPermissions(userIds: string[], organizatio
       continue;
     }
     user.permissions = permissions;
+    if (role) {
+      user.employeeTier = role.portalType;
+      user.roleTemplate = role._id as never;
+    }
     user.tokenVersion += 1; // permission change takes effect immediately, everywhere
     await user.save();
     updated += 1;

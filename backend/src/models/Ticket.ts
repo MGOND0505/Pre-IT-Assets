@@ -44,6 +44,9 @@ export interface ITicket {
   isDeleted: boolean;
   deletedAt: Date | null;
   deletedBy: Types.ObjectId | null;
+  /** Org-defined extra fields (see CustomFieldDefinition) keyed by each definition's `key`.
+   * Additive/optional - absent or missing keys just means no value was ever set for that field. */
+  customFields: Record<string, unknown>;
 }
 
 const ticketSchema = new Schema<ITicket>(
@@ -74,6 +77,7 @@ const ticketSchema = new Schema<ITicket>(
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date, default: null },
     deletedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    customFields: { type: Schema.Types.Mixed, default: {} },
   },
   { timestamps: { createdAt: "createdDate", updatedAt: "updatedDate" } }
 );

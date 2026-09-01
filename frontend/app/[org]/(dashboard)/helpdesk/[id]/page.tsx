@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { TicketStatusBadge, TICKET_STATUSES, type TicketStatus } from "@/components/helpdesk/ticket-status-badge"
 import { TicketAssignmentHistory } from "@/components/helpdesk/ticket-assignment-history"
 import { TaskList } from "@/components/tasks/task-list"
+import { CustomFieldValuesList } from "@/components/custom-fields/custom-fields-section"
 import { apiClient, apiErrorMessage, orgScopedApiUrl, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
@@ -40,6 +41,7 @@ type Ticket = {
   slaResolutionDueAt: string | null
   slaResolutionBreached: boolean
   createdDate: string
+  customFields: Record<string, unknown>
 }
 
 type Comment = {
@@ -205,6 +207,15 @@ export default function TicketDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {Object.values(ticket.customFields ?? {}).some((v) => v !== undefined && v !== null && v !== "") && (
+            <Card>
+              <CardContent className="flex flex-col gap-2 pt-6">
+                <h3 className="text-sm font-semibold text-muted-foreground">Custom fields</h3>
+                <CustomFieldValuesList module="helpdesk" values={ticket.customFields} />
+              </CardContent>
+            </Card>
+          )}
 
           <TaskList ticketId={ticket._id} />
 

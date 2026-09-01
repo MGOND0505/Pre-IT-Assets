@@ -1,11 +1,15 @@
 import type { NextFunction, Request, Response } from "express";
 import { env } from "../config/env";
-import { verifyToken } from "../utils/jwt";
+import { signToken, verifyToken } from "../utils/jwt";
+import { setAuthCookie } from "../utils/authCookie";
 import { User } from "../models/User";
 import { ApiError } from "../utils/ApiError";
 import { asyncHandler } from "../utils/asyncHandler";
+import { getIdleTimeoutMinutes } from "../modules/settings/settings.service";
 
-export const authenticate = asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
+const MAX_IDLE_REFRESH_THROTTLE_MS = 60_000;
+
+export const authenticate = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const token = req.cookies?.[env.JWT_COOKIE_NAME];
 
   if (!token) {
@@ -29,6 +33,31 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
 
   if (user.tokenVersion !== payload.tokenVersion) {
     throw new ApiError(401, "Session has been invalidated, please log in again");
+  }
+
+  // Idle-timeout only applies to org-scoped accounts (orgAdmin/teamMember) - superAdmin/
+  // subSuperAdmin have no organization to hold the per-org setting, same carve-out CAPTCHA/
+  // password policy already make for them elsewhere. A sliding window: every request within the
+  // window pushes the deadline forward (re-signing the cookie, throttled so it isn't rewritten on
+  // literally every request); only sustained inactivity beyond the configured minutes ends it.
+  if (user.organization && payload.lastActivity) {
+    const idleTimeoutMinutes = await getIdleTimeoutMinutes(String(user.organization));
+    if (idleTimeoutMinutes > 0) {
+      const idleTimeoutMs = idleTimeoutMinutes * 60_000;
+      const idleMs = Date.now() - payload.lastActivity;
+      if (idleMs > idleTimeoutMs) {
+        throw new ApiError(401, "Session expired due to inactivity, please log in again");
+      }
+      // Scaled to the configured timeout, not a flat constant - a flat 60s throttle would never
+      // let a short timeout's cookie refresh in time (e.g. a 1-minute timeout would never see
+      // idleMs exceed a 60s throttle before ALSO exceeding the 60s expiry check itself), silently
+      // expiring a genuinely active session. Capped at 60s so a long timeout still avoids
+      // rewriting the cookie on literally every request.
+      const refreshThrottleMs = Math.min(MAX_IDLE_REFRESH_THROTTLE_MS, idleTimeoutMs / 4);
+      if (idleMs > refreshThrottleMs) {
+        setAuthCookie(res, signToken({ sub: user.id, tokenVersion: user.tokenVersion, lastActivity: Date.now() }));
+      }
+    }
   }
 
   // A forced-change password (admin reset, or expired per the org's policy) blocks every route

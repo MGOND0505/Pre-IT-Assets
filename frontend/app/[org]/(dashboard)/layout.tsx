@@ -24,6 +24,15 @@ export default function DashboardLayout({ children }: LayoutProps<"/[org]">) {
     ? { backgroundColor: branding.appBackgroundColor }
     : undefined
 
+  // The browser tab title is otherwise a static "Admin Portal" (app/layout.tsx's metadata,
+  // resolved before any client-side user/role info exists) - once we know the logged-in user's
+  // role, override it to match, same precedence AppLogo already uses (a configured team name
+  // wins over the generic Admin/Employee Portal label, for every role alike).
+  React.useEffect(() => {
+    if (!user) return
+    document.title = branding.teamName || (user.employeeTier === "employee" ? "Employee Portal" : "Admin Portal")
+  }, [user, branding.teamName])
+
   React.useEffect(() => {
     if (!loading && !user) {
       router.replace(`/${params.org}/login?from=${encodeURIComponent(window.location.pathname)}`)

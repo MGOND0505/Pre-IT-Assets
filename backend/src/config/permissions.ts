@@ -4,6 +4,7 @@ export const PERMISSION_MODULES = [
   "licenses",
   "vendors",
   "departments",
+  "designations",
   "locations",
   "users",
   "reports",
@@ -12,11 +13,23 @@ export const PERMISSION_MODULES = [
   "helpdesk",
   "tasks",
   "aiAssistant",
+  "customFields",
+  "roles",
 ] as const;
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];
 
 /** The subset of modules an organization can be entitled (or not) to via its subscription plan.
- * dashboard/users/auditLogs/settings are core admin surface, not a sellable module - always on. */
+ * dashboard/users/auditLogs/settings are core admin surface, not a sellable module - always on.
+ * designations joins that "always on" group too, deliberately - unlike departments/locations
+ * (which predate this field and are genuine prerequisite master data for sellable feature areas),
+ * designations was added later purely to replace User.designation's old free-text field with a
+ * managed list; gating it here would need a one-time enabledModules backfill across every
+ * existing organization for no real benefit, since nothing would ever want it off while
+ * departments stays on. customFields joins the same "always on" group for the same reason - it's
+ * admin config surface (definitions that shape the assets/licenses/helpdesk forms), not itself a
+ * sellable module. roles joins it too, for the identical reason - named permission-template
+ * management is admin config surface (a reuse layer over the same matrix), not a sellable
+ * module. */
 export const ENTITLEMENT_MODULES = [
   "assets",
   "licenses",
@@ -61,6 +74,7 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
   licenses: ["view", "create", "update", "delete", "import", "export"],
   vendors: ["view", "create", "update", "delete", "import"],
   departments: ["view", "create", "update", "delete", "import"],
+  designations: ["view", "create", "update", "delete"],
   locations: ["view", "create", "update", "delete", "import"],
   users: ["view", "create", "update", "delete"],
   reports: ["view"],
@@ -82,6 +96,8 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
   ],
   tasks: ["view", "create", "update", "delete", "assign", "comment"],
   aiAssistant: ["view"],
+  customFields: ["view", "create", "update", "delete"],
+  roles: ["view", "create", "update", "delete"],
 };
 
 type ModulePermissions = { [action in PermissionAction]: boolean };

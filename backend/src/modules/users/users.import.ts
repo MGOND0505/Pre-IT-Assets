@@ -6,6 +6,7 @@ import { ApiError } from "../../utils/ApiError";
 import { parseSpreadsheet, findColumn } from "../../utils/spreadsheet";
 import { User, type IUser } from "../../models/User";
 import { Department } from "../../models/Department";
+import { Designation } from "../../models/Designation";
 import { Location } from "../../models/Location";
 import { logAction } from "../audit/audit.service";
 import { recordImportBatch, listImportBatches } from "../importHistory/importHistory.service";
@@ -23,7 +24,7 @@ type MappedFields = {
   name: string;
   email: string;
   employeeId: string;
-  designation: string;
+  designationName: string;
   phone: string;
   departmentName: string;
   locationName: string;
@@ -56,19 +57,20 @@ function mapRow(row: Record<string, string>): MappedFields {
     name: findColumn(row, ["Name", "Full Name"]),
     email: findColumn(row, ["Email", "Email ID", "Email Address"]),
     employeeId: findColumn(row, ["Employee ID", "Emp ID", "EmployeeId"]),
-    designation: findColumn(row, ["Designation", "Role / Designation", "Title"]),
+    designationName: findColumn(row, ["Designation", "Role / Designation", "Title"]),
     phone: findColumn(row, ["Phone", "Phone Number", "Mobile"]),
     departmentName: findColumn(row, ["Department"]),
     locationName: findColumn(row, ["Location"]),
   };
 }
 
-const STRING_DIFF_FIELDS: (keyof MappedFields & keyof IUser)[] = ["name", "employeeId", "designation", "phone"];
+const STRING_DIFF_FIELDS: (keyof MappedFields & keyof IUser)[] = ["name", "employeeId", "phone"];
 
 type ExistingUser = IUser & {
   _id: unknown;
   department?: { name?: string } | null;
   location?: { name?: string } | null;
+  designation?: { name?: string } | null;
 };
 
 /** Only compares fields the row actually provides - a blank cell means "leave unchanged", not "clear this field". */
@@ -87,6 +89,9 @@ function diffAgainstExisting(mapped: MappedFields, existing: ExistingUser): stri
   if (!isBlank(mapped.locationName) && normalize(mapped.locationName) !== normalize(existing.location?.name)) {
     changed.push("location");
   }
+  if (!isBlank(mapped.designationName) && normalize(mapped.designationName) !== normalize(existing.designation?.name)) {
+    changed.push("designation");
+  }
 
   return changed;
 }
@@ -102,6 +107,7 @@ async function classifyRows(rawRows: Record<string, string>[], organizationId: s
   const existingUsers = (await User.find({ organization: organizationId, isDeleted: false }).populate([
     { path: "department", select: "name" },
     { path: "location", select: "name" },
+    { path: "designation", select: "name" },
   ])) as unknown as ExistingUser[];
 
   const byEmail = new Map(existingUsers.map((u) => [u.email.toLowerCase(), u]));
@@ -195,6 +201,16 @@ async function findOrCreateLocation(name: string, organizationId: string) {
   return Location.create({ organization: organizationId, name: name.trim() });
 }
 
+async function findOrCreateDesignation(name: string, organizationId: string) {
+  if (isBlank(name)) return null;
+  const existing = await Designation.findOne({
+    organization: organizationId,
+    name: new RegExp(`^${escapeRegExp(name.trim())}$`, "i"),
+  });
+  if (existing) return existing;
+  return Designation.create({ organization: organizationId, name: name.trim() });
+}
+
 /** Builds an update payload containing only the fields the row actually provides (blank = leave unchanged) - the
  * same "leave unchanged" semantics as the asset importer, and the same narrow field set
  * usersService.updateUser already only ever accepts (name/employeeId/designation/phone/department/location) -
@@ -215,6 +231,10 @@ async function buildPartialPayload(mapped: MappedFields, organizationId: string)
     const location = await findOrCreateLocation(mapped.locationName, organizationId);
     payload.location = location ? String(location._id) : null;
   }
+  if (!isBlank(mapped.designationName)) {
+    const designation = await findOrCreateDesignation(mapped.designationName, organizationId);
+    payload.designation = designation ? String(designation._id) : null;
+  }
 
   return payload;
 }
@@ -234,9 +254,10 @@ export const confirmUserImport = asyncHandler(async (req: Request, res: Response
 
   for (const row of newRows) {
     try {
-      const [department, location] = await Promise.all([
+      const [department, location, designation] = await Promise.all([
         findOrCreateDepartment(row.mapped.departmentName, organizationId),
         findOrCreateLocation(row.mapped.locationName, organizationId),
+        findOrCreateDesignation(row.mapped.designationName, organizationId),
       ]);
 
       // The password is immediately discarded - the new user gets a real password-reset email
@@ -251,7 +272,7 @@ export const confirmUserImport = asyncHandler(async (req: Request, res: Response
           name: row.mapped.name,
           email: row.mapped.email,
           employeeId: row.mapped.employeeId || undefined,
-          designation: row.mapped.designation || undefined,
+          designation: designation ? String(designation._id) : undefined,
           phone: row.mapped.phone || undefined,
           department: department ? String(department._id) : undefined,
           location: location ? String(location._id) : undefined,

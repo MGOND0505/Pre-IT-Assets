@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { Boxes, CheckCircle2, ListChecks, Ticket as TicketIcon } from "lucide-react"
+import { Boxes, CheckCircle2, KeyRound, ListChecks, Ticket as TicketIcon } from "lucide-react"
 
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
@@ -15,6 +15,7 @@ import { KpiCard, KpiGridSkeleton } from "@/components/dashboard/kpi-card"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 
 type AssetSummary = { total: number; byStatus: Record<string, number> }
+type LicenseSummary = { total: number; byStatus: Record<string, number> }
 type TicketSummary = { total: number; open: number; byStatus: Record<string, number> }
 type TaskSummary = { total: number; pending: number; byStatus: Record<string, number> }
 
@@ -29,13 +30,16 @@ export function EmployeeDashboard() {
   const toOrgHref = useOrgHref()
 
   const hasAssetsModule = Boolean(user?.organization?.enabledModules.includes("assets"))
+  const hasLicensesModule = Boolean(user?.organization?.enabledModules.includes("licenses"))
   const hasHelpdeskModule = Boolean(user?.organization?.enabledModules.includes("helpdesk"))
   const hasTasksModule = Boolean(user?.organization?.enabledModules.includes("tasks"))
   const canViewAssets = can(user, "assets", "view") && hasAssetsModule
+  const canViewLicenses = can(user, "licenses", "view") && hasLicensesModule
   const canViewTickets = can(user, "helpdesk", "view") && hasHelpdeskModule
   const canViewTasks = can(user, "tasks", "view") && hasTasksModule
 
   const [assets, setAssets] = React.useState<AssetSummary | null>(null)
+  const [licenses, setLicenses] = React.useState<LicenseSummary | null>(null)
   const [tickets, setTickets] = React.useState<TicketSummary | null>(null)
   const [tasks, setTasks] = React.useState<TaskSummary | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -45,13 +49,15 @@ export function EmployeeDashboard() {
     async function load() {
       setLoading(true)
       try {
-        const [assetsRes, ticketsRes, tasksRes] = await Promise.all([
+        const [assetsRes, licensesRes, ticketsRes, tasksRes] = await Promise.all([
           canViewAssets ? apiClient.get<ApiEnvelope<AssetSummary>>("/assets/my-summary") : null,
+          canViewLicenses ? apiClient.get<ApiEnvelope<LicenseSummary>>("/licenses/my-summary") : null,
           canViewTickets ? apiClient.get<ApiEnvelope<TicketSummary>>("/helpdesk/my-summary") : null,
           canViewTasks ? apiClient.get<ApiEnvelope<TaskSummary>>("/tasks/my-summary") : null,
         ])
         if (cancelled) return
         setAssets(assetsRes?.data.data ?? null)
+        setLicenses(licensesRes?.data.data ?? null)
         setTickets(ticketsRes?.data.data ?? null)
         setTasks(tasksRes?.data.data ?? null)
       } catch (err) {
@@ -64,7 +70,7 @@ export function EmployeeDashboard() {
     return () => {
       cancelled = true
     }
-  }, [canViewAssets, canViewTickets, canViewTasks])
+  }, [canViewAssets, canViewLicenses, canViewTickets, canViewTasks])
 
   const openTicketStatuses = Object.entries(tickets?.byStatus ?? {}).filter(
     ([status]) => status !== "Resolved" && status !== "Closed"
@@ -81,12 +87,17 @@ export function EmployeeDashboard() {
       </div>
 
       {loading ? (
-        <KpiGridSkeleton count={3} />
+        <KpiGridSkeleton count={4} />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {canViewAssets && (
             <Link href={toOrgHref("/assets")}>
               <KpiCard label="My Assets" value={assets?.total ?? 0} icon={Boxes} bucket="info" />
+            </Link>
+          )}
+          {canViewLicenses && (
+            <Link href={toOrgHref("/licenses")}>
+              <KpiCard label="My Licenses" value={licenses?.total ?? 0} icon={KeyRound} bucket="info" />
             </Link>
           )}
           {canViewTickets && (

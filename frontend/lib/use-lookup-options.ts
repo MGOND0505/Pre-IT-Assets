@@ -13,6 +13,7 @@ function useLookup<T>(endpoint: string, limit = 100) {
     apiClient
       .get<ApiEnvelope<Paginated<T>>>(endpoint, { params: { limit, status: "Active" } })
       .then((res) => setItems(res.data.data.items))
+      .catch(() => setItems([]))
       .finally(() => setLoading(false))
   }, [endpoint, limit])
 
@@ -24,7 +25,16 @@ export type LicenseCategoryOption = { _id: string; name: string }
 export type VendorOption = { _id: string; name: string }
 export type LocationOption = { _id: string; name: string }
 export type DepartmentOption = { _id: string; name: string }
+export type DesignationOption = { _id: string; name: string }
 export type UserOption = { _id: string; name: string; email: string; employeeId?: string }
+export type RolePortalType = "subAdmin" | "employee"
+export type RoleOption = {
+  _id: string
+  name: string
+  description: string
+  portalType: RolePortalType
+  permissions: import("@/lib/permissions").PermissionsShape
+}
 export type HelpdeskCategoryOption = { _id: string; name: string }
 export type HelpdeskPriorityOption = {
   _id: string
@@ -32,6 +42,19 @@ export type HelpdeskPriorityOption = {
   color: string
   slaResponseMinutes: number
   slaResolutionMinutes: number
+}
+export type CustomFieldModule = "assets" | "licenses" | "helpdesk"
+export type CustomFieldType = "text" | "number" | "date" | "select" | "checkbox"
+export type CustomFieldDefinitionOption = {
+  _id: string
+  module: CustomFieldModule
+  label: string
+  key: string
+  type: CustomFieldType
+  options: string[]
+  required: boolean
+  order: number
+  status: "Active" | "Inactive"
 }
 
 export function useAssetCategoryOptions() {
@@ -49,11 +72,59 @@ export function useLocationOptions() {
 export function useDepartmentOptions() {
   return useLookup<DepartmentOption>("/departments")
 }
+export function useDesignationOptions() {
+  return useLookup<DesignationOption>("/designations")
+}
 export function useHelpdeskCategoryOptions() {
   return useLookup<HelpdeskCategoryOption>("/helpdesk-categories")
 }
 export function useHelpdeskPriorityOptions() {
   return useLookup<HelpdeskPriorityOption>("/helpdesk-priorities")
+}
+
+/** Active custom field definitions for one module, sorted by their configured `order` - powers
+ * <CustomFieldsSection>. Same "fail quiet, empty list" shape as every other lookup hook here (a
+ * form without any custom fields defined should render unchanged, not show an error). */
+export function useCustomFieldDefinitionOptions(module: CustomFieldModule) {
+  const [items, setItems] = React.useState<CustomFieldDefinitionOption[]>([])
+  const [loading, setLoading] = React.useState(true)
+
+  React.useEffect(() => {
+    setLoading(true)
+    apiClient
+      .get<ApiEnvelope<Paginated<CustomFieldDefinitionOption>>>("/custom-field-definitions", {
+        params: { module, status: "Active", limit: 100 },
+      })
+      .then((res) => setItems([...res.data.data.items].sort((a, b) => a.order - b.order)))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false))
+  }, [module])
+
+  return { items, loading }
+}
+
+/** Active saved Role templates, optionally narrowed to one portal tier - powers the "Apply a
+ * saved role" picker on the user create/edit-permissions dialogs (which only makes sense for
+ * whichever tier is currently being configured) and the Users list's bulk-apply flow (which
+ * passes no portalType, since bulk-apply can target either tier at once). Same
+ * `.catch(() => setItems([]))` fail-quiet shape as useCustomFieldDefinitionOptions above - a
+ * missing/erroring Roles endpoint should never break the surrounding form. */
+export function useRoleOptions(portalType?: RolePortalType) {
+  const [items, setItems] = React.useState<RoleOption[]>([])
+  const [loading, setLoading] = React.useState(true)
+
+  React.useEffect(() => {
+    setLoading(true)
+    apiClient
+      .get<ApiEnvelope<Paginated<RoleOption>>>("/roles", {
+        params: { portalType, status: "Active", limit: 100 },
+      })
+      .then((res) => setItems(res.data.data.items))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false))
+  }, [portalType])
+
+  return { items, loading }
 }
 
 export function useUserOptions() {
@@ -64,6 +135,7 @@ export function useUserOptions() {
     apiClient
       .get<ApiEnvelope<UserOption[]>>("/users/lookup")
       .then((res) => setItems(res.data.data))
+      .catch(() => setItems([]))
       .finally(() => setLoading(false))
   }, [])
 

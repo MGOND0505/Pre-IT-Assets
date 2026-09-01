@@ -12,17 +12,23 @@ export function AppLogo({
   imgClassName = "h-8 max-w-32 object-contain",
   textClassName = "text-sm font-semibold tracking-tight",
   showTeamNameWithLogo = true,
+  forcePortal,
 }: {
   imgClassName?: string
   textClassName?: string
   /** When a logo image is showing, also show the team name text beside it (if one is set). */
   showTeamNameWithLogo?: boolean
+  /** Overrides the role-derived fallback label - for a context that already knows which portal
+   * it is (e.g. the dedicated /{org}/employee-login page) without waiting on `useAuth()`'s user,
+   * which is always null pre-login. Ignored once a real logged-in user's own role is known. */
+  forcePortal?: "admin" | "employee"
 }) {
   const { branding } = useBranding()
   const { user } = useAuth()
   const [hasLogo, setHasLogo] = React.useState<boolean | null>(null)
   const logoUrl = publicLogoUrl()
-  const fallbackText = user?.employeeTier === "employee" ? EMPLOYEE_FALLBACK_TEXT : ADMIN_FALLBACK_TEXT
+  const isEmployeePortal = user ? user.employeeTier === "employee" : forcePortal === "employee"
+  const fallbackText = isEmployeePortal ? EMPLOYEE_FALLBACK_TEXT : ADMIN_FALLBACK_TEXT
 
   React.useEffect(() => {
     if (!logoUrl) {

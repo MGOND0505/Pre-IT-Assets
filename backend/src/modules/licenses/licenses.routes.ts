@@ -16,6 +16,9 @@ import { listImportHistoryQuerySchema } from "../importHistory/importHistory.val
 export const licensesRouter = Router();
 
 licensesRouter.get("/stats", authorize("licenses", "view"), licensesController.getLicenseStats);
+// Always "mine", independent of the view-all permission /stats above ignores entirely - powers
+// the Employee Portal dashboard's "My Licenses" widget.
+licensesRouter.get("/my-summary", authorize("licenses", "view"), licensesController.getMyLicenseSummary);
 
 licensesRouter.post(
   "/import/preview",

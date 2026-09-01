@@ -80,7 +80,7 @@ export const setTaskStatus = asyncHandler(async (req: Request, res: Response) =>
     throw new ApiError(403, "You do not have permission to update this task");
   }
 
-  const task = await tasksService.setTaskStatus(req.params.id, req.body.status, req.organization!._id);
+  const task = await tasksService.setTaskStatus(req.params.id, req.body.status, req.body.reason, req.organization!._id);
 
   await logAction({
     req,

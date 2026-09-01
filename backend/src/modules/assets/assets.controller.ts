@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
 import { logAction } from "../audit/audit.service";
+import { validateCustomFieldValues } from "../customFieldDefinitions/customFieldValues.service";
 import * as assetsService from "./assets.service";
 
 type ListAssetsQuery = Parameters<typeof assetsService.listAssets>[0];
@@ -49,6 +50,7 @@ function stripAssetIdUnlessAuthorized(req: Request): void {
 
 export const createAsset = asyncHandler(async (req: Request, res: Response) => {
   stripAssetIdUnlessAuthorized(req);
+  req.body.customFields = await validateCustomFieldValues(req.body.customFields, "assets", req.organization!._id);
   const asset = await assetsService.createAsset(req.body, req.user!.id, req.organization!._id);
 
   await logAction({
@@ -68,6 +70,7 @@ export const updateAsset = asyncHandler(async (req: Request, res: Response) => {
   const before = await assetsService.getAssetById(req.params.id, req.organization!._id);
   const oldValue = before.toObject();
 
+  req.body.customFields = await validateCustomFieldValues(req.body.customFields, "assets", req.organization!._id);
   const asset = await assetsService.updateAsset(req.params.id, req.body, req.organization!._id);
 
   await logAction({

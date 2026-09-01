@@ -12,6 +12,9 @@ export const createTicketSchema = z.object({
   priority: z.string().min(1),
   department: z.string().optional(),
   location: z.string().optional(),
+  // Real per-field validation (required-ness, type, select options) happens server-side in
+  // validateCustomFieldValues, not here - this just needs to not strip or reject the field.
+  customFields: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const updateTicketSchema = z.object({
@@ -21,6 +24,7 @@ export const updateTicketSchema = z.object({
   priority: z.string().optional(),
   department: z.string().optional(),
   location: z.string().optional(),
+  customFields: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const setTicketStatusSchema = z.object({

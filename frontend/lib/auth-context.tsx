@@ -101,6 +101,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const currentOrgSlug = canUseOrgLogin ? user?.organization?.slug : undefined
     try {
       await apiClient.post("/auth/logout")
+    } catch {
+      // Ignore - the client-side redirect below still logs the user out locally even if the
+      // server call failed (e.g. rate-limited), and there's no user-facing recovery to offer.
     } finally {
       setUser(null)
       window.location.href = currentOrgSlug ? `/${currentOrgSlug}/login` : "/login"

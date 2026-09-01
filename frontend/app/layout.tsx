@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth-context";
 import { BrandingProvider } from "@/lib/branding-context";
+import { UnhandledRejectionGuard } from "@/components/layout/unhandled-rejection-guard";
 
 // Primary UI face for the whole authenticated app - nav, forms, tables, buttons, body text.
 const appSans = Inter({
@@ -67,6 +68,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <AuthProvider>
               {children}
               <Toaster richColors closeButton />
+              <UnhandledRejectionGuard />
             </AuthProvider>
           </BrandingProvider>
         </ThemeProvider>

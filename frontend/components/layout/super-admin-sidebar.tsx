@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, UserCog, Building2, Search } from "lucide-react"
+import { LayoutDashboard, UserCog, Building2, Search, Users, ShieldAlert, Activity } from "lucide-react"
 import { toast } from "sonner"
 
 import { AppLogo } from "@/components/layout/app-logo"
@@ -17,6 +17,9 @@ const NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/", label: "Organizations", icon: Building2 },
   { href: "/sub-super-admins", label: "Sub-Super Admins", icon: UserCog },
+  { href: "/users", label: "Users", icon: Users },
+  { href: "/security-settings", label: "Security Settings", icon: ShieldAlert },
+  { href: "/system-monitoring", label: "System Monitoring", icon: Activity },
 ]
 
 type OrgListItem = { _id: string; name: string; slug: string; status: "Active" | "Inactive" }

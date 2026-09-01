@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { CustomFieldsSection } from "@/components/custom-fields/custom-fields-section"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
-import { useHelpdeskCategoryOptions, useHelpdeskPriorityOptions } from "@/lib/use-lookup-options"
+import { useCustomFieldDefinitionOptions, useHelpdeskCategoryOptions, useHelpdeskPriorityOptions } from "@/lib/use-lookup-options"
 import { useOrgHref } from "@/lib/use-org-href"
 
 export default function AddTicketPage() {
@@ -22,11 +23,16 @@ export default function AddTicketPage() {
   const { user, loading: authLoading } = useAuth()
   const { items: categories } = useHelpdeskCategoryOptions()
   const { items: priorities } = useHelpdeskPriorityOptions()
+  // Gates the "Custom fields" block's very existence, not just its contents - a form with none
+  // configured must look exactly like it did before this feature existed.
+  const { items: customFieldDefinitions } = useCustomFieldDefinitionOptions("helpdesk")
+  const hasCustomFields = customFieldDefinitions.length > 0
 
   const [subject, setSubject] = React.useState("")
   const [description, setDescription] = React.useState("")
   const [category, setCategory] = React.useState("")
   const [priority, setPriority] = React.useState("")
+  const [customFields, setCustomFields] = React.useState<Record<string, unknown>>({})
   const [submitting, setSubmitting] = React.useState(false)
 
   const canCreate = can(user, "helpdesk", "create")
@@ -47,6 +53,7 @@ export default function AddTicketPage() {
         description,
         category: category || undefined,
         priority,
+        customFields,
       })
       toast.success("Ticket created")
       router.push(toOrgHref(`/helpdesk/${res.data.data._id}`))
@@ -116,6 +123,9 @@ export default function AddTicketPage() {
               </Select>
             </div>
           </div>
+          {hasCustomFields && (
+            <CustomFieldsSection module="helpdesk" value={customFields} onChange={setCustomFields} />
+          )}
           <div>
             <Button onClick={handleSubmit} disabled={submitting}>
               {submitting ? "Submitting..." : "Submit ticket"}

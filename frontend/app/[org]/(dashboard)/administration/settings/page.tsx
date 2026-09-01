@@ -55,6 +55,7 @@ type Settings = {
   passwordHistoryLimit: number
   passwordExpiryDays: number
   passwordExpiryWarningDays: number
+  idleTimeoutMinutes: number
   defaultEmployeePermissions: PermissionsShape | null
 }
 
@@ -188,6 +189,7 @@ export default function SettingsPage() {
         passwordHistoryLimit: settings.passwordHistoryLimit,
         passwordExpiryDays: settings.passwordExpiryDays,
         passwordExpiryWarningDays: settings.passwordExpiryWarningDays,
+        idleTimeoutMinutes: settings.idleTimeoutMinutes,
       })
       setSettings(res.data.data)
       setRenewalDaysInput(res.data.data.licenseRenewalAlertDays.join(", "))
@@ -893,6 +895,23 @@ export default function SettingsPage() {
             />
             <p className="text-xs text-muted-foreground">
               How many days before expiry a user starts seeing a warning after logging in.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t pt-4">
+            <Label htmlFor="idle-timeout-minutes">Inactivity session timeout (minutes)</Label>
+            <Input
+              id="idle-timeout-minutes"
+              type="number"
+              min={0}
+              max={1440}
+              disabled={!canWrite}
+              value={settings.idleTimeoutMinutes}
+              onChange={(e) => setSettings({ ...settings, idleTimeoutMinutes: Number(e.target.value) })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Automatically sign users out after this many minutes of no activity. 0 disables it -
+              sessions then stay valid for their full lifetime regardless of inactivity.
             </p>
           </div>
 

@@ -10,6 +10,16 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -26,6 +36,9 @@ import { LeaveStatusDialog } from "@/components/users/leave-status-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can, PERMISSION_MODULES, type PermissionsShape } from "@/lib/permissions"
+import { useRoleOptions } from "@/lib/use-lookup-options"
+
+const NO_ROLE = "__org_default__"
 
 type User = {
   _id: string
@@ -36,6 +49,7 @@ type User = {
   isAdmin: boolean
   employeeTier: "subAdmin" | "employee" | null
   permissions: PermissionsShape
+  roleTemplate?: { _id: string; name: string; portalType: "subAdmin" | "employee" } | null
   status: "Active" | "Inactive"
   isOnLeave: boolean
   backupAgent: string | null
@@ -52,8 +66,11 @@ type PaginatedUsers = {
 
 // null covers every pre-existing account created before employeeTier existed - treated
 // identically to "subAdmin" everywhere else in the app (edit-permissions-dialog.tsx's own
-// roleOf), so label it the same way here too.
-function roleLabel(user: User): "Admin" | "Sub Admin" | "Employee" {
+// roleOf), so label it the same way here too. A user with a saved Role applied shows that
+// Role's own name instead of the generic 3-tier label, so admins can see at a glance which
+// named template (if any) was last applied - falls back to the generic label otherwise.
+function roleLabel(user: User): string {
+  if (user.roleTemplate) return user.roleTemplate.name
   if (user.isAdmin) return "Admin"
   return user.employeeTier === "employee" ? "Employee" : "Sub Admin"
 }
@@ -85,6 +102,10 @@ export default function UsersPage() {
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [pendingBulkPermissions, setPendingBulkPermissions] = React.useState(false)
   const [applyingBulkPermissions, setApplyingBulkPermissions] = React.useState(false)
+  // No portalType filter here - bulk-apply can target a mix of Sub Admin and Employee accounts
+  // at once, unlike the create/edit dialogs which only ever configure one tier at a time.
+  const [bulkRoleId, setBulkRoleId] = React.useState(NO_ROLE)
+  const { items: bulkRoleOptions } = useRoleOptions()
 
   const canView = can(currentUser, "users", "view")
   const canDelete = can(currentUser, "users", "delete")
@@ -182,14 +203,19 @@ export default function UsersPage() {
     try {
       const res = await apiClient.post<
         ApiEnvelope<{ updated: number; skipped: string[] }>
-      >("/users/bulk-apply-default-permissions", { userIds: Array.from(selectedIds) })
+      >("/users/bulk-apply-default-permissions", {
+        userIds: Array.from(selectedIds),
+        // Omitted (org default template) unless a saved Role was picked in the dialog.
+        roleId: bulkRoleId === NO_ROLE ? undefined : bulkRoleId,
+      })
       const { updated, skipped } = res.data.data
-      if (updated > 0) toast.success(`Default permissions applied to ${updated} user(s)`)
+      if (updated > 0) toast.success(`Permissions applied to ${updated} user(s)`)
       if (skipped.length > 0) toast.warning(`Skipped ${skipped.length}: ${skipped.slice(0, 3).join(", ")}${skipped.length > 3 ? "..." : ""}`)
       setSelectedIds(new Set())
+      setBulkRoleId(NO_ROLE)
       load()
     } catch (err) {
-      toast.error(apiErrorMessage(err, "Could not apply default permissions"))
+      toast.error(apiErrorMessage(err, "Could not apply permissions"))
     } finally {
       setApplyingBulkPermissions(false)
       setPendingBulkPermissions(false)
@@ -252,8 +278,11 @@ export default function UsersPage() {
       id: "role",
       header: "Role",
       cell: ({ row }) => {
-        const role = roleLabel(row.original)
-        return <Badge variant={role === "Admin" ? "default" : role === "Sub Admin" ? "secondary" : "outline"}>{role}</Badge>
+        const label = roleLabel(row.original)
+        // Badge color still tracks the underlying tier (isAdmin/employeeTier), independent of
+        // whether the displayed text is a generic tier label or a named Role's own name.
+        const variant = row.original.isAdmin ? "default" : row.original.employeeTier === "employee" ? "outline" : "secondary"
+        return <Badge variant={variant}>{label}</Badge>
       },
     },
     {
@@ -401,6 +430,7 @@ export default function UsersPage() {
           currentIsAdmin={editPermissionsUser.isAdmin}
           currentEmployeeTier={editPermissionsUser.employeeTier}
           currentPermissions={editPermissionsUser.permissions}
+          currentRoleTemplateId={editPermissionsUser.roleTemplate?._id ?? null}
           onSaved={load}
         />
       )}
@@ -428,14 +458,51 @@ export default function UsersPage() {
       )}
 
       {pendingBulkPermissions && (
-        <ConfirmDialog
+        <Dialog
           open
-          onOpenChange={(open) => !open && !applyingBulkPermissions && setPendingBulkPermissions(false)}
-          title={`Apply default permissions to ${selectedIds.size} user(s)?`}
-          description="This replaces each selected user's current permissions with the organization's Employee Default Permissions template (configured under Administration > Settings). Admin accounts are skipped. They'll be affected immediately."
-          confirmLabel={applyingBulkPermissions ? "Applying..." : "Apply"}
-          onConfirm={applyBulkDefaultPermissions}
-        />
+          onOpenChange={(open) => {
+            if (!open && !applyingBulkPermissions) {
+              setPendingBulkPermissions(false)
+              setBulkRoleId(NO_ROLE)
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Apply permissions to {selectedIds.size} user(s)?</DialogTitle>
+              <DialogDescription>
+                {bulkRoleId === NO_ROLE
+                  ? "This replaces each selected user's current permissions with the organization's Employee Default Permissions template (configured under Administration > Settings)."
+                  : "This replaces each selected user's current permissions (and portal type) with the picked saved Role's own permissions."}{" "}
+                Admin accounts are skipped. They&apos;ll be affected immediately.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="bulk-role-template">Saved role (optional)</Label>
+              <Select value={bulkRoleId} onValueChange={(v) => v && setBulkRoleId(v)}>
+                <SelectTrigger id="bulk-role-template" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_ROLE}>Organization default (Employee Default Permissions)</SelectItem>
+                  {bulkRoleOptions.map((r) => (
+                    <SelectItem key={r._id} value={r._id}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" disabled={applyingBulkPermissions} onClick={() => setPendingBulkPermissions(false)}>
+                Cancel
+              </Button>
+              <Button disabled={applyingBulkPermissions} onClick={applyBulkDefaultPermissions}>
+                {applyingBulkPermissions ? "Applying..." : "Apply"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

@@ -12,6 +12,7 @@ import * as organizationsService from "../organizations/organizations.service";
 import { getPasswordPolicy, getSettings } from "../settings/settings.service";
 import { BASELINE_POLICY, validatePasswordAgainstPolicy, assertPasswordNotReused, pushPasswordHistory } from "../../utils/passwordPolicy";
 import { verifyTurnstileToken } from "../../utils/turnstile";
+import { getEffectiveLoginLockout, getEffectiveTurnstileKeys } from "../platformSettings/platformSettings.service";
 
 /** Throws if CAPTCHA is required and the token is missing/invalid. Used by forgotPassword/
  * resetPassword, which don't write to LoginHistory at all - login() uses resolveCaptchaStatus
@@ -35,7 +36,8 @@ async function resolveCaptchaStatus(
   remoteIp?: string
 ): Promise<boolean | null> {
   if (!organizationId) {
-    if (!env.TURNSTILE_SECRET_KEY) return null;
+    const { secretKey } = await getEffectiveTurnstileKeys();
+    if (!secretKey) return null;
     return Boolean(captchaToken) && (await verifyTurnstileToken(captchaToken!, remoteIp));
   }
   const settings = await getSettings(organizationId);
@@ -132,9 +134,10 @@ export async function login(
   if (!passwordMatches) {
     user.failedLoginAttempts += 1;
 
+    const { threshold, durationMinutes } = await getEffectiveLoginLockout();
     let justLocked = false;
-    if (user.failedLoginAttempts >= env.LOGIN_LOCKOUT_THRESHOLD) {
-      user.lockedUntil = new Date(Date.now() + env.LOGIN_LOCKOUT_DURATION_MINUTES * 60 * 1000);
+    if (user.failedLoginAttempts >= threshold) {
+      user.lockedUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
       user.failedLoginAttempts = 0;
       justLocked = true;
     }
@@ -213,7 +216,7 @@ export async function login(
     ...requestMeta(req),
   });
 
-  const token = signToken({ sub: user.id, tokenVersion: user.tokenVersion });
+  const token = signToken({ sub: user.id, tokenVersion: user.tokenVersion, lastActivity: Date.now() });
 
   return { token, user, passwordExpiryWarning };
 }

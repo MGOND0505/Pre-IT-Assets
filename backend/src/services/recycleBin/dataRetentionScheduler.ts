@@ -20,6 +20,7 @@ import { AuditLog } from "../../models/AuditLog";
 import { ASSET_DOCUMENTS_DIR, TICKET_ATTACHMENTS_DIR } from "../../utils/upload";
 import { DAY_MS } from "../../utils/recycleBin";
 import { logger } from "../../utils/logger";
+import { recordSchedulerRun, SCHEDULER_KEYS } from "../monitoring/schedulerRun.service";
 
 async function logPurge(organization: unknown, moduleName: string, recordId: unknown, recordLabel: string | null) {
   await AuditLog.create({
@@ -110,7 +111,7 @@ async function purgeExpiredAssets(organizationId: Types.ObjectId, cutoff: Date):
  * global constant - so this sweeps organization by organization, each with its own cutoff, rather
  * than one flat cutoff across every record. Each organization (and each model within it) is swept
  * independently so one failure doesn't block the rest. */
-export async function sweepExpiredDeletedData(): Promise<void> {
+export async function sweepExpiredDeletedData(): Promise<number> {
   const organizations = await Organization.find({ isDeleted: false }).select("_id recycleBinRetentionDays");
 
   let total = 0;
@@ -141,15 +142,20 @@ export async function sweepExpiredDeletedData(): Promise<void> {
   if (total > 0) {
     logger.info(`Recycle Bin data retention sweep: permanently deleted ${total} record(s) past their retention window`);
   }
+  return total;
 }
 
 /** Runs once a day at 09:00 server time - offset from the Organization-level 08:00/08:30 jobs
  * so all the daily sweeps don't hit the DB in the same instant. */
 export function startDataRetentionScheduler(): void {
   cron.schedule("0 9 * * *", () => {
-    sweepExpiredDeletedData().catch((err) => {
-      logger.error(`Recycle Bin data retention sweep failed: ${err instanceof Error ? err.message : err}`);
-    });
+    sweepExpiredDeletedData()
+      .then((count) => recordSchedulerRun(SCHEDULER_KEYS.dataRetention, { success: true, itemCount: count, errorMessage: null }))
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.error(`Recycle Bin data retention sweep failed: ${message}`);
+        recordSchedulerRun(SCHEDULER_KEYS.dataRetention, { success: false, itemCount: 0, errorMessage: message }).catch(() => {});
+      });
   });
   logger.info("Recycle Bin data retention scheduler started (daily at 09:00)");
 }

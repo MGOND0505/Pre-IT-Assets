@@ -237,7 +237,12 @@ export async function updateAsset(
     await assertAssetIdAvailable(input.assetId, organizationId, id);
   }
 
+  // Merge, not replace - a request that doesn't mention a given custom field key (or one
+  // belonging to a now-Inactive definition) must leave its previously-stored value untouched.
+  // See customFieldValues.service.ts#validateCustomFieldValues.
+  const customFields = input.customFields ? { ...asset.customFields, ...input.customFields } : undefined;
   Object.assign(asset, input);
+  if (customFields) asset.customFields = customFields;
   await asset.save();
   if (opts.notify ?? true) {
     notifyAssetUpdated(

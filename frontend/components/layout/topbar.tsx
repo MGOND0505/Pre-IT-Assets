@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Sidebar } from "@/components/layout/sidebar"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
+import { NotificationBell } from "@/components/layout/notification-bell"
 import { UserMenu } from "@/components/layout/user-menu"
 import { CommandPaletteTrigger } from "@/components/ai/command-palette"
 import { useBranding } from "@/lib/branding-context"
@@ -39,6 +40,7 @@ export function Topbar() {
       </div>
       <div className="flex-1" />
       <ThemeToggle />
+      <NotificationBell />
       <UserMenu />
     </header>
   )

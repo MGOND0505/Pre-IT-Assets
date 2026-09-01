@@ -13,6 +13,9 @@ import { publicCaptchaRouter } from "./modules/auth/publicCaptcha.routes";
 import { healthRouter } from "./modules/health/health.routes";
 import { organizationsRouter } from "./modules/organizations/organizations.routes";
 import { subSuperAdminsRouter, myOrganizationsRouter } from "./modules/subSuperAdmins/subSuperAdmins.routes";
+import { globalUsersRouter } from "./modules/users/globalUsers.routes";
+import { platformSettingsRouter } from "./modules/platformSettings/platformSettings.routes";
+import { systemStatusRouter } from "./modules/systemStatus/systemStatus.routes";
 import { accessRequestsRouter } from "./modules/accessRequests/accessRequests.routes";
 import { publicSettingsRouter } from "./modules/settings/settings.public.routes";
 import { authenticate } from "./middleware/authenticate";
@@ -49,6 +52,17 @@ app.use("/api/public", apiLimiter, publicCaptchaRouter);
 // were an org slug and this would 404 instead of ever running.
 app.use("/api/organizations", apiLimiter, authenticate, requireSuperAdmin, organizationsRouter);
 app.use("/api/sub-super-admins", apiLimiter, authenticate, requireSuperAdmin, subSuperAdminsRouter);
+// Read-only, cross-organization user directory (Phase 8) - same flat-mount reasoning as
+// /api/organizations above; must sit above the /api/:orgSlug catch-all or "users" would be
+// swallowed as an org slug instead of ever reaching this router.
+app.use("/api/users", apiLimiter, authenticate, requireSuperAdmin, globalUsersRouter);
+// Phase 9's "Global / Security Settings" - a true global singleton, same flat-mount reasoning as
+// /api/organizations and /api/users above.
+app.use("/api/platform-settings", apiLimiter, authenticate, requireSuperAdmin, platformSettingsRouter);
+// Phase 10's "System Monitoring" - scheduler last-run status, rate-limit reject counts, and login
+// activity, same flat-mount reasoning as /api/organizations, /api/users, and /api/platform-settings
+// above.
+app.use("/api/system-status", apiLimiter, authenticate, requireSuperAdmin, systemStatusRouter);
 // Deliberately NOT requireSuperAdmin-gated - a Sub-Super Admin's own landing page needs this
 // to see just the organizations THEY were granted (see subSuperAdmins.routes.ts's comment).
 app.use("/api/my-organizations", apiLimiter, authenticate, myOrganizationsRouter);

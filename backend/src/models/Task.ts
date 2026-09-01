@@ -16,6 +16,11 @@ export interface ITask {
   dueDate: Date | null;
   priority: TaskPriority;
   status: TaskStatus;
+  // The reason/remark submitted with the most recent status change - status changes already
+  // require one (tasks.validation.ts#setTaskStatusSchema), previously kept only in the audit
+  // log. Persisted here too so it's visible as a plain column on the task list, not just by
+  // digging through Audit Logs.
+  lastRemark: string;
   // Null for a standalone task; set when this task is a sub-task of a Helpdesk ticket - the
   // SAME record/service powers both surfaces, see modules/tasks/tasks.service.ts.
   ticket: Types.ObjectId | null;
@@ -38,6 +43,7 @@ const taskSchema = new Schema<ITask>(
     dueDate: { type: Date, default: null, index: true },
     priority: { type: String, enum: TASK_PRIORITIES, default: "Medium" },
     status: { type: String, enum: TASK_STATUSES, default: "To Do", index: true },
+    lastRemark: { type: String, default: "" },
     ticket: { type: Schema.Types.ObjectId, ref: "Ticket", default: null, index: true },
     completedAt: { type: Date, default: null },
     overdueNoticeSent: { type: Boolean, default: false },

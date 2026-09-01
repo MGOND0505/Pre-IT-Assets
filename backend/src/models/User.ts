@@ -38,7 +38,17 @@ export interface IUser {
   permissions: PermissionsShape;
   department: Types.ObjectId | null;
   location: Types.ObjectId | null;
-  designation?: string;
+  // A real ref to Designation, same as department/location - was a free-text string before
+  // scripts/migrateDesignations.ts converted every organization's existing values into managed
+  // Designation records.
+  designation: Types.ObjectId | null;
+  // Purely a labeling/reuse-traceability pointer to the named Role template (if any) whose
+  // permissions were last COPIED onto this user - see users.service.ts#createUser/
+  // updateUserPermissions, the only places that ever read a Role. Never itself read by
+  // authorize()/hasPermission() - those keep checking `permissions`/`isAdmin` on this document
+  // exactly as before, completely unaware Roles exist. Distinct from `role` above (the
+  // system-level account role) - do not confuse the two.
+  roleTemplate: Types.ObjectId | null;
   phone?: string;
   status: "Active" | "Inactive";
   // Helpdesk assignment availability - independent of `status`, which is about account access,
@@ -114,7 +124,8 @@ const userSchema = new Schema<IUser>(
     },
     department: { type: Schema.Types.ObjectId, ref: "Department", default: null },
     location: { type: Schema.Types.ObjectId, ref: "Location", default: null },
-    designation: { type: String, trim: true },
+    designation: { type: Schema.Types.ObjectId, ref: "Designation", default: null },
+    roleTemplate: { type: Schema.Types.ObjectId, ref: "Role", default: null },
     phone: { type: String, trim: true },
     status: { type: String, enum: ["Active", "Inactive"], default: "Active", index: true },
     isOnLeave: { type: Boolean, default: false },

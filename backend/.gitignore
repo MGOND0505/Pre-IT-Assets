@@ -6,5 +6,6 @@ uploads/*
 *.log
 coverage/
 
-# Pre-migration DB dump - contains real user records (password hashes, emails, IPs).
+# Pre-migration DB dumps - contain real user records (password hashes, emails, IPs).
 backup-pre-org-migration/
+backup-pre-designation-migration/

@@ -1,4 +1,5 @@
 import { User } from "../../models/User";
+import { Notification } from "../../models/Notification";
 import { sendEmail } from "../../services/email";
 import { renderTemplate } from "../../services/notifications/templates";
 import { logger } from "../../utils/logger";
@@ -18,12 +19,19 @@ export function idOf(ref: unknown): string | null {
  * Fire-and-forget: a notification failure must never fail (or roll back) the ticket action that
  * triggered it, exactly like the existing expiry-alert emails already behave. Resolves the
  * recipient's email fresh each time rather than trusting a possibly-stale populated field.
+ *
+ * Also creates the matching in-app "My Notifications" entry (see models/Notification.ts) - one
+ * call site for both channels so they can never drift on "who gets notified about what". Pass
+ * `ticketId` (the ticket's own Mongo _id, not the human-readable `TCK-000123` string already in
+ * `vars`) so the in-app entry can link straight to it; omitted only for event types with no single
+ * ticket to link to.
  */
 export async function notifyTicketEvent(
   key: NotificationTemplateKey,
   recipientUserId: string | null,
   organizationId: string,
-  vars: Record<string, string | number>
+  vars: Record<string, string | number>,
+  ticketId?: string
 ): Promise<void> {
   if (!recipientUserId) return;
   try {
@@ -34,6 +42,15 @@ export async function notifyTicketEvent(
     }
 
     const { subject, html } = await renderTemplate(key, vars, organizationId);
+    // In-app first - an SMTP failure below must not prevent the user seeing this in their
+    // notification feed, the two channels are independent from here on.
+    await Notification.create({
+      organization: organizationId,
+      user: recipientUserId,
+      type: key,
+      title: subject,
+      link: ticketId ? `/helpdesk/${ticketId}` : null,
+    });
     await sendEmail({ to: recipient.email, subject, html }, organizationId);
   } catch (err) {
     logger.error(`Ticket notification "${key}" failed: ${err instanceof Error ? err.message : err}`);

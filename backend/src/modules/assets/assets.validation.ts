@@ -81,6 +81,9 @@ export const createAssetSchema = z.object({
   approvalStatus: str(),
   repairHistory: str(),
   notes: str(),
+  // Real per-field validation (required-ness, type, select options) happens server-side in
+  // validateCustomFieldValues, not here - this just needs to not strip or reject the field.
+  customFields: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const updateAssetSchema = createAssetSchema.partial();

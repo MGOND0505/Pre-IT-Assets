@@ -8,11 +8,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { CustomFieldsSection } from "@/components/custom-fields/custom-fields-section"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
 import {
   useAssetCategoryOptions,
+  useCustomFieldDefinitionOptions,
   useDepartmentOptions,
   useLocationOptions,
   useUserOptions,
@@ -95,6 +97,7 @@ export type AssetFormValues = {
   currentOwner: string
   previousOwner: string
   notes: string
+  customFields: Record<string, unknown>
 }
 
 export const EMPTY_ASSET_FORM: AssetFormValues = {
@@ -169,6 +172,7 @@ export const EMPTY_ASSET_FORM: AssetFormValues = {
   currentOwner: "",
   previousOwner: "",
   notes: "",
+  customFields: {},
 }
 
 function Field({
@@ -212,6 +216,10 @@ export function AssetForm({
   const { items: locations } = useLocationOptions()
   const { items: departments } = useDepartmentOptions()
   const { items: users } = useUserOptions()
+  // Gates the "Custom fields" tab's very existence, not just its contents - a form with none
+  // configured must look exactly like it did before this feature existed.
+  const { items: customFieldDefinitions } = useCustomFieldDefinitionOptions("assets")
+  const hasCustomFields = customFieldDefinitions.length > 0
 
   function set<K extends keyof AssetFormValues>(field: K) {
     return (value: string) => setForm((f) => ({ ...f, [field]: value }))
@@ -280,6 +288,7 @@ export function AssetForm({
           <TabsTrigger value="software" className="shrink-0">OS &amp; software licenses</TabsTrigger>
           <TabsTrigger value="purchase" className="shrink-0">Purchase &amp; vendor</TabsTrigger>
           <TabsTrigger value="condition" className="shrink-0">Condition &amp; notes</TabsTrigger>
+          {hasCustomFields && <TabsTrigger value="customFields" className="shrink-0">Custom fields</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="basic">
@@ -487,6 +496,16 @@ export function AssetForm({
             </div>
           </div>
         </TabsContent>
+
+        {hasCustomFields && (
+          <TabsContent value="customFields">
+            <CustomFieldsSection
+              module="assets"
+              value={form.customFields}
+              onChange={(customFields) => setForm((f) => ({ ...f, customFields }))}
+            />
+          </TabsContent>
+        )}
       </Tabs>
 
       <div className="flex justify-end gap-2">
