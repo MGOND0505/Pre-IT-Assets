@@ -160,7 +160,7 @@ export const navConfig: NavEntry[] = [
       { label: "Departments", href: "/departments", permission: { area: "departments", action: "view" }, requiresModule: "departments", employeeHidden: true },
       { label: "Designations", href: "/designations", permission: { area: "designations", action: "view" }, employeeHidden: true },
       { label: "Locations", href: "/locations", permission: { area: "locations", action: "view" }, requiresModule: "locations", employeeHidden: true },
-      { label: "Custom Fields", href: "/custom-fields", permission: { area: "customFields", action: "view" }, employeeHidden: true },
+      { label: "Custom Fields", href: "/custom-fields", permission: { area: "customFields", action: "view" }, requiresModule: "customFields", employeeHidden: true },
       { label: "Roles & Permissions", href: "/roles", permission: { area: "roles", action: "view" }, employeeHidden: true },
       { label: "Audit Logs", href: "/administration/audit-logs", permission: { area: "auditLogs", action: "view" }, employeeHidden: true },
       {

@@ -16,6 +16,7 @@ import { subSuperAdminsRouter, myOrganizationsRouter } from "./modules/subSuperA
 import { globalUsersRouter } from "./modules/users/globalUsers.routes";
 import { platformSettingsRouter } from "./modules/platformSettings/platformSettings.routes";
 import { systemStatusRouter } from "./modules/systemStatus/systemStatus.routes";
+import { globalAuditRouter } from "./modules/globalAudit/globalAudit.routes";
 import { accessRequestsRouter } from "./modules/accessRequests/accessRequests.routes";
 import { publicSettingsRouter } from "./modules/settings/settings.public.routes";
 import { authenticate } from "./middleware/authenticate";
@@ -63,6 +64,9 @@ app.use("/api/platform-settings", apiLimiter, authenticate, requireSuperAdmin, p
 // activity, same flat-mount reasoning as /api/organizations, /api/users, and /api/platform-settings
 // above.
 app.use("/api/system-status", apiLimiter, authenticate, requireSuperAdmin, systemStatusRouter);
+// Flat, cross-organization activity/login-history viewer - same flat-mount reasoning as
+// /api/organizations, /api/users, /api/platform-settings, and /api/system-status above.
+app.use("/api/audit-logs", apiLimiter, authenticate, requireSuperAdmin, globalAuditRouter);
 // Deliberately NOT requireSuperAdmin-gated - a Sub-Super Admin's own landing page needs this
 // to see just the organizations THEY were granted (see subSuperAdmins.routes.ts's comment).
 app.use("/api/my-organizations", apiLimiter, authenticate, myOrganizationsRouter);

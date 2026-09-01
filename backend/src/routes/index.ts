@@ -48,8 +48,11 @@ orgScopedRouter.use("/departments", requireModuleEnabled("departments"), departm
 // Not requireModuleEnabled-gated - see permissions.ts's ENTITLEMENT_MODULES comment for why
 // designations is treated as always-on core admin surface, same as users/auditLogs/settings.
 orgScopedRouter.use("/designations", designationsRouter);
-// Not requireModuleEnabled-gated either - same always-on admin config surface reasoning.
-orgScopedRouter.use("/custom-field-definitions", customFieldDefinitionsRouter);
+orgScopedRouter.use(
+  "/custom-field-definitions",
+  requireModuleEnabled("customFields"),
+  customFieldDefinitionsRouter
+);
 // Not requireModuleEnabled-gated either - same always-on admin config surface reasoning (see
 // permissions.ts's ENTITLEMENT_MODULES comment).
 orgScopedRouter.use("/roles", rolesRouter);

@@ -1,7 +1,16 @@
 import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
+import { logAction } from "../audit/audit.service";
 import * as platformSettingsService from "./platformSettings.service";
+
+/** Never let the raw Turnstile secret key reach an AuditLog document - shows "***" in its place
+ * whenever a value carries one, same redaction shape applied to both the before/after snapshot
+ * so a diff still shows *that* it changed without revealing what to. */
+function redactSecret<T extends { turnstileSecretKey?: unknown }>(value: T): T {
+  if (!value || typeof value !== "object" || !("turnstileSecretKey" in value)) return value;
+  return { ...value, turnstileSecretKey: "***" };
+}
 
 export const getPlatformSettings = asyncHandler(async (_req: Request, res: Response) => {
   const [settings, effectiveAuth, effectiveApi, effectiveLockout, effectiveTurnstile] = await Promise.all([
@@ -32,6 +41,19 @@ export const getPlatformSettings = asyncHandler(async (_req: Request, res: Respo
 });
 
 export const updatePlatformSettings = asyncHandler(async (req: Request, res: Response) => {
+  const before = await platformSettingsService.getPlatformSettings();
   const settings = await platformSettingsService.updatePlatformSettings(req.body);
+
+  await logAction({
+    req,
+    action: "UPDATE",
+    module: "PlatformSettings",
+    oldValue: redactSecret(before),
+    newValue: redactSecret(req.body),
+    // Truly global - there is no organization to attribute this to (see logAction's own
+    // comment on the null fallback for org-agnostic actions).
+    organizationId: null,
+  });
+
   ok(res, settings, "Platform settings updated");
 });

@@ -49,7 +49,22 @@ const MODULES: ModuleConfig[] = [
   },
   { key: "vendors", label: "Vendors", apiBase: "/vendors", getLabel: (i) => String(i.name ?? "-") },
   { key: "departments", label: "Departments", apiBase: "/departments", getLabel: (i) => String(i.name ?? "-") },
+  { key: "designations", label: "Designations", apiBase: "/designations", getLabel: (i) => String(i.name ?? "-") },
   { key: "locations", label: "Locations", apiBase: "/locations", getLabel: (i) => String(i.name ?? "-") },
+  {
+    key: "custom-fields",
+    label: "Custom Fields",
+    apiBase: "/custom-field-definitions",
+    getLabel: (i) => String(i.label ?? "-"),
+    getSubtitle: (i) => String(i.module ?? ""),
+  },
+  {
+    key: "roles",
+    label: "Roles",
+    apiBase: "/roles",
+    getLabel: (i) => String(i.name ?? "-"),
+    getSubtitle: (i) => String(i.portalType ?? ""),
+  },
   {
     key: "users",
     label: "Users",

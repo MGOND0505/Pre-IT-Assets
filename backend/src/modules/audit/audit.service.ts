@@ -87,3 +87,38 @@ export async function listAuditLogs(query: {
 
   return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
 }
+
+/** The Super Admin panel's flat, cross-organization activity log - unlike listAuditLogs above
+ * (which requires an organizationId and is used by every org's own org-scoped Audit Logs page),
+ * `organizationId` here is OPTIONAL: given, it narrows to one org same as before; omitted, there's
+ * no organization filter at all, so this spans every organization PLUS the null-organization
+ * platform-level entries (e.g. PlatformSettings changes - see platformSettings.controller.ts)
+ * that no org-scoped view could ever show. Populates `organization` so a flat list can label each
+ * row "Platform" (organization: null) or the actual org name/slug. Leaves listAuditLogs completely
+ * untouched - this is strictly additive, new surface for globalAudit.routes.ts only. */
+export async function listAuditLogsAcrossOrgs(query: {
+  page?: number;
+  limit?: number;
+  module?: string;
+  action?: string;
+  organizationId?: string;
+}) {
+  const page = query.page && query.page > 0 ? query.page : 1;
+  const limit = query.limit && query.limit > 0 && query.limit <= 100 ? query.limit : 20;
+
+  const filter: Record<string, unknown> = {};
+  if (query.organizationId) filter.organization = query.organizationId;
+  if (query.module) filter.module = query.module;
+  if (query.action) filter.action = query.action;
+
+  const [items, total] = await Promise.all([
+    AuditLog.find(filter)
+      .populate("organization", "name slug")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit),
+    AuditLog.countDocuments(filter),
+  ]);
+
+  return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
+}

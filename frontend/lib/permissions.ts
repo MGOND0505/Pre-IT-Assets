@@ -30,6 +30,7 @@ export const ENTITLEMENT_MODULES = [
   "reports",
   "helpdesk",
   "tasks",
+  "customFields",
 ] as const
 export type EntitlementModule = (typeof ENTITLEMENT_MODULES)[number]
 

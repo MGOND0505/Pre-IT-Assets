@@ -24,9 +24,7 @@ export type PermissionModule = (typeof PERMISSION_MODULES)[number];
  * designations was added later purely to replace User.designation's old free-text field with a
  * managed list; gating it here would need a one-time enabledModules backfill across every
  * existing organization for no real benefit, since nothing would ever want it off while
- * departments stays on. customFields joins the same "always on" group for the same reason - it's
- * admin config surface (definitions that shape the assets/licenses/helpdesk forms), not itself a
- * sellable module. roles joins it too, for the identical reason - named permission-template
+ * departments stays on. roles joins it too, for the identical reason - named permission-template
  * management is admin config surface (a reuse layer over the same matrix), not a sellable
  * module. */
 export const ENTITLEMENT_MODULES = [
@@ -38,6 +36,7 @@ export const ENTITLEMENT_MODULES = [
   "reports",
   "helpdesk",
   "tasks",
+  "customFields",
 ] as const;
 export type EntitlementModule = (typeof ENTITLEMENT_MODULES)[number];
 
