@@ -74,7 +74,10 @@ export function KpiCard({
   subtitle?: React.ReactNode
   /** An optional real short time series (e.g. this KPI's own daily counts over the selected
    * period) rendered as a small trend strip. Omit when there's no real series behind this
-   * number - see Sparkline's own comment. */
+   * number - see Sparkline's own comment. A perfectly flat series (e.g. zero every day) is
+   * still real data but conveys nothing as a "trend" - rendered as a bare horizontal line sitting
+   * at the bottom of its own container, which reads as a stray rendering artifact rather than a
+   * chart, so it's suppressed the same as if no sparkline had been passed at all. */
   sparkline?: number[]
 }) {
   const color = bucket ? BUCKET_COLOR[bucket] : "var(--muted-foreground)"
@@ -96,7 +99,9 @@ export function KpiCard({
           </div>
           <IconChip color={color} icon={Icon} />
         </div>
-        {sparkline && sparkline.length > 1 && <Sparkline data={sparkline} color={color} />}
+        {sparkline && sparkline.length > 1 && sparkline.some((v) => v !== sparkline[0]) && (
+          <Sparkline data={sparkline} color={color} />
+        )}
       </CardContent>
     </Card>
   )

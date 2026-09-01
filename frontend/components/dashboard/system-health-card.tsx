@@ -13,7 +13,7 @@ type HealthResponse = { status: "ok" | "degraded"; db: "connected" | "disconnect
  * 30s. Deliberately does NOT show uptime, disk space, or backup status - none of those exist as
  * real, checkable signals in this app yet, and this card only ever reports what's actually true.
  */
-export function SystemHealthCard() {
+export function SystemHealthCard({ refreshSignal }: { refreshSignal?: number } = {}) {
   const [health, setHealth] = React.useState<HealthResponse | null>(null)
   const [checking, setChecking] = React.useState(true)
 
@@ -30,12 +30,16 @@ export function SystemHealthCard() {
       }
     }
     check()
+    // Re-checks immediately when the dashboard's own "Refresh" button bumps refreshSignal, on
+    // top of (not instead of) this card's own independent 30s poll - a manual refresh just
+    // restarts that clock too, same as everywhere else on this page.
     const interval = setInterval(check, 30000)
     return () => {
       cancelled = true
       clearInterval(interval)
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal])
 
   const isOk = health?.status === "ok"
   const color = checking ? "var(--muted-foreground)" : isOk ? "var(--success)" : "var(--destructive)"

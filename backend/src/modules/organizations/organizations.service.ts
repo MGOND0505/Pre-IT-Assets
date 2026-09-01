@@ -4,6 +4,8 @@ import { Asset } from "../../models/Asset";
 import { License } from "../../models/License";
 import { Ticket } from "../../models/Ticket";
 import { AuditLog } from "../../models/AuditLog";
+import { LoginHistory } from "../../models/LoginHistory";
+import { AccessRequest } from "../../models/AccessRequest";
 import { ApiError } from "../../utils/ApiError";
 import { getAssetStats } from "../assets/assets.service";
 import { getLicenseStats } from "../licenses/licenses.service";
@@ -407,6 +409,105 @@ function lastNDays(now: Date, days: number): string[] {
   return result;
 }
 
+/** Real security signals this app can now honestly report (added alongside password-policy/
+ * CAPTCHA/session-timeout work) - never platform-wide affected by the org filter, same reasoning
+ * as the Organizations KPI itself (see SuperAdminDashboardOptions below). */
+async function getSecurityAlerts(days: number) {
+  const now = new Date();
+  const periodAgo = new Date(now.getTime() - days * DAY_MS);
+
+  const [lockedCount, lockedUsers, spikesRaw] = await Promise.all([
+    User.countDocuments({ lockedUntil: { $gt: now }, isDeleted: false }),
+    User.find({ lockedUntil: { $gt: now }, isDeleted: false })
+      .select("name email organization lockedUntil")
+      .populate({ path: "organization", select: "name slug" })
+      .sort({ lockedUntil: 1 })
+      .limit(10),
+    LoginHistory.aggregate([
+      { $match: { action: "login_failed", createdAt: { $gte: periodAgo }, organization: { $ne: null } } },
+      {
+        $group: {
+          _id: "$organization",
+          count: { $sum: 1 },
+          captchaFailures: { $sum: { $cond: [{ $eq: ["$captchaVerified", false] }, 1, 0] } },
+        },
+      },
+      { $match: { count: { $gte: 3 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 },
+      { $lookup: { from: "organizations", localField: "_id", foreignField: "_id", as: "org" } },
+      { $unwind: "$org" },
+    ]),
+  ]);
+
+  return {
+    lockedAccounts: {
+      count: lockedCount,
+      items: lockedUsers.map((u) => ({
+        userId: u.id,
+        name: u.name,
+        email: u.email,
+        organizationName: (u.organization as unknown as { name?: string } | null)?.name ?? null,
+        organizationSlug: (u.organization as unknown as { slug?: string } | null)?.slug ?? null,
+        lockedUntil: u.lockedUntil!,
+      })),
+    },
+    failedLoginSpikes: (
+      spikesRaw as { _id: unknown; count: number; captchaFailures: number; org: { name: string; slug: string } }[]
+    ).map((row) => ({
+      organizationId: String(row._id),
+      organizationName: row.org.name,
+      organizationSlug: row.org.slug,
+      count: row.count,
+      captchaFailures: row.captchaFailures,
+    })),
+  };
+}
+
+/** No unifying "pending action" concept existed anywhere in this app - this normalizes four real,
+ * already-modeled but never-aggregated candidates into one list. Platform-wide like the security
+ * alerts above (access requests/org subscription state/unassigned tickets are never "one org's"
+ * concern for a Super Admin). */
+async function getPendingActions(scope: Record<string, unknown>) {
+  const [pendingAccessRequests, orgsForState, unassignedTickets] = await Promise.all([
+    AccessRequest.countDocuments({ status: "Pending" }),
+    Organization.find({ isDeleted: false }).select("status validUntil gracePeriodDays"),
+    Ticket.countDocuments({
+      ...scope,
+      isDeleted: false,
+      status: { $nin: DASHBOARD_TERMINAL_STATUSES },
+      assignedAgent: null,
+    }),
+  ]);
+
+  let expiring = 0;
+  let suspended = 0;
+  for (const org of orgsForState) {
+    const state = getSubscriptionState(org);
+    if (state === "ExpiringSoon" || state === "GracePeriod") expiring += 1;
+    else if (state === "Suspended") suspended += 1;
+  }
+
+  return {
+    accessRequests: { count: pendingAccessRequests },
+    expiringOrganizations: { count: expiring },
+    suspendedOrganizations: { count: suspended },
+    unassignedTickets: { count: unassignedTickets },
+  };
+}
+
+/** Cross-org role breakdown - deliberately DOES respect the org filter (unlike the two functions
+ * above): scoping to one org naturally yields only orgAdmin/teamMember counts, since
+ * superAdmin/subSuperAdmin always have organization: null and can never match a scoped filter -
+ * the same honest behavior the existing Users/Assets KPIs already have when an org is selected. */
+async function getUserRoleBreakdown(scope: Record<string, unknown>) {
+  const raw = await User.aggregate([
+    { $match: { ...scope, isDeleted: false } },
+    { $group: { _id: "$role", count: { $sum: 1 } } },
+  ]);
+  return (raw as { _id: string; count: number }[]).map((r) => ({ role: r._id, count: r.count }));
+}
+
 export type SuperAdminDashboardOptions = {
   /** Trend window in days - 7/14/30 from the dashboard's date-range filter. */
   days?: number;
@@ -418,9 +519,10 @@ export type SuperAdminDashboardOptions = {
 
 /**
  * Platform-wide, read-only counts for the Super Admin dashboard - every number here is a real
- * aggregate over existing collections (no new concepts, no invented metrics). Deliberately does
- * NOT include anything this app has no actual data for (system health, storage, security
- * events) - there is nothing honest to report for those yet.
+ * aggregate over existing collections (no new concepts, no invented metrics). Still deliberately
+ * omits anything this app has no actual data for (storage/uptime monitoring) - security alerts
+ * were added once real signals existed (LoginHistory.captchaVerified, User.lockedUntil), see
+ * getSecurityAlerts above.
  */
 export async function getSuperAdminDashboardStats(options: SuperAdminDashboardOptions = {}) {
   const days = options.days ?? 7;
@@ -448,6 +550,9 @@ export async function getSuperAdminDashboardStats(options: SuperAdminDashboardOp
     ticketsCreatedPriorPeriod,
     breachedTicketsRaw,
     topCategoryThisPeriodRaw,
+    security,
+    pendingActions,
+    userRoles,
   ] = await Promise.all([
     Organization.countDocuments({ isDeleted: false }),
     Organization.countDocuments({ isDeleted: false, status: "Active" }),
@@ -521,6 +626,9 @@ export async function getSuperAdminDashboardStats(options: SuperAdminDashboardOp
       { $sort: { count: -1 } },
       { $limit: 1 },
     ]),
+    getSecurityAlerts(days),
+    getPendingActions(scope),
+    getUserRoleBreakdown(scope),
   ]);
 
   const byStatus: Record<string, number> = {};
@@ -592,6 +700,9 @@ export async function getSuperAdminDashboardStats(options: SuperAdminDashboardOp
       organizationName: (log.organization as unknown as { name?: string } | null)?.name ?? null,
       createdAt: log.createdAt,
     })),
+    security,
+    pendingActions,
+    userRoles,
   };
 }
 

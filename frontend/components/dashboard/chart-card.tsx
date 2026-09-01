@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useTheme } from "next-themes"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 
 /** Shared theme-aware chart chrome (grid/axis colors, a single sequential hue) - one place
  * so every bar chart on the dashboard reads consistently in both light and dark mode. */
@@ -54,6 +55,24 @@ export function ChartCard({
         style={height ? { height } : undefined}
       >
         {isEmpty ? <p className="text-sm text-muted-foreground">{emptyMessage}</p> : children}
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Matches ChartCard's own chrome/height exactly, so a loading grid never jump-cuts into the
+ * real layout once data arrives - same idea as kpi-card.tsx's KpiGridSkeleton. */
+export function ChartCardSkeleton({ title, height }: { title: string; height?: number }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">{title}</CardTitle>
+      </CardHeader>
+      <CardContent
+        className={height ? undefined : "h-[220px] sm:h-[260px] lg:h-[320px]"}
+        style={height ? { height } : undefined}
+      >
+        <Skeleton className="size-full" />
       </CardContent>
     </Card>
   )

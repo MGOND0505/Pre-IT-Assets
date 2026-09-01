@@ -4,12 +4,13 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { LayoutDashboard, UserCog, Building2, Search } from "lucide-react"
+import { toast } from "sonner"
 
 import { AppLogo } from "@/components/layout/app-logo"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { AiAssistantSidebarCard } from "@/components/ai/ai-assistant-sidebar-card"
 import { OPEN_SUPER_ADMIN_AI_ASSISTANT_EVENT } from "@/lib/ai-assistant-events"
-import { apiClient, type ApiEnvelope } from "@/lib/api-client"
+import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { cn } from "@/lib/utils"
 
 const NAV_LINKS = [
@@ -39,8 +40,11 @@ export function SuperAdminSidebar() {
       .then((res) => {
         if (!cancelled) setOrgs(res.data.data.items)
       })
-      .catch(() => {
-        if (!cancelled) setOrgs([])
+      .catch((err) => {
+        if (!cancelled) {
+          setOrgs([])
+          toast.error(apiErrorMessage(err, "Could not load organizations"))
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

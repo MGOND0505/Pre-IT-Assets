@@ -204,5 +204,8 @@ userSchema.index(
   { employeeId: 1 },
   { unique: true, partialFilterExpression: { employeeId: { $exists: true }, organization: null, isDeleted: false } }
 );
+// Supports the Super Admin dashboard's cross-org role-breakdown aggregate
+// (organizations.service.ts#getUserRoleBreakdown) - every existing index is organization-first.
+userSchema.index({ role: 1, isDeleted: 1 });
 
 export const User = model<IUser>("User", userSchema);

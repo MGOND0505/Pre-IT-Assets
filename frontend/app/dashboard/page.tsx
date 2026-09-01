@@ -28,20 +28,25 @@ import {
   RefreshCw,
   UserCog,
   Tags,
+  ClipboardCheck,
 } from "lucide-react"
 
 import { SuperAdminShell } from "@/components/layout/super-admin-shell"
 import { FullPageLoader } from "@/components/layout/full-page-loader"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { KpiCard, KpiGridSkeleton, BUCKET_COLOR, type Bucket } from "@/components/dashboard/kpi-card"
 import { SystemHealthCard } from "@/components/dashboard/system-health-card"
-import { ChartCard, MultiSeriesTooltip, DonutTooltip, useChartTheme } from "@/components/dashboard/chart-card"
+import { ChartCard, ChartCardSkeleton, MultiSeriesTooltip, DonutTooltip, useChartTheme } from "@/components/dashboard/chart-card"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 import { ActivityFeed, ActivityFeedSkeleton, type ActivityEntry } from "@/components/dashboard/activity-feed"
 import { RevealGroup, RevealItem } from "@/components/dashboard/reveal"
 import { TicketInsightsCard, TicketAlertsCard, type TicketInsights, type TicketAlert } from "@/components/dashboard/ticket-insights-alerts"
+import { SecurityAlertsCard, type SecurityAlerts } from "@/components/dashboard/security-alerts-card"
+import { PendingActionsCard, type PendingActions } from "@/components/dashboard/pending-actions-card"
+import { UserRolesCard, type UserRoleBreakdown } from "@/components/dashboard/user-roles-card"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 
@@ -60,6 +65,9 @@ type DashboardStats = {
   insights: TicketInsights
   alerts: TicketAlert[]
   recentActivity: ActivityEntry[]
+  security: SecurityAlerts
+  pendingActions: PendingActions
+  userRoles: UserRoleBreakdown
 }
 
 type OrgOption = { _id: string; name: string; slug: string }
@@ -107,6 +115,9 @@ export default function SuperAdminDashboardPage() {
   const [days, setDays] = React.useState(7)
   const [organizationId, setOrganizationId] = React.useState<string>("all")
   const [orgOptions, setOrgOptions] = React.useState<OrgOption[]>([])
+  // Bumped on every manual "Refresh" click so SystemHealthCard (which otherwise only polls
+  // itself on its own 30s timer) re-checks in step with everything else the button refreshes.
+  const [refreshTick, setRefreshTick] = React.useState(0)
 
   React.useEffect(() => {
     if (authLoading) return
@@ -122,15 +133,22 @@ export default function SuperAdminDashboardPage() {
   React.useEffect(() => {
     if (user?.role !== "superAdmin") return
     apiClient
-      .get<ApiEnvelope<{ items: OrgOption[] }>>("/organizations", { params: { limit: 200 } })
+      .get<ApiEnvelope<{ items: OrgOption[] }>>("/organizations", { params: { limit: 500 } })
       .then((res) => setOrgOptions(res.data.data.items))
-      .catch(() => setOrgOptions([]))
+      .catch((err) => {
+        setOrgOptions([])
+        toast.error(apiErrorMessage(err, "Could not load organizations"))
+      })
   }, [user?.role])
 
   const load = React.useCallback(
     async (isManualRefresh = false) => {
-      if (isManualRefresh) setRefreshing(true)
-      else setLoading(true)
+      if (isManualRefresh) {
+        setRefreshing(true)
+        setRefreshTick((n) => n + 1)
+      } else {
+        setLoading(true)
+      }
       try {
         const res = await apiClient.get<ApiEnvelope<DashboardStats>>("/organizations/dashboard-stats", {
           params: { days, organizationId: organizationId === "all" ? undefined : organizationId },
@@ -151,6 +169,17 @@ export default function SuperAdminDashboardPage() {
     if (user?.role === "superAdmin") load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role, days, organizationId])
+
+  // Opt-in, off by default - the backing endpoint runs 16+ queries per call (2 $lookup
+  // aggregates, 2 populated finds), so this deliberately polls far less often than
+  // SystemHealthCard's own 30s health check, matching analytics-embed.tsx's existing
+  // minutes-scale polling precedent rather than inventing a tighter one.
+  const [autoRefresh, setAutoRefresh] = React.useState(false)
+  React.useEffect(() => {
+    if (!autoRefresh) return
+    const interval = window.setInterval(() => load(true), 60_000)
+    return () => window.clearInterval(interval)
+  }, [autoRefresh, load])
 
   if (authLoading || !user || user.role !== "superAdmin") return <FullPageLoader />
 
@@ -179,7 +208,7 @@ export default function SuperAdminDashboardPage() {
           <div className="flex flex-col items-end gap-1.5">
             <div className="flex items-center gap-2">
               <Select value={organizationId} onValueChange={(v) => setOrganizationId(v ?? "all")}>
-                <SelectTrigger size="sm" className="w-44">
+                <SelectTrigger size="sm" className="w-44" aria-label="Filter by organization">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -192,7 +221,7 @@ export default function SuperAdminDashboardPage() {
                 </SelectContent>
               </Select>
               <Select value={String(days)} onValueChange={(v) => setDays(Number(v ?? 7))}>
-                <SelectTrigger size="sm" className="w-32">
+                <SelectTrigger size="sm" className="w-32" aria-label="Time range">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -205,6 +234,10 @@ export default function SuperAdminDashboardPage() {
                 <RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
+              <div className="flex items-center gap-1.5 pl-1">
+                <Switch checked={autoRefresh} onCheckedChange={setAutoRefresh} aria-label="Auto-refresh every minute" />
+                <span className="text-xs text-muted-foreground">Auto-refresh</span>
+              </div>
             </div>
             {lastUpdated && <span className="text-xs text-muted-foreground">{lastUpdatedLabel(lastUpdated)}</span>}
           </div>
@@ -215,12 +248,14 @@ export default function SuperAdminDashboardPage() {
         ) : (
           <RevealGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 xl:grid-cols-6">
             <RevealItem>
-              <KpiCard
-                label="Organizations"
-                value={stats.organizations.total}
-                icon={Building2}
-                subtitle={`Active: ${stats.organizations.active}`}
-              />
+              <Link href="/" className="block h-full">
+                <KpiCard
+                  label="Organizations"
+                  value={stats.organizations.total}
+                  icon={Building2}
+                  subtitle={`Active: ${stats.organizations.active}`}
+                />
+              </Link>
             </RevealItem>
             <RevealItem>
               <KpiCard
@@ -259,12 +294,21 @@ export default function SuperAdminDashboardPage() {
               />
             </RevealItem>
             <RevealItem>
-              <SystemHealthCard />
+              <SystemHealthCard refreshSignal={refreshTick} />
             </RevealItem>
           </RevealGroup>
         )}
 
-        {!loading && stats && (
+        {loading || !stats ? (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="lg:col-span-1">
+              <ChartCardSkeleton title="Tickets by status" />
+            </div>
+            <div className="lg:col-span-2">
+              <ChartCardSkeleton title={`Tickets created in the last ${days} days`} />
+            </div>
+          </div>
+        ) : (
           <RevealGroup className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <RevealItem className="lg:col-span-1">
               <ChartCard title="Tickets by status" isEmpty={statusChartData.length === 0} emptyMessage="No tickets yet.">
@@ -319,6 +363,7 @@ export default function SuperAdminDashboardPage() {
                           type="button"
                           onClick={() => router.push(`/${selectedOrgSlug}/helpdesk?status=${encodeURIComponent(entry.status)}`)}
                           className="flex items-center gap-1.5 text-left hover:opacity-75"
+                          aria-label={`View ${entry.status} tickets`}
                         >
                           {row}
                         </button>
@@ -378,7 +423,40 @@ export default function SuperAdminDashboardPage() {
           </RevealGroup>
         )}
 
-        {!loading && stats && (
+        {loading || !stats ? (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <ChartCardSkeleton title="Security Alerts" />
+            <ChartCardSkeleton title="Pending Actions" />
+            <ChartCardSkeleton title="User Roles" />
+          </div>
+        ) : (
+          <RevealGroup className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <RevealItem>
+              <SecurityAlertsCard security={stats.security} />
+            </RevealItem>
+            <RevealItem>
+              <PendingActionsCard pendingActions={stats.pendingActions} />
+            </RevealItem>
+            <RevealItem>
+              <UserRolesCard roles={stats.userRoles} />
+            </RevealItem>
+          </RevealGroup>
+        )}
+
+        {loading || !stats ? (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <ChartCardSkeleton title="Top ticket categories" />
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Recent Activity</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ActivityFeedSkeleton />
+              </CardContent>
+            </Card>
+            <ChartCardSkeleton title="System Alerts" />
+          </div>
+        ) : (
           <RevealGroup className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <RevealItem>
               <ChartCard
@@ -432,43 +510,43 @@ export default function SuperAdminDashboardPage() {
           </RevealGroup>
         )}
 
-        {loading && (
-          <RevealGroup className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <RevealItem>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Recent Activity</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ActivityFeedSkeleton />
-                </CardContent>
-              </Card>
-            </RevealItem>
-          </RevealGroup>
-        )}
-
         <section className="flex flex-col gap-4">
           <SectionHeading icon={Tags}>Quick Actions</SectionHeading>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            <Link
-              href="/"
-              className="group flex items-center gap-3 rounded-xl border bg-card p-4 shadow-soft-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft-md"
-            >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Building2 className="size-4.5" />
-              </span>
-              <span className="text-sm font-medium">Organizations</span>
-            </Link>
-            <Link
-              href="/sub-super-admins"
-              className="group flex items-center gap-3 rounded-xl border bg-card p-4 shadow-soft-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft-md"
-            >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-info/10 text-info">
-                <UserCog className="size-4.5" />
-              </span>
-              <span className="text-sm font-medium">Sub-Super Admins</span>
-            </Link>
-          </div>
+          <RevealGroup className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <RevealItem>
+              <Link
+                href="/"
+                className="group flex items-center gap-3 rounded-xl border bg-card p-4 shadow-soft-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft-md"
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Building2 className="size-4.5" />
+                </span>
+                <span className="text-sm font-medium">Organizations</span>
+              </Link>
+            </RevealItem>
+            <RevealItem>
+              <Link
+                href="/sub-super-admins"
+                className="group flex items-center gap-3 rounded-xl border bg-card p-4 shadow-soft-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft-md"
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-info/10 text-info">
+                  <UserCog className="size-4.5" />
+                </span>
+                <span className="text-sm font-medium">Sub-Super Admins</span>
+              </Link>
+            </RevealItem>
+            <RevealItem>
+              <Link
+                href="/sub-super-admins"
+                className="group flex items-center gap-3 rounded-xl border bg-card p-4 shadow-soft-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft-md"
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-warning/10 text-warning">
+                  <ClipboardCheck className="size-4.5" />
+                </span>
+                <span className="text-sm font-medium">Access Requests</span>
+              </Link>
+            </RevealItem>
+          </RevealGroup>
         </section>
       </div>
     </SuperAdminShell>

@@ -29,5 +29,8 @@ const loginHistorySchema = new Schema<ILoginHistory>(
 );
 
 loginHistorySchema.index({ user: 1, createdAt: -1 });
+// Supports the Super Admin dashboard's cross-org "failed login spikes" aggregate
+// (organizations.service.ts#getSecurityAlerts) - matches action first, then a recency range.
+loginHistorySchema.index({ organization: 1, action: 1, createdAt: -1 });
 
 export const LoginHistory = model<ILoginHistory>("LoginHistory", loginHistorySchema);

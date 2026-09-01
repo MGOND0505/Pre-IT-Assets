@@ -27,7 +27,7 @@ export const dashboardStatsQuerySchema = z.object({
 
 export const listOrganizationsQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
-  limit: z.coerce.number().int().positive().max(100).optional(),
+  limit: z.coerce.number().int().positive().max(500).optional(),
   search: z.string().optional(),
   status: z.enum(["Active", "Inactive"]).optional(),
 });
