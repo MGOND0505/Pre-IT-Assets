@@ -14,11 +14,13 @@ export const PERMISSION_MODULES = [
   "tasks",
   "customFields",
   "roles",
+  "knowledgeBase",
+  "aiAssistant",
 ] as const;
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];
 
 /** The subset of modules an organization can be entitled (or not) to via its subscription plan.
- * dashboard/users/auditLogs/settings are core admin surface, not a sellable module - always on.
+ * dashboard/users/settings are core admin surface, not a sellable module - always on.
  * designations joins that "always on" group too, deliberately - unlike departments/locations
  * (which predate this field and are genuine prerequisite master data for sellable feature areas),
  * designations was added later purely to replace User.designation's old free-text field with a
@@ -26,7 +28,19 @@ export type PermissionModule = (typeof PERMISSION_MODULES)[number];
  * existing organization for no real benefit, since nothing would ever want it off while
  * departments stays on. roles joins it too, for the identical reason - named permission-template
  * management is admin config surface (a reuse layer over the same matrix), not a sellable
- * module. */
+ * module. knowledgeBase joins it for a related but distinct reason - it's Phase 1 of the AI
+ * Assistant rebuild and its `view` action is granted to every user by default (see
+ * basicUserDefaultPermissions below), which only makes sense if the module itself is always-on
+ * core surface, never a per-org sellable toggle. aiAssistant (Phase 3 of the same rebuild) joins
+ * it for the identical reason - its `view` action is also granted to every user by default below,
+ * and per this feature's explicit requirement it must NOT be Super-Admin-gate-able per org at all
+ * - it's meant to be universally on, not a sellable/toggleable entitlement. auditLogs USED to join this always-on group, but
+ * is now Super-Admin-toggleable per org,
+ * same as customFields before it - tracking who-did-what is a real, gate-able feature area, not
+ * bedrock admin surface. recycleBin is entitlement-only (it never joins PERMISSION_MODULES/
+ * MODULE_ACTIONS/PermissionsShape - Recycle Bin stays Admin-only, not part of the granular
+ * per-teamMember action matrix); it exists here purely so a Super Admin can gate whether an org's
+ * own Admin may reach any module's /deleted, /:id/restore, /:id/purge routes at all. */
 export const ENTITLEMENT_MODULES = [
   "assets",
   "licenses",
@@ -37,6 +51,8 @@ export const ENTITLEMENT_MODULES = [
   "helpdesk",
   "tasks",
   "customFields",
+  "recycleBin",
+  "auditLogs",
 ] as const;
 export type EntitlementModule = (typeof ENTITLEMENT_MODULES)[number];
 
@@ -94,6 +110,10 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
   tasks: ["view", "create", "update", "delete", "assign", "comment"],
   customFields: ["view", "create", "update", "delete"],
   roles: ["view", "create", "update", "delete"],
+  knowledgeBase: ["view", "create", "update", "delete"],
+  // Read/query capability only, not a CRUD module - the AI Assistant never creates/updates/
+  // deletes anything on its own (see the confirm-before-write ticket flow in ai-assistant.*).
+  aiAssistant: ["view"],
 };
 
 type ModulePermissions = { [action in PermissionAction]: boolean };
@@ -145,6 +165,13 @@ export function basicUserDefaultPermissions(): PermissionsShape {
   perms.tasks.view = true;
   perms.tasks.create = true;
   perms.tasks.comment = true;
+  // Every user (including a plain Employee) needs read access so a later phase's AI Assistant can
+  // search KB articles on their behalf - authoring (create/update/delete) stays Admin/Sub Admin
+  // territory, left false here.
+  perms.knowledgeBase.view = true;
+  // On for everyone by default, per the AI Assistant feature's explicit requirement - not an
+  // entitlement, and not gate-able per org (see PERMISSION_MODULES's own comment on aiAssistant).
+  perms.aiAssistant.view = true;
   return perms;
 }
 
@@ -179,5 +206,9 @@ export function subAdminDefaultPermissions(): PermissionsShape {
   perms.tasks.assign = true;
   perms.tasks.comment = true;
   perms.reports.view = true;
+  Object.assign(perms.knowledgeBase, fullAccess);
+  // On for everyone by default, per the AI Assistant feature's explicit requirement - see the
+  // identical note in basicUserDefaultPermissions above.
+  perms.aiAssistant.view = true;
   return perms;
 }

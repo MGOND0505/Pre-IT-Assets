@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAdmin } from "../../middleware/authorize";
+import { requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadSpreadsheet } from "../../utils/upload";
 import * as helpdeskCategoriesController from "./helpdeskCategories.controller";
@@ -23,6 +23,7 @@ export const helpdeskCategoriesRouter = Router();
 helpdeskCategoriesRouter.get(
   "/deleted",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ query: listHelpdeskCategoriesQuerySchema }),
   helpdeskCategoriesController.listDeletedHelpdeskCategories
 );
@@ -84,6 +85,7 @@ helpdeskCategoriesRouter.delete(
 helpdeskCategoriesRouter.post(
   "/:id/restore",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ params: helpdeskCategoryIdParamsSchema }),
   helpdeskCategoriesController.restoreHelpdeskCategory
 );

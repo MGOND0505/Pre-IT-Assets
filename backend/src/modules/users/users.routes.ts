@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authorize, requireAdmin } from "../../middleware/authorize";
+import { authorize, requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadSpreadsheet } from "../../utils/upload";
 import * as usersController from "./users.controller";
@@ -95,6 +95,7 @@ usersRouter.post(
 usersRouter.get(
   "/deleted",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ query: listUsersQuerySchema }),
   usersController.listDeletedUsers
 );
@@ -152,6 +153,7 @@ usersRouter.delete(
 usersRouter.post(
   "/:id/restore",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ params: userIdParamsSchema }),
   usersController.restoreUser
 );

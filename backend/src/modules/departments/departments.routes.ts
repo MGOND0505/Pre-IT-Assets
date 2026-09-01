@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authorize, requireAdmin } from "../../middleware/authorize";
+import { authorize, requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadSpreadsheet } from "../../utils/upload";
 import * as departmentsController from "./departments.controller";
@@ -45,6 +45,7 @@ departmentsRouter.get(
 departmentsRouter.get(
   "/deleted",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ query: listDepartmentsQuerySchema }),
   departmentsController.listDeletedDepartments
 );
@@ -81,6 +82,7 @@ departmentsRouter.delete(
 departmentsRouter.post(
   "/:id/restore",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ params: departmentIdParamsSchema }),
   departmentsController.restoreDepartment
 );

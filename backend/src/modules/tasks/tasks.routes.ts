@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authorize, requireAdmin } from "../../middleware/authorize";
+import { authorize, requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import * as tasksController from "./tasks.controller";
 import {
@@ -30,6 +30,7 @@ tasksRouter.get("/my-summary", authorize("tasks", "view"), tasksController.getMy
 tasksRouter.get(
   "/deleted",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ query: listTasksQuerySchema }),
   tasksController.listDeletedTasks
 );
@@ -72,6 +73,7 @@ tasksRouter.delete(
 tasksRouter.post(
   "/:id/restore",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ params: taskIdParamsSchema }),
   tasksController.restoreTask
 );

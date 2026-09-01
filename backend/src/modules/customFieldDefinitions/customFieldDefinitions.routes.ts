@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authorize, requireAdmin } from "../../middleware/authorize";
+import { authorize, requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import * as customFieldDefinitionsController from "./customFieldDefinitions.controller";
 import {
@@ -14,6 +14,7 @@ export const customFieldDefinitionsRouter = Router();
 customFieldDefinitionsRouter.get(
   "/deleted",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ query: listCustomFieldDefinitionsQuerySchema }),
   customFieldDefinitionsController.listDeletedCustomFieldDefinitions
 );
@@ -50,6 +51,7 @@ customFieldDefinitionsRouter.delete(
 customFieldDefinitionsRouter.post(
   "/:id/restore",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ params: customFieldDefinitionIdParamsSchema }),
   customFieldDefinitionsController.restoreCustomFieldDefinition
 );

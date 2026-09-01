@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAdmin } from "../../middleware/authorize";
+import { requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadSpreadsheet } from "../../utils/upload";
 import * as helpdeskPrioritiesController from "./helpdeskPriorities.controller";
@@ -23,6 +23,7 @@ export const helpdeskPrioritiesRouter = Router();
 helpdeskPrioritiesRouter.get(
   "/deleted",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ query: listHelpdeskPrioritiesQuerySchema }),
   helpdeskPrioritiesController.listDeletedHelpdeskPriorities
 );
@@ -84,6 +85,7 @@ helpdeskPrioritiesRouter.delete(
 helpdeskPrioritiesRouter.post(
   "/:id/restore",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ params: helpdeskPriorityIdParamsSchema }),
   helpdeskPrioritiesController.restoreHelpdeskPriority
 );

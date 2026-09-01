@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authorize, requireAdmin } from "../../middleware/authorize";
+import { authorize, requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import * as designationsController from "./designations.controller";
 import {
@@ -14,6 +14,7 @@ export const designationsRouter = Router();
 designationsRouter.get(
   "/deleted",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ query: listDesignationsQuerySchema }),
   designationsController.listDeletedDesignations
 );
@@ -50,6 +51,7 @@ designationsRouter.delete(
 designationsRouter.post(
   "/:id/restore",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ params: designationIdParamsSchema }),
   designationsController.restoreDesignation
 );

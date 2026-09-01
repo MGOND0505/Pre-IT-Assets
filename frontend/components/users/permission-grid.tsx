@@ -35,6 +35,12 @@ export function basicUserPermissions(): PermissionsShape {
   perms.tasks.view = true
   perms.tasks.create = true
   perms.tasks.comment = true
+  // Every user (including a plain Employee) needs read access so a later phase's AI Assistant can
+  // search KB articles on their behalf - authoring stays Admin/Sub Admin territory.
+  perms.knowledgeBase.view = true
+  // On for everyone by default, per the AI Assistant feature's explicit requirement - not an
+  // entitlement, not gate-able per org (see backend/src/config/permissions.ts's PERMISSION_MODULES comment).
+  perms.aiAssistant.view = true
   return perms
 }
 
@@ -72,6 +78,10 @@ export function subAdminPermissions(): PermissionsShape {
   perms.tasks.assign = true
   perms.tasks.comment = true
   perms.reports.view = true
+  Object.assign(perms.knowledgeBase, fullAccess)
+  // On for everyone by default, per the AI Assistant feature's explicit requirement - see the
+  // identical note in basicUserPermissions above.
+  perms.aiAssistant.view = true
   return perms
 }
 

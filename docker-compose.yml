@@ -1,4 +1,29 @@
 services:
+  # Local AI inference engine for the AI Assistant / AI Inventory feature - reachable ONLY from
+  # other containers on this compose network (no `ports:` mapping to the host at all, unlike
+  # mongo/backend/frontend's loopback-bound ports below - Ollama's API must never be reachable
+  # from outside this compose network, per the AI infra requirements). OLLAMA_HOST=0.0.0.0 is
+  # required so Ollama listens on the container's internal network interface, not just its own
+  # loopback - without it, `backend` couldn't reach `http://ollama:11434` at all.
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
+
   mongo:
     image: mongo:7
     restart: unless-stopped
@@ -16,6 +41,9 @@ services:
       NODE_ENV: production
       PORT: 5001
       MONGODB_URI: mongodb://mongo:27017/it_asset_management
+      # Internal-network address only - reachable by this container alone, see the ollama
+      # service's own comment above for why it has no host-facing port at all.
+      OLLAMA_BASE_URL: http://ollama:11434
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
       JWT_COOKIE_NAME: ${JWT_COOKIE_NAME:-itam_token}
@@ -29,6 +57,7 @@ services:
       - backend_uploads:/app/uploads
     depends_on:
       - mongo
+      - ollama
 
   frontend:
     build:
@@ -50,3 +79,4 @@ services:
 volumes:
   mongo_data:
   backend_uploads:
+  ollama_data:

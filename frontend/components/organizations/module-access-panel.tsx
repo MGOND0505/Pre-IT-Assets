@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { toast } from "sonner"
-import { Boxes, KeyRound, Truck, Building, MapPin, BarChart3, LifeBuoy, ListChecks, Settings2, X } from "lucide-react"
+import { Boxes, KeyRound, Truck, Building, MapPin, BarChart3, LifeBuoy, ListChecks, Settings2, Trash2, ScrollText, X } from "lucide-react"
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,8 @@ const MODULE_ICON: Record<EntitlementModule, React.ComponentType<{ className?: s
   helpdesk: LifeBuoy,
   tasks: ListChecks,
   customFields: Settings2,
+  recycleBin: Trash2,
+  auditLogs: ScrollText,
 }
 
 const MODULE_DESCRIPTION: Record<EntitlementModule, string> = {
@@ -32,6 +34,8 @@ const MODULE_DESCRIPTION: Record<EntitlementModule, string> = {
   helpdesk: "Ticketing and support management",
   tasks: "Assign and track team tasks",
   customFields: "Define custom fields for assets, licenses, and tickets",
+  recycleBin: "Restore or permanently remove deleted records",
+  auditLogs: "View activity and change history",
 }
 
 /** Inline panel (not a modal) for toggling which real, existing entitlement modules an

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
 import { logAction } from "../audit/audit.service";
+import type { EntitlementModule } from "../../config/permissions";
 import * as organizationsService from "./organizations.service";
 
 export const listOrganizations = asyncHandler(async (req: Request, res: Response) => {
@@ -56,6 +57,28 @@ export const updateOrganization = asyncHandler(async (req: Request, res: Respons
     newValue: req.body,
     organizationId: org.id,
   });
+
+  // A second, more specific log entry just for module-access changes, in addition to the
+  // generic "UPDATE" one above - Module Access Control is a distinct, accountability-sensitive
+  // action (it's what lets/blocks an org's own Admin from entire feature areas), so it deserves
+  // its own clearly-labeled audit trail entry rather than being buried in a generic field diff.
+  const previousModules: EntitlementModule[] = before.organization.enabledModules ?? [];
+  const nextModules: EntitlementModule[] | undefined = req.body.enabledModules;
+  if (
+    nextModules &&
+    JSON.stringify([...previousModules].sort()) !== JSON.stringify([...nextModules].sort())
+  ) {
+    await logAction({
+      req,
+      action: "MODULE_ACCESS_UPDATED",
+      module: "Organization",
+      recordId: org.id,
+      recordLabel: org.name,
+      oldValue: { enabledModules: previousModules },
+      newValue: { enabledModules: nextModules },
+      organizationId: org.id,
+    });
+  }
 
   ok(res, org, "Organization updated");
 });

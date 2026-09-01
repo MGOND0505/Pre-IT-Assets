@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authorize, requireAdmin } from "../../middleware/authorize";
+import { authorize, requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadSpreadsheet } from "../../utils/upload";
 import * as vendorsController from "./vendors.controller";
@@ -35,6 +35,7 @@ vendorsRouter.get(
 vendorsRouter.get(
   "/deleted",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ query: listVendorsQuerySchema }),
   vendorsController.listDeletedVendors
 );
@@ -71,6 +72,7 @@ vendorsRouter.delete(
 vendorsRouter.post(
   "/:id/restore",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ params: vendorIdParamsSchema }),
   vendorsController.restoreVendor
 );

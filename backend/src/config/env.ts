@@ -53,6 +53,16 @@ const envSchema = z.object({
   // that org's users must solve it. Both optional - CAPTCHA simply can't be enabled if unset.
   TURNSTILE_SITE_KEY: z.string().optional(),
   TURNSTILE_SECRET_KEY: z.string().optional(),
+
+  // The AI Assistant's local inference engine - defaults to the same address a locally-run
+  // Ollama binary listens on outside Docker (local dev); docker-compose.yml overrides this to
+  // the ollama service's internal-network address (http://ollama:11434) in every deployed
+  // environment - never reachable from outside that compose network.
+  OLLAMA_BASE_URL: z.string().url().default("http://localhost:11434"),
+  // The model name Ollama is asked for on every chat request - must already be pulled into the
+  // Ollama container/binary (`ollama pull <model>`) before the AI Assistant will actually get
+  // responses; this app never auto-pulls a model itself, that's an operational/deploy-time step.
+  OLLAMA_MODEL: z.string().default("llama3.1"),
 });
 
 const parsed = envSchema.safeParse(process.env);

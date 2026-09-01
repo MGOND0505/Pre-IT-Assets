@@ -16,11 +16,17 @@ export const PERMISSION_MODULES = [
   "tasks",
   "customFields",
   "roles",
+  "knowledgeBase",
+  "aiAssistant",
 ] as const
 export type PermissionModule = (typeof PERMISSION_MODULES)[number]
 
 /** The subset of modules an organization can be entitled (or not) to via its subscription plan.
- * dashboard/users/auditLogs/settings are core admin surface, not a sellable module - always on. */
+ * dashboard/users/settings are core admin surface, not a sellable module - always on. auditLogs
+ * USED to join that always-on group, but is now Super-Admin-toggleable per org, same as
+ * customFields before it. recycleBin is entitlement-only (never joins PERMISSION_MODULES/
+ * MODULE_ACTIONS/PermissionsShape - Recycle Bin stays Admin-only, not part of the granular
+ * per-teamMember action matrix). */
 export const ENTITLEMENT_MODULES = [
   "assets",
   "licenses",
@@ -31,6 +37,8 @@ export const ENTITLEMENT_MODULES = [
   "helpdesk",
   "tasks",
   "customFields",
+  "recycleBin",
+  "auditLogs",
 ] as const
 export type EntitlementModule = (typeof ENTITLEMENT_MODULES)[number]
 
@@ -83,9 +91,15 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
   tasks: ["view", "create", "update", "delete", "assign", "comment"],
   customFields: ["view", "create", "update", "delete"],
   roles: ["view", "create", "update", "delete"],
+  knowledgeBase: ["view", "create", "update", "delete"],
+  aiAssistant: ["view"],
 }
 
-export const MODULE_LABELS: Record<PermissionModule, string> = {
+// Record<PermissionModule | EntitlementModule, string> (not just PermissionModule) because
+// recycleBin is entitlement-only - it never joins PERMISSION_MODULES/MODULE_ACTIONS/
+// PermissionsShape (Recycle Bin stays Admin-only, not part of the granular per-teamMember action
+// matrix) - yet ModuleAccessPanel still needs a label for it, same as every other entitlement.
+export const MODULE_LABELS: Record<PermissionModule | EntitlementModule, string> = {
   dashboard: "Dashboard",
   assets: "IT Assets",
   licenses: "Licenses",
@@ -101,6 +115,9 @@ export const MODULE_LABELS: Record<PermissionModule, string> = {
   tasks: "Tasks",
   customFields: "Custom Fields",
   roles: "Roles & Permissions",
+  knowledgeBase: "Knowledge Base",
+  aiAssistant: "AI Assistant",
+  recycleBin: "Recycle Bin",
 }
 
 type ModulePermissions = { [action in PermissionAction]: boolean }

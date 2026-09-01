@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authorize, requireAdmin } from "../../middleware/authorize";
+import { authorize, requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadSpreadsheet } from "../../utils/upload";
 import * as locationsController from "./locations.controller";
@@ -45,6 +45,7 @@ locationsRouter.get(
 locationsRouter.get(
   "/deleted",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ query: listLocationsQuerySchema }),
   locationsController.listDeletedLocations
 );
@@ -81,6 +82,7 @@ locationsRouter.delete(
 locationsRouter.post(
   "/:id/restore",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ params: locationIdParamsSchema }),
   locationsController.restoreLocation
 );

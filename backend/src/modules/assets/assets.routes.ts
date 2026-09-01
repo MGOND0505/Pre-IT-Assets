@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authorize, requireAdmin } from "../../middleware/authorize";
+import { authorize, requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadAssetDocument, uploadSpreadsheet } from "../../utils/upload";
 import * as assetsController from "./assets.controller";
@@ -51,6 +51,7 @@ assetsRouter.get(
 assetsRouter.get(
   "/deleted",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ query: listAssetsQuerySchema }),
   assetsController.listDeletedAssets
 );
@@ -97,12 +98,14 @@ assetsRouter.delete(
 assetsRouter.post(
   "/:id/restore",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ params: assetIdParamsSchema }),
   assetsController.restoreAsset
 );
 assetsRouter.delete(
   "/:id/purge",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ params: assetIdParamsSchema }),
   assetsController.purgeAsset
 );

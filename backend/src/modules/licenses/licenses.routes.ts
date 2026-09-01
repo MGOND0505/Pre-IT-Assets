@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authorize, requireAdmin } from "../../middleware/authorize";
+import { authorize, requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadSpreadsheet } from "../../utils/upload";
 import * as licensesController from "./licenses.controller";
@@ -43,6 +43,7 @@ licensesRouter.get(
 licensesRouter.get(
   "/deleted",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ query: listLicensesQuerySchema }),
   licensesController.listDeletedLicenses
 );
@@ -80,6 +81,7 @@ licensesRouter.delete(
 licensesRouter.post(
   "/:id/restore",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ params: licenseIdParamsSchema }),
   licensesController.restoreLicense
 );

@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
-import { authorize, requireAdmin } from "../../middleware/authorize";
+import { authorize, requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadTicketAttachment } from "../../utils/upload";
 import { ApiError } from "../../utils/ApiError";
@@ -48,6 +48,7 @@ helpdeskRouter.get("/my-summary", authorize("helpdesk", "view"), helpdeskControl
 helpdeskRouter.get(
   "/deleted",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ query: listTicketsQuerySchema }),
   helpdeskController.listDeletedTickets
 );
@@ -103,6 +104,7 @@ helpdeskRouter.delete(
 helpdeskRouter.post(
   "/:id/restore",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ params: ticketIdParamsSchema }),
   helpdeskController.restoreTicket
 );

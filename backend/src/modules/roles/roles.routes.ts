@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authorize, requireAdmin } from "../../middleware/authorize";
+import { authorize, requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import * as rolesController from "./roles.controller";
 import {
@@ -14,6 +14,7 @@ export const rolesRouter = Router();
 rolesRouter.get(
   "/deleted",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ query: listRolesQuerySchema }),
   rolesController.listDeletedRoles
 );
@@ -50,6 +51,7 @@ rolesRouter.delete(
 rolesRouter.post(
   "/:id/restore",
   requireAdmin,
+  requireModuleEnabled("recycleBin"),
   validate({ params: roleIdParamsSchema }),
   rolesController.restoreRole
 );
