@@ -8,6 +8,7 @@ import { Vendor } from "../../models/Vendor";
 import { Department } from "../../models/Department";
 import { User } from "../../models/User";
 import { logAction } from "../audit/audit.service";
+import { recordImportBatch, listImportBatches } from "../importHistory/importHistory.service";
 import { escapeRegex } from "../../utils/regex";
 import * as licensesService from "./licenses.service";
 
@@ -448,15 +449,18 @@ export const confirmLicenseImport = asyncHandler(async (req: Request, res: Respo
       }
     }
 
+    const perUserCounts = { total: groups.length, added, updated, duplicates, invalid };
+
     await logAction({
       req,
       action: "IMPORT",
       module: "License",
       recordLabel: `${added} added, ${updated} updated (per-user mode)`,
-      newValue: { total: groups.length, added, updated, duplicates, invalid, errors: errors.length },
+      newValue: { ...perUserCounts, errors: errors.length },
     });
+    await recordImportBatch({ organizationId, module: "License", userId: req.user?.id, fileName: null, counts: perUserCounts, errors });
 
-    ok(res, { total: groups.length, added, updated, duplicates, invalid, errors }, "Import complete");
+    ok(res, { ...perUserCounts, errors }, "Import complete");
     return;
   }
 
@@ -513,15 +517,28 @@ export const confirmLicenseImport = asyncHandler(async (req: Request, res: Respo
     }
   }
 
+  const counts = { total: rows.length, added, updated, duplicates, invalid };
+
   await logAction({
     req,
     action: "IMPORT",
     module: "License",
     recordLabel: `${added} added, ${updated} updated`,
-    newValue: { total: rows.length, added, updated, duplicates, invalid, errors: errors.length },
+    newValue: { ...counts, errors: errors.length },
   });
+  await recordImportBatch({ organizationId, module: "License", userId: req.user?.id, fileName: null, counts, errors });
 
-  ok(res, { total: rows.length, added, updated, duplicates, invalid, errors }, "Import complete");
+  ok(res, { ...counts, errors }, "Import complete");
+});
+
+export const getLicenseImportHistory = asyncHandler(async (req: Request, res: Response) => {
+  const result = await listImportBatches({
+    organizationId: req.organization!._id,
+    module: "License",
+    page: req.query.page ? Number(req.query.page) : undefined,
+    limit: req.query.limit ? Number(req.query.limit) : undefined,
+  });
+  ok(res, result, "Import history");
 });
 
 export const downloadLicenseTemplate = asyncHandler(async (_req: Request, res: Response) => {

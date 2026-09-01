@@ -60,7 +60,14 @@ async function resolveLoginOrganizationId(orgSlug?: string): Promise<string | nu
   return String(org._id);
 }
 
-export async function login(req: Request, email: string, password: string, orgSlug?: string, captchaToken?: string) {
+export async function login(
+  req: Request,
+  email: string,
+  password: string,
+  orgSlug?: string,
+  captchaToken?: string,
+  portal?: "employee"
+) {
   const normalizedEmail = email.toLowerCase().trim();
   const organizationId = await resolveLoginOrganizationId(orgSlug);
   const captchaVerified = await resolveCaptchaStatus(organizationId, captchaToken, req.ip);
@@ -156,6 +163,24 @@ export async function login(req: Request, email: string, password: string, orgSl
     throw new ApiError(401, "Invalid email or password");
   }
 
+  // Checked only AFTER the password is confirmed correct, same as every other post-password
+  // rejection above - checking it earlier would let a wrong-portal error leak "this email
+  // belongs to a non-Employee account" to someone who doesn't even know the real password yet.
+  // Does not touch failedLoginAttempts/lastLoginAt - this isn't a credential failure, so it
+  // shouldn't count toward lockout or look like one in the account's own login history.
+  if (portal === "employee" && !(user.role === "teamMember" && user.employeeTier === "employee")) {
+    await LoginHistory.create({
+      organization: organizationId,
+      user: user.id,
+      emailAttempted: normalizedEmail,
+      action: "login_failed",
+      reason: "wrong_portal",
+      captchaVerified,
+      ...requestMeta(req),
+    });
+    throw new ApiError(403, "This login page is for Employee accounts only. Please use the standard login page.");
+  }
+
   user.lastLoginAt = new Date();
   user.failedLoginAttempts = 0;
   user.lockedUntil = null;
@@ -188,7 +213,7 @@ export async function login(req: Request, email: string, password: string, orgSl
     ...requestMeta(req),
   });
 
-  const token = signToken({ sub: user.id, tokenVersion: user.tokenVersion, lastActivity: Date.now() });
+  const token = signToken({ sub: user.id, tokenVersion: user.tokenVersion });
 
   return { token, user, passwordExpiryWarning };
 }

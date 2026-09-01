@@ -95,7 +95,7 @@ export function HelpdeskPriorityFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {!isControlled && <DialogTrigger render={trigger ?? <Button>Add priority</Button>} />}
-      <DialogContent>
+      <DialogContent size="full">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit priority" : "Add priority"}</DialogTitle>
         </DialogHeader>

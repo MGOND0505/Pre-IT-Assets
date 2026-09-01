@@ -21,3 +21,25 @@ export const listLicenseCategoriesQuerySchema = z.object({
 export const licenseCategoryIdParamsSchema = z.object({
   id: z.string().min(1),
 });
+
+const importStr = () => z.string().max(500).optional().default("");
+
+const mappedLicenseCategoryImportRowSchema = z.object({
+  name: importStr(),
+  description: importStr(),
+});
+
+export const confirmLicenseCategoryImportSchema = z.object({
+  rows: z
+    .array(
+      z.object({
+        rowIndex: z.number().int(),
+        mapped: mappedLicenseCategoryImportRowSchema,
+        classification: z.enum(["new", "updated", "duplicate", "invalid"]),
+        reason: z.string().max(500).optional(),
+        existingId: z.string().optional(),
+      })
+    )
+    .max(2000),
+  fileName: z.string().max(255).optional(),
+});

@@ -3,13 +3,14 @@ import { authorize, requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadSpreadsheet } from "../../utils/upload";
 import * as usersController from "./users.controller";
-import { previewUserImport, confirmUserImport, downloadUserTemplate } from "./users.import";
+import { previewUserImport, confirmUserImport, downloadUserTemplate, getUserImportHistory } from "./users.import";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
 import { User } from "../../models/User";
 import { escapeRegex } from "../../utils/regex";
 import {
   adminResetPasswordSchema,
+  bulkApplyDefaultPermissionsSchema,
   confirmUserImportSchema,
   createUserSchema,
   listUsersQuerySchema,
@@ -19,6 +20,7 @@ import {
   updateUserSchema,
   userIdParamsSchema,
 } from "./users.validation";
+import { listImportHistoryQuerySchema } from "../importHistory/importHistory.validation";
 
 export const usersRouter = Router();
 
@@ -57,15 +59,38 @@ usersRouter.get(
 // brand-new Admin account in one call - a privilege-escalation vector, not a scope decision.
 usersRouter.post("/", requireAdmin, validate({ body: createUserSchema }), usersController.createUser);
 
-// Bulk import is creation-at-scale, so it gets the exact same Admin-only treatment as the single
-// POST / above, rather than a new `users:import` permission action - a granular import permission
-// would reopen the same privilege-escalation door that comment explains, just via a spreadsheet
-// instead of a single request body. Mounted ahead of the generic "/:id" routes below, same
-// ordering assets.routes.ts uses for its own "/import/*" routes, so Express never mistakes
-// "import" for an :id value.
-usersRouter.post("/import/preview", requireAdmin, uploadSpreadsheet.single("file"), previewUserImport);
-usersRouter.post("/import/confirm", requireAdmin, validate({ body: confirmUserImportSchema }), confirmUserImport);
-usersRouter.get("/import/template", requireAdmin, downloadUserTemplate);
+// Unlike POST / above, bulk import never accepts role/permissions from the file - every imported
+// row always lands on the org's default employee template (see users.service.ts#createUser), so
+// the privilege-escalation risk that keeps manual creation Admin-only doesn't apply here. Gated by
+// the granular "users:create" action instead, which authorize() already grants unconditionally to
+// orgAdmin/superAdmin (isAdmin bypass) and, for a subSuperAdmin, to whatever their per-org grant
+// says - the only way for Sub-Super Admin (named explicitly in the bulk-update request) to reach
+// this, since requireAdmin structurally excludes them (isAdmin is never true for that role).
+// Mounted ahead of the generic "/:id" routes below, same ordering assets.routes.ts uses for its
+// own "/import/*" routes, so Express never mistakes "import" for an :id value.
+usersRouter.post("/import/preview", authorize("users", "create"), uploadSpreadsheet.single("file"), previewUserImport);
+usersRouter.post(
+  "/import/confirm",
+  authorize("users", "create"),
+  validate({ body: confirmUserImportSchema }),
+  confirmUserImport
+);
+usersRouter.get("/import/template", authorize("users", "create"), downloadUserTemplate);
+usersRouter.get(
+  "/import/history",
+  authorize("users", "create"),
+  validate({ query: listImportHistoryQuerySchema }),
+  getUserImportHistory
+);
+
+// Same Admin-only treatment as the single-user permission editor (updateUserPermissions below) -
+// this is the exact same capability, just applied to several accounts at once.
+usersRouter.post(
+  "/bulk-apply-default-permissions",
+  requireAdmin,
+  validate({ body: bulkApplyDefaultPermissionsSchema }),
+  usersController.bulkApplyDefaultPermissions
+);
 
 usersRouter.get(
   "/deleted",

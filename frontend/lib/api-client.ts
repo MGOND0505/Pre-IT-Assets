@@ -49,12 +49,22 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+// Exact last-path-segment match, not a substring check - "/employee-login" does NOT contain the
+// substring "/login" (it's "-login", joined by a hyphen, not a slash), so a naive
+// pathname.includes("/login") misses it and would hard-redirect the Employee Portal login page
+// back to itself in an infinite loop on every unauthenticated /auth/me check.
+const LOGIN_ROUTE_SEGMENTS = new Set(["login", "employee-login"])
+function isOnLoginRoute(pathname: string): boolean {
+  const segments = pathname.split("/").filter(Boolean)
+  return LOGIN_ROUTE_SEGMENTS.has(segments[segments.length - 1] ?? "")
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiEnvelope<null>>) => {
     if (typeof window !== "undefined") {
       if (error.response?.status === 401) {
-        const isAuthRoute = window.location.pathname.startsWith("/login") || window.location.pathname.includes("/login")
+        const isAuthRoute = isOnLoginRoute(window.location.pathname)
         if (!isAuthRoute) {
           const orgSlug = getOrgSlugFromPathname(window.location.pathname)
           window.location.href = orgSlug ? `/${orgSlug}/login` : "/login"

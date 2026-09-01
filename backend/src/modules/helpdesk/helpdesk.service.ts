@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import { Ticket, TICKET_STATUSES, type ITicket, type TicketStatus } from "../../models/Ticket";
 import { HelpdeskPriority } from "../../models/HelpdeskPriority";
 import { HelpdeskCategory } from "../../models/HelpdeskCategory";
@@ -55,9 +56,11 @@ async function generateTicketId(organizationId: string): Promise<string> {
 /** A caller can only see the whole org's queue if they can act on tickets beyond filing their
  * own (assign or update rights) - anyone with just view/create/comment only sees what they
  * requested. Derived from existing permission flags rather than a new "requester" role field. */
-function canViewAllTickets(user: { isAdmin: boolean; permissions: { helpdesk: { assign: boolean; update: boolean } } }) {
+export function canViewAllTickets(user: { isAdmin: boolean; permissions: { helpdesk: { assign: boolean; update: boolean } } }) {
   return user.isAdmin || user.permissions.helpdesk.assign || user.permissions.helpdesk.update;
 }
+
+type RequestingUser = { id: string; isAdmin: boolean; permissions: { helpdesk: { assign: boolean; update: boolean } } };
 
 type ListInput = {
   page?: number;
@@ -108,6 +111,23 @@ export async function listTickets(
 export async function getTicketById(id: string, organizationId: string) {
   const ticket = await Ticket.findOne({ _id: id, organization: organizationId, isDeleted: false }).populate(POPULATE_FIELDS);
   if (!ticket) throw new ApiError(404, "Ticket not found");
+  return ticket;
+}
+
+/** The view-facing variant of getTicketById - used by every read route that operates on a
+ * specific ticket id (detail, comments, attachments). A caller who can't see the whole queue
+ * gets a 404 for a ticket they didn't file, same as `listTickets`' filter - never a 403, so an
+ * unauthorized caller can't tell a real id from a made-up one. Internal write-flow lookups
+ * (update/status-change/assign/delete/restore) intentionally keep using the plain getTicketById
+ * above - their own route-level permission is the real authorization for those, not this "am I
+ * allowed to look at this" check. Mirrors assets.service.ts#getAssetByIdForRequester exactly. */
+export async function getTicketByIdForRequester(id: string, organizationId: string, requestingUser: RequestingUser) {
+  const ticket = await getTicketById(id, organizationId);
+  if (!canViewAllTickets(requestingUser)) {
+    const requester = ticket.requester as unknown as { _id?: unknown } | null;
+    const requesterId = requester ? String(requester._id ?? requester) : null;
+    if (requesterId !== requestingUser.id) throw new ApiError(404, "Ticket not found");
+  }
   return ticket;
 }
 
@@ -187,7 +207,7 @@ export const TERMINAL_STATUSES: TicketStatus[] = ["Resolved", "Closed"];
 
 /** How long after being closed a ticket may still be reopened - past this window the requester
  * must file a new ticket instead. See helpdesk.controller.ts#setTicketStatus. */
-export const REOPEN_WINDOW_HOURS = 36;
+export const REOPEN_WINDOW_HOURS = 72;
 
 export async function setTicketStatus(id: string, status: TicketStatus, resolution: string | undefined, organizationId: string) {
   if (!TICKET_STATUSES.includes(status)) throw new ApiError(400, "Invalid ticket status");
@@ -411,4 +431,26 @@ export async function getHelpdeskDashboardSummary(organizationId: string, days =
       (t) => ({ id: String(t._id), ticketId: t.ticketId, subject: t.subject, slaResolutionDueAt: t.slaResolutionDueAt })
     ),
   };
+}
+
+/** Unlike getHelpdeskDashboardSummary above (always org-wide), this is always scoped to exactly
+ * one user's own filed tickets (requester), regardless of their view-all permission - powers the
+ * Employee Portal's "My Tickets" widget. */
+export async function getMyTicketSummary(organizationId: string, userId: string) {
+  const filter = {
+    organization: new Types.ObjectId(organizationId),
+    isDeleted: false,
+    requester: new Types.ObjectId(userId),
+  };
+
+  const [total, open, byStatusRaw] = await Promise.all([
+    Ticket.countDocuments(filter),
+    Ticket.countDocuments({ ...filter, status: { $nin: TERMINAL_STATUSES } }),
+    Ticket.aggregate([{ $match: filter }, { $group: { _id: "$status", count: { $sum: 1 } } }]),
+  ]);
+
+  const byStatus: Record<string, number> = {};
+  for (const row of byStatusRaw as { _id: string; count: number }[]) byStatus[row._id] = row.count;
+
+  return { total, open, byStatus };
 }

@@ -15,6 +15,12 @@ export type CurrentUser = {
   email: string
   role: UserRole
   isAdmin: boolean
+  // Only meaningful for role === "teamMember" - null for every other role, and for any
+  // pre-existing teamMember created before this field existed (treated identically to
+  // "subAdmin": today's unrestricted nav/dashboard). Drives ONLY presentation (Employee Portal
+  // vs the regular dashboard, which nav leaves show) - never a second authorization check, see
+  // lib/permissions.ts#can and nav-config.ts.
+  employeeTier: "subAdmin" | "employee" | null
   // null for superAdmin AND subSuperAdmin - orgAdmin/teamMember always belong to exactly one
   // organization. For subSuperAdmin, this reflects the org they're CURRENTLY viewing (merged
   // in from /{orgSlug}/my-access below), never their full set of granted organizations.
@@ -38,13 +44,6 @@ type AuthContextValue = {
 }
 
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined)
-
-// Matches the backend's SESSION_IDLE_TIMEOUT_MINUTES default (middleware/authenticate.ts) -
-// there's no runtime way to read that env var from the browser, so this is a plain constant,
-// kept manually in sync the same way permissions.ts already is.
-const IDLE_TIMEOUT_MS = 30 * 60 * 1000
-const HEARTBEAT_INTERVAL_MS = 60 * 1000
-const ACTIVITY_EVENTS = ["mousemove", "keydown", "click", "scroll", "touchstart"] as const
 
 type MyAccessResponse = {
   organization: { _id: string; name: string; slug: string; enabledModules: EntitlementModule[] } | null
@@ -120,46 +119,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (fetchedForSlug.current === orgSlug) return
     refresh()
   }, [orgSlug, user?.role, refresh])
-
-  // Session idle timeout - proactively logs the user out after IDLE_TIMEOUT_MS of no mouse/
-  // keyboard activity, on top of (not instead of) the server's own enforcement in
-  // authenticate.ts (which independently rejects any request once its own idle window lapses -
-  // this client-side timer just makes it happen the moment the clock runs out, rather than
-  // waiting for the user's next click to discover the session is already dead). Only armed while
-  // actually logged in - a logged-out visitor sitting on a public page has no session to expire.
-  const logoutRef = React.useRef(logout)
-  logoutRef.current = logout
-  const isLoggedIn = Boolean(user)
-  React.useEffect(() => {
-    if (!isLoggedIn) return
-
-    let lastActivityAt = Date.now()
-    let activitySinceHeartbeat = false
-    const markActive = () => {
-      lastActivityAt = Date.now()
-      activitySinceHeartbeat = true
-    }
-    ACTIVITY_EVENTS.forEach((event) => window.addEventListener(event, markActive, { passive: true }))
-
-    const interval = window.setInterval(() => {
-      if (Date.now() - lastActivityAt >= IDLE_TIMEOUT_MS) {
-        logoutRef.current()
-        return
-      }
-      if (activitySinceHeartbeat) {
-        activitySinceHeartbeat = false
-        // Best-effort - just needs to reach authenticate.ts to slide the server-side session
-        // forward; a failure here (e.g. already expired) surfaces naturally on the next real
-        // request via the 401 interceptor, nothing more to do about it here.
-        apiClient.get("/auth/me").catch(() => {})
-      }
-    }, HEARTBEAT_INTERVAL_MS)
-
-    return () => {
-      ACTIVITY_EVENTS.forEach((event) => window.removeEventListener(event, markActive))
-      window.clearInterval(interval)
-    }
-  }, [isLoggedIn])
 
   return <AuthContext.Provider value={{ user, loading, refresh, logout }}>{children}</AuthContext.Provider>
 }

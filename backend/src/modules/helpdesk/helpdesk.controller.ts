@@ -7,22 +7,22 @@ import { User } from "../../models/User";
 import { TICKET_ATTACHMENTS_DIR } from "../../utils/upload";
 import { logAction } from "../audit/audit.service";
 import * as helpdeskService from "./helpdesk.service";
-import { REOPEN_WINDOW_HOURS } from "./helpdesk.service";
+import { REOPEN_WINDOW_HOURS, canViewAllTickets } from "./helpdesk.service";
 import * as ticketCommentsService from "./ticketComments.service";
 import * as assignmentHistoryService from "./assignmentHistory.service";
 import { notifyTicketEvent, buildAssignmentVars, nameOf, idOf } from "./helpdeskNotifications";
 
+function requestingUserFrom(req: Request) {
+  return { id: req.user!.id, isAdmin: req.user!.isAdmin, permissions: req.user!.permissions };
+}
+
 export const listTickets = asyncHandler(async (req: Request, res: Response) => {
-  const result = await helpdeskService.listTickets(req.query as never, req.organization!._id, {
-    id: req.user!.id,
-    isAdmin: req.user!.isAdmin,
-    permissions: req.user!.permissions,
-  });
+  const result = await helpdeskService.listTickets(req.query as never, req.organization!._id, requestingUserFrom(req));
   ok(res, result, "Tickets");
 });
 
 export const getTicket = asyncHandler(async (req: Request, res: Response) => {
-  const ticket = await helpdeskService.getTicketById(req.params.id, req.organization!._id);
+  const ticket = await helpdeskService.getTicketByIdForRequester(req.params.id, req.organization!._id, requestingUserFrom(req));
   ok(res, ticket, "Ticket");
 });
 
@@ -77,6 +77,10 @@ export const setTicketStatus = asyncHandler(async (req: Request, res: Response) 
 
   if (before.status === "Closed" && req.body.status === "Reopened" && !req.user!.isAdmin && !req.user!.permissions.helpdesk.reopen) {
     throw new ApiError(403, "You do not have permission to reopen a closed ticket");
+  }
+  if (before.status === "Closed" && req.body.status === "Reopened" && !canViewAllTickets(requestingUserFrom(req))) {
+    const requesterId = idOf(before.requester);
+    if (requesterId !== req.user!.id) throw new ApiError(403, "You can only reopen a ticket you filed yourself");
   }
   if (before.status === "Closed" && req.body.status === "Reopened") {
     const reopenDeadline = before.closedAt ? before.closedAt.getTime() + REOPEN_WINDOW_HOURS * 60 * 60 * 1000 : 0;
@@ -207,11 +211,16 @@ export const getHelpdeskDashboardSummary = asyncHandler(async (req: Request, res
   ok(res, summary, "Helpdesk dashboard summary");
 });
 
+export const getMyTicketSummary = asyncHandler(async (req: Request, res: Response) => {
+  const summary = await helpdeskService.getMyTicketSummary(req.organization!._id, req.user!.id);
+  ok(res, summary, "My ticket summary");
+});
+
 export const listDeletedTickets = asyncHandler(async (req: Request, res: Response) => {
   const result = await helpdeskService.listTickets(
     { ...(req.query as unknown as Record<string, unknown>), includeDeleted: true },
     req.organization!._id,
-    { id: req.user!.id, isAdmin: req.user!.isAdmin, permissions: req.user!.permissions }
+    requestingUserFrom(req)
   );
   ok(res, result, "Deleted tickets");
 });
@@ -225,12 +234,15 @@ export const restoreTicket = asyncHandler(async (req: Request, res: Response) =>
 });
 
 export const listComments = asyncHandler(async (req: Request, res: Response) => {
+  await helpdeskService.getTicketByIdForRequester(req.params.id, req.organization!._id, requestingUserFrom(req)); // 404s for someone else's ticket
   const includeInternal = req.user!.isAdmin || Boolean(req.user!.permissions.helpdesk.internalNote);
   const comments = await ticketCommentsService.listComments(req.params.id, req.organization!._id, includeInternal);
   ok(res, comments, "Comments");
 });
 
 export const addComment = asyncHandler(async (req: Request, res: Response) => {
+  await helpdeskService.getTicketByIdForRequester(req.params.id, req.organization!._id, requestingUserFrom(req)); // 404s for someone else's ticket
+
   if (req.body.isInternal && !req.user!.isAdmin && !req.user!.permissions.helpdesk.internalNote) {
     throw new ApiError(403, "You do not have permission to add internal notes");
   }
@@ -274,7 +286,7 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const downloadAttachment = asyncHandler(async (req: Request, res: Response) => {
-  await helpdeskService.getTicketById(req.params.id, req.organization!._id); // 404s if wrong org
+  await helpdeskService.getTicketByIdForRequester(req.params.id, req.organization!._id, requestingUserFrom(req)); // 404s for someone else's ticket
   const includeInternal = req.user!.isAdmin || Boolean(req.user!.permissions.helpdesk.internalNote);
   const attachment = await ticketCommentsService.getAttachment(
     req.params.id,

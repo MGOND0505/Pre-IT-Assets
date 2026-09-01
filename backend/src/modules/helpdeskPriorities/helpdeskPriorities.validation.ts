@@ -27,3 +27,28 @@ export const listHelpdeskPrioritiesQuerySchema = z.object({
 export const helpdeskPriorityIdParamsSchema = z.object({
   id: z.string().min(1),
 });
+
+const importStr = () => z.string().max(500).optional().default("");
+
+const mappedHelpdeskPriorityImportRowSchema = z.object({
+  name: importStr(),
+  order: importStr(),
+  color: importStr(),
+  slaResponseMinutes: importStr(),
+  slaResolutionMinutes: importStr(),
+});
+
+export const confirmHelpdeskPriorityImportSchema = z.object({
+  rows: z
+    .array(
+      z.object({
+        rowIndex: z.number().int(),
+        mapped: mappedHelpdeskPriorityImportRowSchema,
+        classification: z.enum(["new", "updated", "duplicate", "invalid"]),
+        reason: z.string().max(500).optional(),
+        existingId: z.string().optional(),
+      })
+    )
+    .max(2000),
+  fileName: z.string().max(255).optional(),
+});

@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import { Task, TASK_STATUSES, type ITask, type TaskStatus } from "../../models/Task";
 import { Ticket } from "../../models/Ticket";
 import { User } from "../../models/User";
@@ -20,9 +21,11 @@ async function generateTaskId(organizationId: string): Promise<string> {
 /** Same visibility rule as Helpdesk tickets: only a caller who can assign work to OTHERS sees
  * the whole org's task list - everyone else sees just what's assigned to them or that they
  * created. */
-function canViewAllTasks(user: { isAdmin: boolean; permissions: { tasks: { assign: boolean } } }) {
+export function canViewAllTasks(user: { isAdmin: boolean; permissions: { tasks: { assign: boolean } } }) {
   return user.isAdmin || user.permissions.tasks.assign;
 }
+
+type RequestingUser = { id: string; isAdmin: boolean; permissions: { tasks: { assign: boolean } } };
 
 type ListInput = {
   page?: number;
@@ -81,6 +84,27 @@ export async function listSubtasksForTicket(ticketId: string, organizationId: st
 export async function getTaskById(id: string, organizationId: string) {
   const task = await Task.findOne({ _id: id, organization: organizationId, isDeleted: false }).populate(POPULATE_FIELDS);
   if (!task) throw new ApiError(404, "Task not found");
+  return task;
+}
+
+/** The view-facing variant of getTaskById - used by every read route that operates on a specific
+ * task id (detail, comments). A caller who can't see the whole task list gets a 404 for a task
+ * that isn't assigned to (or created by) them, same as `listTasks`' filter - never a 403, so an
+ * unauthorized caller can't tell a real id from a made-up one. Internal write-flow lookups
+ * (update/status-change/assign/delete/restore) intentionally keep using the plain getTaskById
+ * above - their own route-level permission is the real authorization for those. Mirrors
+ * helpdesk.service.ts#getTicketByIdForRequester / assets.service.ts#getAssetByIdForRequester. */
+export async function getTaskByIdForRequester(id: string, organizationId: string, requestingUser: RequestingUser) {
+  const task = await getTaskById(id, organizationId);
+  if (!canViewAllTasks(requestingUser)) {
+    const assignedTo = task.assignedTo as unknown as { _id?: unknown } | null;
+    const assignedToId = assignedTo ? String(assignedTo._id ?? assignedTo) : null;
+    const createdBy = task.createdBy as unknown as { _id?: unknown } | null;
+    const createdById = createdBy ? String(createdBy._id ?? createdBy) : null;
+    if (assignedToId !== requestingUser.id && createdById !== requestingUser.id) {
+      throw new ApiError(404, "Task not found");
+    }
+  }
   return task;
 }
 
@@ -182,4 +206,30 @@ export async function restoreTask(id: string, organizationId: string) {
   task.deletedBy = null;
   await task.save();
   return getTaskById(id, organizationId);
+}
+
+/** Always scoped to exactly one user's own tasks (assigned to them OR created by them - same
+ * "mine" definition listTasks/canViewAllTasks already use), regardless of view-all permission -
+ * powers the Employee Portal's "My Tasks" widget. There's no org-wide task stats endpoint to
+ * mirror (the admin dashboard doesn't show one today), so this is net new rather than a
+ * "my" variant of an existing stats function. */
+export async function getMyTaskSummary(organizationId: string, userId: string) {
+  const orgId = new Types.ObjectId(organizationId);
+  const uid = new Types.ObjectId(userId);
+  const filter = {
+    organization: orgId,
+    isDeleted: false,
+    $or: [{ assignedTo: uid }, { createdBy: uid }],
+  };
+
+  const [total, pending, byStatusRaw] = await Promise.all([
+    Task.countDocuments(filter),
+    Task.countDocuments({ ...filter, status: { $nin: ["Done", "Cancelled"] } }),
+    Task.aggregate([{ $match: filter }, { $group: { _id: "$status", count: { $sum: 1 } } }]),
+  ]);
+
+  const byStatus: Record<string, number> = {};
+  for (const row of byStatusRaw as { _id: string; count: number }[]) byStatus[row._id] = row.count;
+
+  return { total, pending, byStatus };
 }

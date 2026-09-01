@@ -119,7 +119,7 @@ export function CreateOrganizationDialog({ onCreated }: { onCreated: (slug: stri
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button>Create Organization</Button>} />
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent size="full">
         <DialogHeader>
           <DialogTitle>Create organization</DialogTitle>
         </DialogHeader>

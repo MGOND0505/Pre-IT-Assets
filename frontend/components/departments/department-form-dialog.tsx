@@ -74,7 +74,7 @@ export function DepartmentFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {!isControlled && <DialogTrigger render={trigger ?? <Button>Add department</Button>} />}
-      <DialogContent>
+      <DialogContent size="full">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit department" : "Add department"}</DialogTitle>
         </DialogHeader>

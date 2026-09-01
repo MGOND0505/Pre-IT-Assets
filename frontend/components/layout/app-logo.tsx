@@ -3,8 +3,10 @@
 import * as React from "react"
 import { publicLogoUrl } from "@/lib/api-client"
 import { useBranding } from "@/lib/branding-context"
+import { useAuth } from "@/lib/auth-context"
 
-const FALLBACK_TEXT = "Admin Portal"
+const ADMIN_FALLBACK_TEXT = "Admin Portal"
+const EMPLOYEE_FALLBACK_TEXT = "Employee Portal"
 
 export function AppLogo({
   imgClassName = "h-8 max-w-32 object-contain",
@@ -17,8 +19,10 @@ export function AppLogo({
   showTeamNameWithLogo?: boolean
 }) {
   const { branding } = useBranding()
+  const { user } = useAuth()
   const [hasLogo, setHasLogo] = React.useState<boolean | null>(null)
   const logoUrl = publicLogoUrl()
+  const fallbackText = user?.employeeTier === "employee" ? EMPLOYEE_FALLBACK_TEXT : ADMIN_FALLBACK_TEXT
 
   React.useEffect(() => {
     if (!logoUrl) {
@@ -53,5 +57,5 @@ export function AppLogo({
     )
   }
 
-  return <span className={textClassName}>{branding.teamName || FALLBACK_TEXT}</span>
+  return <span className={textClassName}>{branding.teamName || fallbackText}</span>
 }

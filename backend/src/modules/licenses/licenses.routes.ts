@@ -3,7 +3,7 @@ import { authorize, requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadSpreadsheet } from "../../utils/upload";
 import * as licensesController from "./licenses.controller";
-import { previewLicenseImport, confirmLicenseImport, downloadLicenseTemplate } from "./licenses.import";
+import { previewLicenseImport, confirmLicenseImport, downloadLicenseTemplate, getLicenseImportHistory } from "./licenses.import";
 import {
   confirmLicenseImportSchema,
   createLicenseSchema,
@@ -11,6 +11,7 @@ import {
   listLicensesQuerySchema,
   updateLicenseSchema,
 } from "./licenses.validation";
+import { listImportHistoryQuerySchema } from "../importHistory/importHistory.validation";
 
 export const licensesRouter = Router();
 
@@ -29,6 +30,12 @@ licensesRouter.post(
   confirmLicenseImport
 );
 licensesRouter.get("/import/template", authorize("licenses", "import"), downloadLicenseTemplate);
+licensesRouter.get(
+  "/import/history",
+  authorize("licenses", "import"),
+  validate({ query: listImportHistoryQuerySchema }),
+  getLicenseImportHistory
+);
 
 licensesRouter.get(
   "/deleted",

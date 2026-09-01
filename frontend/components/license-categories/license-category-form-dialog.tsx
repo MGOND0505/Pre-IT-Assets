@@ -74,7 +74,7 @@ export function LicenseCategoryFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {!isControlled && <DialogTrigger render={trigger ?? <Button>Add category</Button>} />}
-      <DialogContent>
+      <DialogContent size="full">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit license category" : "Add license category"}</DialogTitle>
         </DialogHeader>

@@ -74,6 +74,20 @@ export const updateUserPermissions = asyncHandler(async (req: Request, res: Resp
   ok(res, user, "Permissions updated");
 });
 
+export const bulkApplyDefaultPermissions = asyncHandler(async (req: Request, res: Response) => {
+  const result = await usersService.bulkApplyDefaultPermissions(req.body.userIds, req.organization!._id);
+
+  await logAction({
+    req,
+    action: "BULK_PERMISSIONS_APPLIED",
+    module: "User",
+    recordLabel: `${result.updated} user(s) updated`,
+    newValue: result,
+  });
+
+  ok(res, result, "Default permissions applied");
+});
+
 export const activateUser = asyncHandler(async (req: Request, res: Response) => {
   const user = await usersService.setUserStatus(req.params.id, "Active", req.organization!._id);
 

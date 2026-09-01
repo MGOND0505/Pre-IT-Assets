@@ -60,8 +60,8 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
   assets: ["view", "create", "update", "delete", "import", "export", "editAssetId"],
   licenses: ["view", "create", "update", "delete", "import", "export"],
   vendors: ["view", "create", "update", "delete", "import"],
-  departments: ["view", "create", "update", "delete"],
-  locations: ["view", "create", "update", "delete"],
+  departments: ["view", "create", "update", "delete", "import"],
+  locations: ["view", "create", "update", "delete", "import"],
   users: ["view", "create", "update", "delete"],
   reports: ["view"],
   auditLogs: ["view"],
@@ -80,7 +80,7 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
     "manageAttachments",
     "export",
   ],
-  tasks: ["view", "create", "update", "delete", "assign"],
+  tasks: ["view", "create", "update", "delete", "assign", "comment"],
   aiAssistant: ["view"],
 };
 
@@ -113,4 +113,59 @@ export function emptyPermissions(): PermissionsShape {
     shape[module] = emptyModulePermissions();
   }
   return shape;
+}
+
+/** The baseline "Employee" permission profile - enough to view their own assets/licenses, file
+ * and comment on their own helpdesk tickets (and reopen one they closed themselves, within the
+ * window - see helpdesk.service.ts#REOPEN_WINDOW_HOURS), and see/respond to their own tasks,
+ * without an admin needing to configure anything first. This is the FALLBACK an organization gets
+ * until they configure their own via SystemSettings.defaultEmployeePermissions (Administration >
+ * Settings > Employee Default Permissions) - see settings.service.ts#getDefaultEmployeePermissions,
+ * the one place that decides between this baseline and an org's own configured template. */
+export function basicUserDefaultPermissions(): PermissionsShape {
+  const perms = emptyPermissions();
+  perms.assets.view = true;
+  perms.licenses.view = true;
+  perms.helpdesk.view = true;
+  perms.helpdesk.create = true;
+  perms.helpdesk.comment = true;
+  perms.helpdesk.reopen = true;
+  perms.tasks.view = true;
+  perms.tasks.create = true;
+  perms.tasks.comment = true;
+  return perms;
+}
+
+/** The baseline "Sub Admin" permission profile - broad operational access (assets, licenses,
+ * vendors, departments, locations, helpdesk, tasks, reports) without the account-management
+ * surface (users, settings, auditLogs) that stays reserved for a true Admin (isAdmin/orgAdmin).
+ * The Create User dialog always sends its own explicit permissions for a Sub Admin (this is just
+ * the starting point an admin can then edit, mirroring basicUserPermissions() on the frontend) -
+ * this function only matters as a server-side fallback for the rare case permissions is omitted
+ * entirely for one (bulk import/API misuse), same role users.service.ts#createUser gives
+ * basicUserDefaultPermissions() for a plain Employee. */
+export function subAdminDefaultPermissions(): PermissionsShape {
+  const perms = emptyPermissions();
+  const fullAccess = { view: true, create: true, update: true, delete: true, import: true, export: true };
+  Object.assign(perms.assets, fullAccess);
+  Object.assign(perms.licenses, fullAccess);
+  Object.assign(perms.vendors, fullAccess);
+  Object.assign(perms.departments, fullAccess);
+  Object.assign(perms.locations, fullAccess);
+  perms.helpdesk.view = true;
+  perms.helpdesk.create = true;
+  perms.helpdesk.update = true;
+  perms.helpdesk.assign = true;
+  perms.helpdesk.reassign = true;
+  perms.helpdesk.close = true;
+  perms.helpdesk.reopen = true;
+  perms.helpdesk.comment = true;
+  perms.helpdesk.export = true;
+  perms.tasks.view = true;
+  perms.tasks.create = true;
+  perms.tasks.update = true;
+  perms.tasks.assign = true;
+  perms.tasks.comment = true;
+  perms.reports.view = true;
+  return perms;
 }

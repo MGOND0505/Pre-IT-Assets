@@ -5,7 +5,7 @@ import { uploadAssetDocument, uploadSpreadsheet } from "../../utils/upload";
 import * as assetsController from "./assets.controller";
 import * as assetsService from "./assets.service";
 import * as assetDocumentsController from "./assetDocuments.controller";
-import { previewAssetImport, confirmAssetImport, downloadAssetTemplate } from "./assets.import";
+import { previewAssetImport, confirmAssetImport, downloadAssetTemplate, getAssetImportHistory } from "./assets.import";
 import { listAssetHistory } from "./assetHistory.service";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
@@ -19,10 +19,14 @@ import {
   updateAssetSchema,
   uploadAssetDocumentBodySchema,
 } from "./assets.validation";
+import { listImportHistoryQuerySchema } from "../importHistory/importHistory.validation";
 
 export const assetsRouter = Router();
 
 assetsRouter.get("/stats", authorize("assets", "view"), assetsController.getAssetStats);
+// Always "mine", independent of the view-all permission /stats above ignores entirely - powers
+// the Employee Portal dashboard's "My Assets" widget.
+assetsRouter.get("/my-summary", authorize("assets", "view"), assetsController.getMyAssetSummary);
 
 assetsRouter.post(
   "/import/preview",
@@ -37,6 +41,12 @@ assetsRouter.post(
   confirmAssetImport
 );
 assetsRouter.get("/import/template", authorize("assets", "import"), downloadAssetTemplate);
+assetsRouter.get(
+  "/import/history",
+  authorize("assets", "import"),
+  validate({ query: listImportHistoryQuerySchema }),
+  getAssetImportHistory
+);
 
 assetsRouter.get(
   "/deleted",

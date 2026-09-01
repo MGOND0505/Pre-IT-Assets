@@ -20,6 +20,11 @@ export const getAssetStats = asyncHandler(async (req: Request, res: Response) =>
   ok(res, stats, "Asset stats");
 });
 
+export const getMyAssetSummary = asyncHandler(async (req: Request, res: Response) => {
+  const summary = await assetsService.getMyAssetSummary(req.organization!._id, req.user!.id);
+  ok(res, summary, "My asset summary");
+});
+
 export const listDeletedAssets = asyncHandler(async (req: Request, res: Response) => {
   const result = await assetsService.listAssets(
     { ...(req.query as unknown as ListAssetsQuery), includeDeleted: true },

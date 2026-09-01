@@ -2,9 +2,9 @@ import bcrypt from "bcryptjs";
 import { User, type IUser } from "../../models/User";
 import { env } from "../../config/env";
 import { ApiError } from "../../utils/ApiError";
-import { emptyPermissions, type PermissionsShape } from "../../config/permissions";
+import { emptyPermissions, subAdminDefaultPermissions, type PermissionsShape } from "../../config/permissions";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
-import { getPasswordPolicy } from "../settings/settings.service";
+import { getPasswordPolicy, getDefaultEmployeePermissions } from "../settings/settings.service";
 import { validatePasswordAgainstPolicy, assertPasswordNotReused, pushPasswordHistory } from "../../utils/passwordPolicy";
 import { escapeRegex } from "../../utils/regex";
 
@@ -18,6 +18,7 @@ type CreateUserInput = {
   department?: string;
   location?: string;
   isAdmin?: boolean;
+  employeeTier?: "subAdmin" | "employee";
   permissions?: Partial<PermissionsShape>;
   createdBy: string;
 };
@@ -49,6 +50,18 @@ export async function createUser(input: CreateUserInput, organizationId: string)
 
   const passwordHash = await bcrypt.hash(input.password, env.BCRYPT_SALT_ROUNDS);
 
+  // Explicit permissions (the manual "Add user" dialog always sends its own for Admin/Sub Admin,
+  // whatever the admin left checked) are honored verbatim; omitting the field entirely (the
+  // dialog's "Employee" selection, or bulk import) falls back to a tier-appropriate default -
+  // subAdminDefaultPermissions() for Sub Admin, the org's configured default employee template
+  // otherwise - see settings.service.ts#getDefaultEmployeePermissions, the one place THAT
+  // decision is made.
+  const permissions = input.permissions
+    ? { ...emptyPermissions(), ...input.permissions }
+    : input.employeeTier === "subAdmin"
+      ? subAdminDefaultPermissions()
+      : await getDefaultEmployeePermissions(organizationId);
+
   return User.create({
     organization: organizationId,
     name: input.name,
@@ -60,7 +73,8 @@ export async function createUser(input: CreateUserInput, organizationId: string)
     department: input.department || null,
     location: input.location || null,
     role: input.isAdmin ? "orgAdmin" : "teamMember",
-    permissions: { ...emptyPermissions(), ...input.permissions },
+    employeeTier: input.isAdmin ? null : (input.employeeTier ?? null),
+    permissions,
     createdBy: input.createdBy,
     mustChangePassword: true,
     passwordChangedAt: new Date(),
@@ -144,7 +158,7 @@ export async function updateUser(id: string, input: UpdateUserInput, organizatio
 
 export async function updateUserPermissions(
   id: string,
-  input: { isAdmin?: boolean; permissions?: Partial<PermissionsShape> },
+  input: { isAdmin?: boolean; employeeTier?: "subAdmin" | "employee" | null; permissions?: Partial<PermissionsShape> },
   organizationId: string
 ) {
   const user = await getUserById(id, organizationId);
@@ -164,12 +178,48 @@ export async function updateUserPermissions(
   }
 
   if (input.isAdmin !== undefined) user.role = input.isAdmin ? "orgAdmin" : "teamMember";
+  // Lets an admin retier an existing account later (e.g. Employee -> Sub Admin) without
+  // recreating it - the model's own pre-validate hook forces this back to null if the role
+  // above ends up non-teamMember, so an isAdmin:true + employeeTier combo can't linger.
+  if (input.employeeTier !== undefined) user.employeeTier = input.employeeTier;
   if (input.permissions) {
     user.permissions = { ...user.permissions, ...input.permissions } as PermissionsShape;
   }
   user.tokenVersion += 1; // permission change takes effect immediately, everywhere
   await user.save();
   return user;
+}
+
+/** Re-applies the org's current default employee permission template to a batch of existing
+ * users at once - e.g. after an admin changes the template and wants everyone still on the old
+ * one to catch up, without re-editing each account by hand. Only ever touches `teamMember`
+ * accounts - an `orgAdmin`'s access comes from their role's `isAdmin` bypass, not this matrix, so
+ * silently overwriting their permissions object here would be pointless at best. Skips (rather
+ * than fails the whole batch for) anyone not found or not a teamMember, same "isolate the bad
+ * rows" convention as every bulk-import confirm handler in this app. */
+export async function bulkApplyDefaultPermissions(userIds: string[], organizationId: string) {
+  const permissions = await getDefaultEmployeePermissions(organizationId);
+
+  let updated = 0;
+  const skipped: string[] = [];
+
+  for (const id of userIds) {
+    const user = await User.findOne({ _id: id, organization: organizationId, isDeleted: false });
+    if (!user) {
+      skipped.push(id);
+      continue;
+    }
+    if (user.role !== "teamMember") {
+      skipped.push(`${user.email} (not an Employee account)`);
+      continue;
+    }
+    user.permissions = permissions;
+    user.tokenVersion += 1; // permission change takes effect immediately, everywhere
+    await user.save();
+    updated += 1;
+  }
+
+  return { updated, skipped };
 }
 
 export async function setUserStatus(id: string, status: "Active" | "Inactive", organizationId: string) {

@@ -16,6 +16,14 @@ export interface IUser {
   role: UserRole;
   // Derived from `role` (see the virtual below) - nothing is actually stored under this key.
   isAdmin: boolean;
+  // Only ever meaningful for role === "teamMember" (enforced below, same pattern as
+  // subSuperAdmin's `permissions` reset) - purely a presentation/defaulting label ("which
+  // portal/nav does this account see, which permission preset seeds the Create User grid"),
+  // never a second authorization axis. Every API route keeps enforcing access purely off
+  // isAdmin/permissions, unchanged - see users.routes.ts and authorize.ts. `null` (every
+  // pre-existing teamMember, and every orgAdmin/superAdmin/subSuperAdmin) behaves identically
+  // to "subAdmin" - today's unrestricted nav/dashboard - so this is fully backward-compatible.
+  employeeTier: "subAdmin" | "employee" | null;
   // null for superAdmin AND subSuperAdmin - every orgAdmin/teamMember must belong to exactly
   // one org; a subSuperAdmin's organizations live in `orgAccess` instead (zero or many).
   organization: Types.ObjectId | null;
@@ -90,6 +98,7 @@ const userSchema = new Schema<IUser>(
       default: "teamMember",
     },
     organization: { type: Schema.Types.ObjectId, ref: "Organization", default: null },
+    employeeTier: { type: String, enum: ["subAdmin", "employee"], default: null },
     orgAccess: {
       type: [
         {
@@ -175,6 +184,12 @@ userSchema.pre("validate", function (next) {
     });
   } else if (this.orgAccess.length > 0) {
     this.orgAccess = [];
+  }
+
+  // Same "keep it inert rather than silently unused" treatment as orgAccess/permissions above -
+  // employeeTier only ever means something for a teamMember account.
+  if (this.role !== "teamMember" && this.employeeTier) {
+    this.employeeTier = null;
   }
 
   next();

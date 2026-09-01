@@ -19,6 +19,7 @@ export const createUserSchema = z.object({
   department: z.string().min(1).optional(),
   location: z.string().min(1).optional(),
   isAdmin: z.boolean().optional().default(false),
+  employeeTier: z.enum(["subAdmin", "employee"]).optional(),
   permissions: permissionsSchema.optional(),
 });
 
@@ -33,11 +34,16 @@ export const updateUserSchema = z.object({
 
 export const updateUserPermissionsSchema = z.object({
   isAdmin: z.boolean().optional(),
+  employeeTier: z.enum(["subAdmin", "employee"]).nullable().optional(),
   permissions: permissionsSchema.optional(),
 });
 
 export const adminResetPasswordSchema = z.object({
   newPassword: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+export const bulkApplyDefaultPermissionsSchema = z.object({
+  userIds: z.array(z.string().min(1)).min(1, "Select at least one user").max(500),
 });
 
 export const setLeaveStatusSchema = z.object({

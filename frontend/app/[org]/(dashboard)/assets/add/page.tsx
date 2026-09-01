@@ -26,7 +26,7 @@ export default function AddAssetPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Add Asset</h1>
         <p className="text-sm text-muted-foreground">The Asset ID is generated automatically from the category.</p>
       </div>
-      <Card className="max-w-3xl">
+      <Card>
         <CardHeader>
           <CardTitle>New asset</CardTitle>
         </CardHeader>

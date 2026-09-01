@@ -1,7 +1,9 @@
+import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { authorize, requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadTicketAttachment } from "../../utils/upload";
+import { ApiError } from "../../utils/ApiError";
 import * as helpdeskController from "./helpdesk.controller";
 import {
   addCommentSchema,
@@ -16,6 +18,22 @@ import {
 
 export const helpdeskRouter = Router();
 
+/** Which permission actually gates a status change depends on the REQUESTED transition (plain
+ * update, reopen, or close) - the controller's own per-transition checks (setTicketStatus) do
+ * that precise gating. This route-level check only needs to confirm the caller holds at least
+ * one of the three write-adjacent permissions, so someone whose only relevant grant is
+ * `helpdesk:reopen` (e.g. a default Employee) can actually reach the endpoint at all - a flat
+ * `authorize("helpdesk","update")` here would 403 them before the controller's reopen check ever
+ * runs, making that permission dead. */
+function requireAnyStatusChangePermission(req: Request, _res: Response, next: NextFunction) {
+  const perms = req.user!.permissions.helpdesk;
+  if (req.user!.isAdmin || perms.update || perms.reopen || perms.close) {
+    next();
+    return;
+  }
+  next(new ApiError(403, "You do not have permission to change this ticket's status"));
+}
+
 helpdeskRouter.get("/stats", authorize("helpdesk", "view"), helpdeskController.getHelpdeskStats);
 helpdeskRouter.get(
   "/dashboard-summary",
@@ -23,6 +41,9 @@ helpdeskRouter.get(
   validate({ query: dashboardSummaryQuerySchema }),
   helpdeskController.getHelpdeskDashboardSummary
 );
+// Always "mine", independent of the view-all permission dashboard-summary above ignores
+// entirely - powers the Employee Portal dashboard's "My Tickets" widget.
+helpdeskRouter.get("/my-summary", authorize("helpdesk", "view"), helpdeskController.getMyTicketSummary);
 
 helpdeskRouter.get(
   "/deleted",
@@ -57,7 +78,7 @@ helpdeskRouter.put(
 );
 helpdeskRouter.patch(
   "/:id/status",
-  authorize("helpdesk", "update"),
+  requireAnyStatusChangePermission,
   validate({ params: ticketIdParamsSchema, body: setTicketStatusSchema }),
   helpdeskController.setTicketStatus
 );

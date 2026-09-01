@@ -34,6 +34,44 @@ export function basicUserPermissions(): PermissionsShape {
   perms.helpdesk.reopen = true
   perms.tasks.view = true
   perms.tasks.create = true
+  perms.tasks.comment = true
+  return perms
+}
+
+/** The "Sub Admin" default - broad operational access (assets, licenses, vendors, departments,
+ * locations, helpdesk, tasks, reports) without the account-management surface (users, settings,
+ * auditLogs) reserved for a true Admin. Kept in sync with the backend's
+ * config/permissions.ts#subAdminDefaultPermissions, its server-side fallback for the same tier.
+ * Just a starting point - the Create User dialog shows this pre-filled in an editable grid, same
+ * as basicUserPermissions() above for Employee/legacy teamMember creation. */
+export function subAdminPermissions(): PermissionsShape {
+  const perms = emptyPermissions()
+  const fullAccess: Partial<Record<PermissionAction, boolean>> = {
+    view: true,
+    create: true,
+    update: true,
+    delete: true,
+    import: true,
+    export: true,
+  }
+  for (const moduleKey of ["assets", "licenses", "vendors", "departments", "locations"] as const) {
+    Object.assign(perms[moduleKey], fullAccess)
+  }
+  perms.helpdesk.view = true
+  perms.helpdesk.create = true
+  perms.helpdesk.update = true
+  perms.helpdesk.assign = true
+  perms.helpdesk.reassign = true
+  perms.helpdesk.close = true
+  perms.helpdesk.reopen = true
+  perms.helpdesk.comment = true
+  perms.helpdesk.export = true
+  perms.tasks.view = true
+  perms.tasks.create = true
+  perms.tasks.update = true
+  perms.tasks.assign = true
+  perms.tasks.comment = true
+  perms.reports.view = true
   return perms
 }
 
@@ -116,14 +154,14 @@ const HELPDESK_ROLE_LABELS: Record<HelpdeskRoleKey, string> = {
 type TaskRoleKey = "employee" | "manager"
 
 /** Same convenience-preset idea as HELPDESK_ROLE_ACTIONS, scoped to the Tasks module row. An
- * "Employee" needs no permissions at all to see and update the status of tasks assigned to them
- * (that's enforced by assignment, not the permission matrix - see tasks.controller.ts), but the
- * preset still exists so it's a discoverable, explicit choice rather than "leave everything
- * unchecked and hope that's right". A "Manager" additionally sees the whole org's tasks and can
- * assign them to others (tasks:assign already grants both, via tasks.service.ts#canViewAllTasks). */
+ * "Employee" needs no permissions to see/update the status of tasks assigned to them (that's
+ * enforced by assignment, not the permission matrix - see tasks.controller.ts) - "comment" is the
+ * one real matrix permission they do need, to respond on their own tasks. A "Manager"
+ * additionally sees the whole org's tasks and can assign them to others (tasks:assign already
+ * grants both, via tasks.service.ts#canViewAllTasks). */
 const TASK_ROLE_ACTIONS: Record<TaskRoleKey, PermissionAction[]> = {
-  employee: ["view"],
-  manager: ["view", "create", "update", "assign"],
+  employee: ["view", "comment"],
+  manager: ["view", "create", "update", "assign", "comment"],
 }
 
 const TASK_ROLE_LABELS: Record<TaskRoleKey, string> = {

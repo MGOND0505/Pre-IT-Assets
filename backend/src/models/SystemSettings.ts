@@ -1,9 +1,13 @@
 import { Schema, model, type Types } from "mongoose";
+import type { PermissionsShape } from "../config/permissions";
 
 export type NotificationChannel = "smtp" | "microsoft365" | "google";
 
 export interface ISystemSettings {
   organization: Types.ObjectId;
+  // Null = not configured yet - see settings.service.ts#getDefaultEmployeePermissions, the one
+  // place that falls back to config/permissions.ts#basicUserDefaultPermissions() when this is null.
+  defaultEmployeePermissions: PermissionsShape | null;
   assetIdCompanyPrefix: string;
   warrantyAlertDays: number;
   amcAlertDays: number;
@@ -51,6 +55,7 @@ export interface ISystemSettings {
 const systemSettingsSchema = new Schema<ISystemSettings>(
   {
     organization: { type: Schema.Types.ObjectId, ref: "Organization", required: true, unique: true },
+    defaultEmployeePermissions: { type: Schema.Types.Mixed, default: null },
     assetIdCompanyPrefix: { type: String, default: "VNR", trim: true, uppercase: true },
     warrantyAlertDays: { type: Number, default: 30 },
     amcAlertDays: { type: Number, default: 30 },

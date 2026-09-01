@@ -72,7 +72,7 @@ export default function AddTaskPage() {
         <p className="text-sm text-muted-foreground">Assign a new work item.</p>
       </div>
 
-      <Card className="max-w-2xl">
+      <Card>
         <CardContent className="flex flex-col gap-4 pt-6">
           <div className="flex flex-col gap-2">
             <Label htmlFor="task-title">Title</Label>

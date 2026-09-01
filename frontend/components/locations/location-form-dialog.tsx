@@ -90,7 +90,7 @@ export function LocationFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {!isControlled && <DialogTrigger render={trigger ?? <Button>Add location</Button>} />}
-      <DialogContent>
+      <DialogContent size="full">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit location" : "Add location"}</DialogTitle>
         </DialogHeader>

@@ -69,7 +69,7 @@ export default function AddTicketPage() {
         <p className="text-sm text-muted-foreground">Submit a new support request.</p>
       </div>
 
-      <Card className="max-w-2xl">
+      <Card>
         <CardContent className="flex flex-col gap-4 pt-6">
           <div className="flex flex-col gap-2">
             <Label htmlFor="ticket-subject">Subject</Label>

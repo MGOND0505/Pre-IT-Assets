@@ -1,13 +1,22 @@
 import { Router } from "express";
 import { requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
+import { uploadSpreadsheet } from "../../utils/upload";
 import * as helpdeskCategoriesController from "./helpdeskCategories.controller";
 import {
+  previewHelpdeskCategoryImport,
+  confirmHelpdeskCategoryImport,
+  downloadHelpdeskCategoryTemplate,
+  getHelpdeskCategoryImportHistory,
+} from "./helpdeskCategories.import";
+import {
+  confirmHelpdeskCategoryImportSchema,
   createHelpdeskCategorySchema,
   helpdeskCategoryIdParamsSchema,
   listHelpdeskCategoriesQuerySchema,
   updateHelpdeskCategorySchema,
 } from "./helpdeskCategories.validation";
+import { listImportHistoryQuerySchema } from "../importHistory/importHistory.validation";
 
 export const helpdeskCategoriesRouter = Router();
 
@@ -32,6 +41,29 @@ helpdeskCategoriesRouter.post(
   validate({ body: createHelpdeskCategorySchema }),
   helpdeskCategoriesController.createHelpdeskCategory
 );
+// Mounted ahead of the generic "/:id" routes below, same ordering assets.routes.ts uses for its
+// own "/import/*" routes, so Express never mistakes "import" for an :id value. Admin-only like
+// every other write route in this module - no helpdeskCategories permission module exists at all.
+helpdeskCategoriesRouter.post(
+  "/import/preview",
+  requireAdmin,
+  uploadSpreadsheet.single("file"),
+  previewHelpdeskCategoryImport
+);
+helpdeskCategoriesRouter.post(
+  "/import/confirm",
+  requireAdmin,
+  validate({ body: confirmHelpdeskCategoryImportSchema }),
+  confirmHelpdeskCategoryImport
+);
+helpdeskCategoriesRouter.get("/import/template", requireAdmin, downloadHelpdeskCategoryTemplate);
+helpdeskCategoriesRouter.get(
+  "/import/history",
+  requireAdmin,
+  validate({ query: listImportHistoryQuerySchema }),
+  getHelpdeskCategoryImportHistory
+);
+
 helpdeskCategoriesRouter.get(
   "/:id",
   validate({ params: helpdeskCategoryIdParamsSchema }),

@@ -353,6 +353,27 @@ export async function getAssetStats(organizationId: string) {
   };
 }
 
+/** Unlike getAssetStats above (always org-wide), this is always scoped to exactly one user's own
+ * assigned assets, regardless of their view-all permission - powers the Employee Portal's "My
+ * Assets" widget. */
+export async function getMyAssetSummary(organizationId: string, userId: string) {
+  const filter = {
+    organization: new Types.ObjectId(organizationId),
+    isDeleted: false,
+    assignedUser: new Types.ObjectId(userId),
+  };
+
+  const [total, byStatusRaw] = await Promise.all([
+    Asset.countDocuments(filter),
+    Asset.aggregate([{ $match: filter }, { $group: { _id: "$status", count: { $sum: 1 } } }]),
+  ]);
+
+  const byStatus: Record<string, number> = {};
+  for (const row of byStatusRaw) byStatus[row._id] = row.count;
+
+  return { total, byStatus };
+}
+
 /** Permanently removes a soft-deleted asset and its uploaded documents. Admin-only, irreversible. */
 export async function purgeAsset(id: string, organizationId: string) {
   const asset = await Asset.findOne({ _id: id, organization: organizationId });

@@ -41,6 +41,11 @@ export type NavLeaf = {
    * flat, system-level pages (e.g. Sub-Super Admin management) that still need a link from
    * inside the org-scoped dashboard shell. */
   absolute?: boolean
+  /** If set, the leaf is hidden for the Employee Portal (`user.employeeTier === "employee"`)
+   * specifically - independent of `permission`, for entries an Employee's default permissions
+   * still technically pass (Categories/Priorities share their parent's `view` action) but
+   * shouldn't see. Sub Admin and every other role are unaffected. */
+  employeeHidden?: boolean
 }
 
 export type NavGroup = {
@@ -78,7 +83,7 @@ export const navConfig: NavEntry[] = [
     children: [
       { label: "All Assets", href: "/assets", permission: { area: "assets", action: "view" }, requiresModule: "assets" },
       { label: "Add Asset", href: "/assets/add", permission: { area: "assets", action: "create" }, requiresModule: "assets" },
-      { label: "Categories", href: "/assets/categories", permission: { area: "assets", action: "view" }, requiresModule: "assets" },
+      { label: "Categories", href: "/assets/categories", permission: { area: "assets", action: "view" }, requiresModule: "assets", employeeHidden: true },
     ],
   },
   {
@@ -104,8 +109,8 @@ export const navConfig: NavEntry[] = [
     children: [
       { label: "All Tickets", href: "/helpdesk", permission: { area: "helpdesk", action: "view" }, requiresModule: "helpdesk" },
       { label: "Add Ticket", href: "/helpdesk/add", permission: { area: "helpdesk", action: "create" }, requiresModule: "helpdesk" },
-      { label: "Categories", href: "/helpdesk/categories", permission: { area: "helpdesk", action: "view" }, requiresModule: "helpdesk" },
-      { label: "Priorities", href: "/helpdesk/priorities", permission: { area: "helpdesk", action: "view" }, requiresModule: "helpdesk" },
+      { label: "Categories", href: "/helpdesk/categories", permission: { area: "helpdesk", action: "view" }, requiresModule: "helpdesk", employeeHidden: true },
+      { label: "Priorities", href: "/helpdesk/priorities", permission: { area: "helpdesk", action: "view" }, requiresModule: "helpdesk", employeeHidden: true },
     ],
   },
   {
@@ -116,29 +121,34 @@ export const navConfig: NavEntry[] = [
       { label: "Add Task", href: "/tasks/add", permission: { area: "tasks", action: "create" }, requiresModule: "tasks" },
     ],
   },
-  { label: "Reports & Analytics", href: "/reports", permission: { area: "reports", action: "view" }, requiresModule: "reports", icon: BarChart3 },
+  { label: "Reports & Analytics", href: "/reports", permission: { area: "reports", action: "view" }, requiresModule: "reports", icon: BarChart3, employeeHidden: true },
   {
     label: "Upload Data",
     href: "/upload",
     permission: { area: "assets", action: "import" },
     requiresModule: "assets",
     icon: UploadCloud,
+    employeeHidden: true,
   },
   {
     label: "User Management",
     icon: Users,
     children: [
-      { label: "All Users", href: "/users", permission: { area: "users", action: "view" } },
+      { label: "All Users", href: "/users", permission: { area: "users", action: "view" }, employeeHidden: true },
       {
         label: "Bulk Upload",
         href: "/upload?target=users",
-        permission: { area: "users", action: "view" },
-        adminOnly: true,
+        // "create" not "view" - matches users.routes.ts's /import/* gate, and (unlike adminOnly)
+        // lets a Sub-Super Admin whose org grant includes users:create reach this without being
+        // a full org/super admin.
+        permission: { area: "users", action: "create" },
+        employeeHidden: true,
       },
       {
         label: "Login History",
         href: "/administration/login-history",
         permission: { area: "auditLogs", action: "view" },
+        employeeHidden: true,
       },
     ],
   },
@@ -146,20 +156,22 @@ export const navConfig: NavEntry[] = [
     label: "Settings",
     icon: Settings,
     children: [
-      { label: "Departments", href: "/departments", permission: { area: "departments", action: "view" }, requiresModule: "departments" },
-      { label: "Locations", href: "/locations", permission: { area: "locations", action: "view" }, requiresModule: "locations" },
-      { label: "Audit Logs", href: "/administration/audit-logs", permission: { area: "auditLogs", action: "view" } },
+      { label: "Departments", href: "/departments", permission: { area: "departments", action: "view" }, requiresModule: "departments", employeeHidden: true },
+      { label: "Locations", href: "/locations", permission: { area: "locations", action: "view" }, requiresModule: "locations", employeeHidden: true },
+      { label: "Audit Logs", href: "/administration/audit-logs", permission: { area: "auditLogs", action: "view" }, employeeHidden: true },
       {
         label: "Notification Templates",
         href: "/administration/notification-templates",
         permission: { area: "settings", action: "view" },
+        employeeHidden: true,
       },
       {
         label: "Notification Logs",
         href: "/administration/notification-logs",
         permission: { area: "settings", action: "view" },
+        employeeHidden: true,
       },
-      { label: "System Settings", href: "/administration/settings", permission: { area: "settings", action: "view" } },
+      { label: "System Settings", href: "/administration/settings", permission: { area: "settings", action: "view" }, employeeHidden: true },
       { label: "Recycle Bin", href: "/administration/recycle-bin", adminOnly: true },
     ],
   },

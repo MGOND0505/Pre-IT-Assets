@@ -118,7 +118,7 @@ export function VendorFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {!isControlled && <DialogTrigger render={trigger ?? <Button>Add vendor</Button>} />}
-      <DialogContent className="max-w-lg">
+      <DialogContent size="full">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit vendor" : "Add vendor"}</DialogTitle>
         </DialogHeader>

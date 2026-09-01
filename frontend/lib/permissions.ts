@@ -57,8 +57,8 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
   assets: ["view", "create", "update", "delete", "import", "export", "editAssetId"],
   licenses: ["view", "create", "update", "delete", "import", "export"],
   vendors: ["view", "create", "update", "delete", "import"],
-  departments: ["view", "create", "update", "delete"],
-  locations: ["view", "create", "update", "delete"],
+  departments: ["view", "create", "update", "delete", "import"],
+  locations: ["view", "create", "update", "delete", "import"],
   users: ["view", "create", "update", "delete"],
   reports: ["view"],
   auditLogs: ["view"],
@@ -77,7 +77,7 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
     "manageAttachments",
     "export",
   ],
-  tasks: ["view", "create", "update", "delete", "assign"],
+  tasks: ["view", "create", "update", "delete", "assign", "comment"],
   aiAssistant: ["view"],
 }
 

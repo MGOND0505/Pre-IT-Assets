@@ -24,7 +24,7 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>
 
-export function LoginForm({ orgSlug }: { orgSlug?: string } = {}) {
+export function LoginForm({ orgSlug, portal }: { orgSlug?: string; portal?: "employee" } = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { refresh } = useAuth()
@@ -58,7 +58,7 @@ export function LoginForm({ orgSlug }: { orgSlug?: string } = {}) {
     try {
       const res = await apiClient.post<ApiEnvelope<{ passwordExpiryWarning: { daysRemaining: number } | null }>>(
         "/auth/login",
-        { ...values, orgSlug, captchaToken: captchaToken ?? undefined }
+        { ...values, orgSlug, captchaToken: captchaToken ?? undefined, portal }
       )
       await refresh()
       const warning = res.data.data.passwordExpiryWarning

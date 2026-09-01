@@ -11,9 +11,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { apiClient, apiErrorMessage, publicLogoUrl, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { can } from "@/lib/permissions"
+import { can, type PermissionsShape } from "@/lib/permissions"
 import { useBranding } from "@/lib/branding-context"
 import { isValidHexColor } from "@/lib/color-utils"
+import { ModulePermissionGrid, basicUserPermissions } from "@/components/users/permission-grid"
 
 type NotificationChannel = "smtp" | "microsoft365" | "google"
 
@@ -54,6 +55,7 @@ type Settings = {
   passwordHistoryLimit: number
   passwordExpiryDays: number
   passwordExpiryWarningDays: number
+  defaultEmployeePermissions: PermissionsShape | null
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -82,6 +84,8 @@ export default function SettingsPage() {
   const [uploadingLogo, setUploadingLogo] = React.useState(false)
   const [logoVersion, setLogoVersion] = React.useState(0)
   const logoInputRef = React.useRef<HTMLInputElement>(null)
+  const [defaultEmployeePermissions, setDefaultEmployeePermissions] = React.useState<PermissionsShape | null>(null)
+  const [savingDefaultPermissions, setSavingDefaultPermissions] = React.useState(false)
 
   const canView = can(user, "settings", "view")
   const canWrite = can(user, "settings", "update")
@@ -96,6 +100,9 @@ export default function SettingsPage() {
         setAlertEmailsInput(res.data.data.alertEmails.join(", "))
         setCcEmailsInput(res.data.data.alertEmailsCc.join(", "))
         setBccEmailsInput(res.data.data.alertEmailsBcc.join(", "))
+        // null = never configured - start the editor from the app's own baseline rather than an
+        // all-unchecked grid, so "Save" without touching anything still records something sane.
+        setDefaultEmployeePermissions(res.data.data.defaultEmployeePermissions ?? basicUserPermissions())
       })
       .catch((err) => toast.error(apiErrorMessage(err, "Could not load settings")))
       .finally(() => setLoading(false))
@@ -196,6 +203,23 @@ export default function SettingsPage() {
       toast.error(apiErrorMessage(err, "Could not save settings"))
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // A separate save action from the big settings form above - this is its own distinct concern
+  // (a permission matrix, not a form field), matching how permission editing everywhere else in
+  // this app (edit-permissions-dialog.tsx) is its own dedicated save, not bundled into a bigger form.
+  async function handleSaveDefaultPermissions() {
+    if (!defaultEmployeePermissions) return
+    setSavingDefaultPermissions(true)
+    try {
+      const res = await apiClient.put<ApiEnvelope<Settings>>("/settings", { defaultEmployeePermissions })
+      setDefaultEmployeePermissions(res.data.data.defaultEmployeePermissions ?? basicUserPermissions())
+      toast.success("Employee default permissions saved")
+    } catch (err) {
+      toast.error(apiErrorMessage(err, "Could not save default permissions"))
+    } finally {
+      setSavingDefaultPermissions(false)
     }
   }
 
@@ -875,6 +899,27 @@ export default function SettingsPage() {
           {canWrite && (
             <Button onClick={handleSave} disabled={submitting} className="self-start">
               {submitting ? "Saving..." : "Save settings"}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Employee Default Permissions</CardTitle>
+          <CardDescription>
+            What a new Employee account gets automatically at creation - both for the manual &quot;Add
+            user&quot; dialog and bulk import. Changing this template does not affect existing accounts
+            unless you also run &quot;Bulk Update Permissions&quot; for them from the Users page.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {defaultEmployeePermissions && (
+            <ModulePermissionGrid permissions={defaultEmployeePermissions} onPermissionsChange={setDefaultEmployeePermissions} />
+          )}
+          {canWrite && (
+            <Button onClick={handleSaveDefaultPermissions} disabled={savingDefaultPermissions} className="self-start">
+              {savingDefaultPermissions ? "Saving..." : "Save default permissions"}
             </Button>
           )}
         </CardContent>

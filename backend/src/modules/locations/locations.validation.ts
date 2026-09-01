@@ -27,3 +27,28 @@ export const listLocationsQuerySchema = z.object({
 export const locationIdParamsSchema = z.object({
   id: z.string().min(1),
 });
+
+const importStr = () => z.string().max(500).optional().default("");
+
+const mappedLocationImportRowSchema = z.object({
+  name: importStr(),
+  address: importStr(),
+  city: importStr(),
+  state: importStr(),
+  country: importStr(),
+});
+
+export const confirmLocationImportSchema = z.object({
+  rows: z
+    .array(
+      z.object({
+        rowIndex: z.number().int(),
+        mapped: mappedLocationImportRowSchema,
+        classification: z.enum(["new", "updated", "duplicate", "invalid"]),
+        reason: z.string().max(500).optional(),
+        existingId: z.string().optional(),
+      })
+    )
+    .max(2000),
+  fileName: z.string().max(255).optional(),
+});

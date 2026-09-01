@@ -26,7 +26,7 @@ export default function AddLicensePage() {
         <h1 className="text-2xl font-semibold tracking-tight">Add License</h1>
         <p className="text-sm text-muted-foreground">The License ID is generated automatically.</p>
       </div>
-      <Card className="max-w-3xl">
+      <Card>
         <CardHeader>
           <CardTitle>New license</CardTitle>
         </CardHeader>

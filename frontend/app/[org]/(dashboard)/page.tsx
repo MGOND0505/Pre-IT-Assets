@@ -9,6 +9,9 @@ import {
   CartesianGrid,
   Cell,
   LabelList,
+  PolarAngleAxis,
+  RadialBar,
+  RadialBarChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -27,7 +30,6 @@ import {
   XCircle,
   Activity,
   KeyRound as LicenseIcon,
-  History,
   RefreshCw,
   Ticket as TicketIcon,
   ShieldAlert,
@@ -36,8 +38,10 @@ import {
   Tags,
   Settings2,
   RotateCcw,
+  TrendingUp,
+  Minus,
 } from "lucide-react"
-import { Line, LineChart, Pie, PieChart } from "recharts"
+import { Area, Line, LineChart, Pie, PieChart } from "recharts"
 
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
@@ -52,9 +56,9 @@ import { KpiCard, KpiGridSkeleton, BUCKET_COLOR, type Bucket } from "@/component
 import { ChartCard, ChartTooltip, MultiSeriesTooltip, DonutTooltip, useChartTheme } from "@/components/dashboard/chart-card"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 import { AttentionBanner } from "@/components/dashboard/attention-banner"
-import { ActivityFeed, ActivityFeedSkeleton, type ActivityEntry } from "@/components/dashboard/activity-feed"
 import { RevealGroup, RevealItem } from "@/components/dashboard/reveal"
-import { TicketInsightsCard, TicketAlertsCard, type TicketInsights, type TicketAlert } from "@/components/dashboard/ticket-insights-alerts"
+import { type TicketInsights, type TicketAlert } from "@/components/dashboard/ticket-insights-alerts"
+import { EmployeeDashboard } from "@/components/dashboard/employee-dashboard"
 
 type AssetStats = {
   total: number
@@ -106,31 +110,36 @@ function weekdayLabel(dateStr: string): string {
   return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" })
 }
 
-// Status colors carry real meaning (health/urgency), never assigned by position - the same
-// status always gets the same color, unlike the API's aggregation order which isn't
-// guaranteed stable.
-const STATUS_BUCKET: Record<string, Bucket> = {
-  Available: "good",
-  "In Stock": "good",
-  Assigned: "info",
-  Reserved: "info",
-  "Under Repair": "warning",
-  "Under Maintenance": "warning",
-  Damaged: "critical",
-  Lost: "critical",
-  Stolen: "critical",
-  Retired: "muted",
-  Disposed: "muted",
-}
+// A small categorical palette (the app's existing --chart-1..5 tokens) for pies/donuts whose
+// slices - unlike the status donut - have no inherent semantic color (a location, category, or
+// department isn't "good" or "critical"), just identity. Cycles if there are more slices than colors.
+const CHART_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"]
 
-function bucketOf(status: string): Bucket {
-  return STATUS_BUCKET[status] ?? "info"
+/** Tooltip for a radial-ring gauge chart (one concentric ring per entry) - shows the real count
+ * alongside the % each ring's arc length actually encodes, since the ring itself only plots the
+ * percentage. */
+function RadialGaugeTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean
+  payload?: { payload?: { name: string; count: number; pct: number; fill: string } }[]
+}) {
+  if (!active || !payload || payload.length === 0) return null
+  const point = payload[0]?.payload
+  if (!point) return null
+  return (
+    <div className="min-w-28 rounded-lg border bg-popover/95 px-3 py-2 text-sm shadow-soft-lg backdrop-blur-sm">
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-3 shrink-0 rounded-full" style={{ backgroundColor: point.fill }} />
+        <span className="text-xs text-muted-foreground">{point.name}</span>
+      </div>
+      <p className="mt-1 font-semibold tabular-nums">
+        {point.count} <span className="font-normal text-muted-foreground">({point.pct}%)</span>
+      </p>
+    </div>
+  )
 }
-
-// A small categorical palette (the app's existing --chart-1..5 tokens) for the location donut,
-// which - unlike the status donut - has no inherent semantic color per slice (a location isn't
-// "good" or "critical"), just identity. Cycles if there are more locations than colors.
-const LOCATION_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"]
 
 // A bar's thickness never fills its slot - capped so the surrounding whitespace stays part
 // of the design, not just leftover space. Kept to one number so every chart on the page reads
@@ -148,9 +157,14 @@ function lastUpdatedLabel(date: Date | null): string {
 
 const GREETING_HOUR_MESSAGE = (hour: number) => (hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening")
 
-type SectionKey = "assets" | "licenses" | "helpdesk" | "activity" | "quickActions"
+type SectionKey = "assets" | "licenses" | "helpdesk" | "quickActions"
 
-export default function DashboardPage() {
+/** The full org-wide admin dashboard - unchanged behavior, just renamed so a new top-level
+ * default export (below) can branch to the Employee Portal's own dashboard BEFORE this one's
+ * hooks/effects ever run, rather than conditionally skipping them post-mount (which would
+ * violate rules-of-hooks) or letting its org-wide stats fetches fire needlessly for an Employee
+ * who will never see their results. */
+function AdminDashboard() {
   const { user, loading: authLoading } = useAuth()
   const toOrgHref = useOrgHref()
   const router = useRouter()
@@ -158,11 +172,14 @@ export default function DashboardPage() {
   const [assetStats, setAssetStats] = React.useState<AssetStats | null>(null)
   const [licenseStats, setLicenseStats] = React.useState<LicenseStats | null>(null)
   const [helpdeskSummary, setHelpdeskSummary] = React.useState<HelpdeskSummary | null>(null)
-  const [activity, setActivity] = React.useState<ActivityEntry[]>([])
   const [loading, setLoading] = React.useState(true)
   const [refreshing, setRefreshing] = React.useState(false)
   const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null)
   const [days, setDays] = React.useState(7)
+  // Hovering either a ring or its legend row highlights both ends of the pair - with several
+  // thin concentric rings, that link is the only fast way to tell which ring belongs to which
+  // category without squinting at color swatches.
+  const [hoveredCategoryKey, setHoveredCategoryKey] = React.useState<string | null>(null)
 
   // Permission alone isn't enough - an Admin passes can()'s isAdmin bypass regardless of this
   // org's subscription, so a module that's actually disabled for THIS org must also be excluded
@@ -181,7 +198,6 @@ export default function DashboardPage() {
   const canViewReports =
     can(user, "reports", "view") && (user?.role === "superAdmin" || Boolean(user?.organization?.enabledModules.includes("reports")))
   const canViewDashboard = can(user, "dashboard", "view")
-  const canViewAuditLogs = can(user, "auditLogs", "view")
 
   const [customizeOpen, setCustomizeOpen] = React.useState(false)
   const [hiddenSections, setHiddenSections] = React.useState<Set<SectionKey>>(new Set())
@@ -240,18 +256,16 @@ export default function DashboardPage() {
       if (isManualRefresh) setRefreshing(true)
       else setLoading(true)
       try {
-        const [assetsRes, licensesRes, helpdeskRes, activityRes] = await Promise.all([
+        const [assetsRes, licensesRes, helpdeskRes] = await Promise.all([
           canViewAssets ? apiClient.get<ApiEnvelope<AssetStats>>("/assets/stats") : null,
           canViewLicenses ? apiClient.get<ApiEnvelope<LicenseStats>>("/licenses/stats") : null,
           canViewHelpdesk
             ? apiClient.get<ApiEnvelope<HelpdeskSummary>>("/helpdesk/dashboard-summary", { params: { days } })
             : null,
-          canViewAuditLogs ? apiClient.get<ApiEnvelope<{ items: ActivityEntry[] }>>("/audit-logs", { params: { limit: 7 } }) : null,
         ])
         if (assetsRes) setAssetStats(assetsRes.data.data)
         if (licensesRes) setLicenseStats(licensesRes.data.data)
         if (helpdeskRes) setHelpdeskSummary(helpdeskRes.data.data)
-        if (activityRes) setActivity(activityRes.data.data.items)
         setLastUpdated(new Date())
       } catch (err) {
         toast.error(apiErrorMessage(err, "Could not load dashboard"))
@@ -260,7 +274,7 @@ export default function DashboardPage() {
         setRefreshing(false)
       }
     },
-    [canViewAssets, canViewLicenses, canViewHelpdesk, canViewAuditLogs, days]
+    [canViewAssets, canViewLicenses, canViewHelpdesk, days]
   )
 
   React.useEffect(() => {
@@ -270,13 +284,33 @@ export default function DashboardPage() {
 
   const byStatus = assetStats?.byStatus ?? {}
   const byLocation = assetStats?.byLocation ?? []
-  const statusChartData = Object.entries(byStatus)
-    .map(([status, count]) => ({ status, count, bucket: bucketOf(status) }))
-    .sort((a, b) => b.count - a.count)
   const locationChartData = [...byLocation].sort((a, b) => b.count - a.count)
   const locationDonutTotal = locationChartData.reduce((sum, loc) => sum + loc.count, 0)
   const categoryChartData = [...(assetStats?.byCategory ?? [])].sort((a, b) => b.count - a.count)
-  const departmentChartData = [...(assetStats?.byDepartment ?? [])].sort((a, b) => b.count - a.count)
+  const categoryTotal = categoryChartData.reduce((sum, cat) => sum + cat.count, 0)
+  // Past a handful of rings, concentric circles get too thin to tell apart - fold the long tail
+  // into a single "Other" ring rather than letting the chart degrade with every new category an
+  // org adds.
+  const MAX_CATEGORY_RINGS = 5
+  const categoryChartDataGrouped =
+    categoryChartData.length <= MAX_CATEGORY_RINGS + 1
+      ? categoryChartData
+      : [
+          ...categoryChartData.slice(0, MAX_CATEGORY_RINGS),
+          {
+            categoryId: "__other__",
+            name: `Other (${categoryChartData.length - MAX_CATEGORY_RINGS})`,
+            count: categoryChartData.slice(MAX_CATEGORY_RINGS).reduce((sum, cat) => sum + cat.count, 0),
+          },
+        ]
+  // One concentric ring per category, each ring's arc length = that category's own share of total
+  // assets (not raw count) - so every ring reads on the same 0-100 scale regardless of how many
+  // assets the org has overall.
+  const categoryRadialData = categoryChartDataGrouped.map((entry, i) => ({
+    ...entry,
+    pct: categoryTotal > 0 ? Math.round((entry.count / categoryTotal) * 100) : 0,
+    fill: CHART_COLORS[i % CHART_COLORS.length],
+  }))
   const topAssigneesData = [...(assetStats?.topAssignees ?? [])].sort((a, b) => b.count - a.count)
 
   const underRepairCount = byStatus["Under Repair"] ?? 0
@@ -294,8 +328,6 @@ export default function DashboardPage() {
   const ticketCategoriesData = [...(helpdeskSummary?.topCategories ?? [])].sort((a, b) => b.count - a.count)
   const ticketTrendData = (helpdeskSummary?.trend ?? []).map((d) => ({ ...d, label: weekdayLabel(d.date) }))
 
-  if (authLoading) return <FullPageLoader />
-
   if (!canViewDashboard) {
     return <p className="text-sm text-muted-foreground">You do not have permission to view this page.</p>
   }
@@ -309,11 +341,10 @@ export default function DashboardPage() {
     ...(canViewLicenses ? [{ key: "licenses" as const, label: "Licenses" }] : []),
     ...(canViewHelpdesk ? [{ key: "helpdesk" as const, label: "Helpdesk" }] : []),
     ...(canCreateAssets || canCreateTickets || canCreateTasks || canViewReports ? [{ key: "quickActions" as const, label: "Quick Actions" }] : []),
-    ...(canViewAuditLogs ? [{ key: "activity" as const, label: "Recent Activity" }] : []),
   ]
 
   return (
-    <div className="flex flex-col gap-7">
+    <div className="flex flex-col gap-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl lg:text-[1.65rem] font-semibold tracking-tight">
@@ -377,19 +408,41 @@ export default function DashboardPage() {
             <KpiGridSkeleton count={6} />
           ) : (
             <RevealGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-              <RevealItem><KpiCard label="Total assets" value={assetStats.total} icon={Boxes} /></RevealItem>
-              <RevealItem><KpiCard label="Active assets" value={assetStats.active} icon={Activity} bucket="info" /></RevealItem>
-              <RevealItem><KpiCard label="Assigned" value={byStatus["Assigned"] ?? 0} icon={UserCheck} bucket="info" /></RevealItem>
               <RevealItem>
-                <KpiCard
-                  label="Available"
-                  value={(byStatus["Available"] ?? 0) + (byStatus["In Stock"] ?? 0)}
-                  icon={CheckCircle2}
-                  bucket="good"
-                />
+                <Link href={toOrgHref("/assets")} className="block h-full">
+                  <KpiCard label="Total assets" value={assetStats.total} icon={Boxes} />
+                </Link>
               </RevealItem>
-              <RevealItem><KpiCard label="Under repair" value={byStatus["Under Repair"] ?? 0} icon={Wrench} bucket="warning" /></RevealItem>
-              <RevealItem><KpiCard label="Retired" value={byStatus["Retired"] ?? 0} icon={Archive} bucket="muted" /></RevealItem>
+              <RevealItem>
+                <Link href={toOrgHref("/assets")} className="block h-full">
+                  <KpiCard label="Active assets" value={assetStats.active} icon={Activity} bucket="info" />
+                </Link>
+              </RevealItem>
+              <RevealItem>
+                <Link href={`${toOrgHref("/assets")}?status=${encodeURIComponent("Assigned")}`} className="block h-full">
+                  <KpiCard label="Assigned" value={byStatus["Assigned"] ?? 0} icon={UserCheck} bucket="info" />
+                </Link>
+              </RevealItem>
+              <RevealItem>
+                <Link href={`${toOrgHref("/assets")}?status=${encodeURIComponent("Available")}`} className="block h-full">
+                  <KpiCard
+                    label="Available"
+                    value={(byStatus["Available"] ?? 0) + (byStatus["In Stock"] ?? 0)}
+                    icon={CheckCircle2}
+                    bucket="good"
+                  />
+                </Link>
+              </RevealItem>
+              <RevealItem>
+                <Link href={`${toOrgHref("/assets")}?status=${encodeURIComponent("Under Repair")}`} className="block h-full">
+                  <KpiCard label="Under repair" value={byStatus["Under Repair"] ?? 0} icon={Wrench} bucket="warning" />
+                </Link>
+              </RevealItem>
+              <RevealItem>
+                <Link href={`${toOrgHref("/assets")}?status=${encodeURIComponent("Retired")}`} className="block h-full">
+                  <KpiCard label="Retired" value={byStatus["Retired"] ?? 0} icon={Archive} bucket="muted" />
+                </Link>
+              </RevealItem>
             </RevealGroup>
           )}
 
@@ -397,7 +450,7 @@ export default function DashboardPage() {
             <RevealGroup className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               <RevealItem>
                 <ChartCard title="Top locations" isEmpty={locationChartData.length === 0} emptyMessage="No assets assigned to a location yet.">
-                  <div className="flex h-full flex-col justify-center gap-3 overflow-y-auto">
+                  <div className="flex h-full flex-col gap-3 overflow-y-auto">
                     {locationChartData.map((loc, i) => {
                       const pct = locationDonutTotal > 0 ? Math.round((loc.count / locationDonutTotal) * 100) : 0
                       return (
@@ -413,7 +466,7 @@ export default function DashboardPage() {
                           <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                             <div
                               className="h-full rounded-full"
-                              style={{ width: `${pct}%`, backgroundColor: LOCATION_COLORS[i % LOCATION_COLORS.length] }}
+                              style={{ width: `${pct}%`, backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
                             />
                           </div>
                         </Link>
@@ -424,53 +477,13 @@ export default function DashboardPage() {
               </RevealItem>
 
               <RevealItem>
-                <ChartCard title="Assets by status" isEmpty={statusChartData.length === 0} emptyMessage="No assets yet.">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={statusChartData} layout="vertical" margin={{ top: 4, right: 32, bottom: 4, left: 4 }} barCategoryGap="30%">
-                      <CartesianGrid horizontal={false} stroke={chartTheme.gridColor} />
-                      <XAxis
-                        type="number"
-                        allowDecimals={false}
-                        tick={{ fontSize: 12, fill: chartTheme.axisColor }}
-                        axisLine={{ stroke: chartTheme.gridColor }}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        dataKey="status"
-                        type="category"
-                        width={110}
-                        tick={{ fontSize: 12, fill: chartTheme.axisColor }}
-                        axisLine={{ stroke: chartTheme.gridColor }}
-                        tickLine={false}
-                      />
-                      <Tooltip
-                        content={<ChartTooltip color={(bucket) => BUCKET_COLOR[(bucket as Bucket) ?? "info"]} />}
-                        cursor={{ fill: chartTheme.cursorFill }}
-                      />
-                      <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={MAX_BAR_SIZE} animationDuration={600} minPointSize={4}>
-                        {statusChartData.map((entry) => (
-                          <Cell
-                            key={entry.status}
-                            fill={BUCKET_COLOR[entry.bucket]}
-                            className="cursor-pointer transition-opacity hover:opacity-80"
-                            onClick={() => router.push(`${toOrgHref("/assets")}?status=${encodeURIComponent(entry.status)}`)}
-                          />
-                        ))}
-                        <LabelList dataKey="count" position="right" style={{ fill: chartTheme.labelColor, fontSize: 12 }} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-              </RevealItem>
-
-              <RevealItem>
                 <ChartCard
                   title="Assets by location"
                   isEmpty={locationChartData.length === 0}
                   emptyMessage="No assets assigned to a location yet."
                 >
-                  <div className="flex h-full items-center gap-2">
-                    <div className="relative h-full min-w-0 flex-1">
+                  <div className="flex h-full flex-col sm:flex-row items-center gap-2">
+                    <div className="relative h-full min-h-[140px] w-full min-w-0 flex-1">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Tooltip content={<DonutTooltip />} />
@@ -487,7 +500,7 @@ export default function DashboardPage() {
                             {locationChartData.map((entry, i) => (
                               <Cell
                                 key={entry.locationId}
-                                fill={LOCATION_COLORS[i % LOCATION_COLORS.length]}
+                                fill={CHART_COLORS[i % CHART_COLORS.length]}
                                 className="cursor-pointer transition-opacity hover:opacity-80"
                                 onClick={() => router.push(`${toOrgHref("/assets")}?location=${encodeURIComponent(entry.name)}`)}
                               />
@@ -500,7 +513,7 @@ export default function DashboardPage() {
                         <span className="text-xs text-muted-foreground">Total</span>
                       </div>
                     </div>
-                    <div className="flex w-32 shrink-0 flex-col gap-2 overflow-y-auto">
+                    <div className="flex w-full sm:w-32 shrink-0 flex-col gap-2 overflow-y-auto overflow-x-hidden">
                       {locationChartData.map((entry, i) => {
                         const pct = locationDonutTotal > 0 ? Math.round((entry.count / locationDonutTotal) * 100) : 0
                         return (
@@ -512,7 +525,7 @@ export default function DashboardPage() {
                           >
                             <span
                               className="size-2 shrink-0 rounded-full"
-                              style={{ backgroundColor: LOCATION_COLORS[i % LOCATION_COLORS.length] }}
+                              style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
                             />
                             <span className="min-w-0 flex-1 truncate text-xs text-foreground">{entry.name}</span>
                             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{pct}%</span>
@@ -523,82 +536,72 @@ export default function DashboardPage() {
                   </div>
                 </ChartCard>
               </RevealItem>
-            </RevealGroup>
-          )}
 
-          {!loading && assetStats && (
-            <RevealGroup className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <RevealItem>
                 <ChartCard
                   title="Assets by category"
                   isEmpty={categoryChartData.length === 0}
                   emptyMessage="No categorized assets yet."
                 >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={categoryChartData} margin={{ top: 20, right: 8, bottom: 4, left: 4 }} barCategoryGap="35%">
-                      <CartesianGrid vertical={false} stroke={chartTheme.gridColor} />
-                      <XAxis dataKey="name" tick={{ fontSize: 12, fill: chartTheme.axisColor }} axisLine={{ stroke: chartTheme.gridColor }} tickLine={false} />
-                      <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: chartTheme.axisColor }} axisLine={{ stroke: chartTheme.gridColor }} tickLine={false} />
-                      <Tooltip content={<ChartTooltip color={chartTheme.sequential} />} cursor={{ fill: chartTheme.cursorFill }} />
-                      <Bar
-                        dataKey="count"
-                        fill={chartTheme.sequential}
-                        radius={[4, 4, 0, 0]}
-                        maxBarSize={MAX_BAR_SIZE}
-                        animationDuration={600}
-                        minPointSize={4}
-                        className="transition-opacity hover:opacity-80"
-                      >
-                        <LabelList dataKey="count" position="top" style={{ fill: chartTheme.labelColor, fontSize: 12, fontWeight: 600 }} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-              </RevealItem>
-
-              <RevealItem>
-                <ChartCard
-                  title="Assets by department"
-                  isEmpty={departmentChartData.length === 0}
-                  emptyMessage="No assets assigned to a department yet."
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={departmentChartData}
-                      layout="vertical"
-                      margin={{ top: 4, right: 32, bottom: 4, left: 4 }}
-                      barCategoryGap="30%"
-                    >
-                      <CartesianGrid horizontal={false} stroke={chartTheme.gridColor} />
-                      <XAxis
-                        type="number"
-                        allowDecimals={false}
-                        tick={{ fontSize: 12, fill: chartTheme.axisColor }}
-                        axisLine={{ stroke: chartTheme.gridColor }}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        dataKey="name"
-                        type="category"
-                        width={110}
-                        tick={{ fontSize: 12, fill: chartTheme.axisColor }}
-                        axisLine={{ stroke: chartTheme.gridColor }}
-                        tickLine={false}
-                      />
-                      <Tooltip content={<ChartTooltip color={chartTheme.sequential} />} cursor={{ fill: chartTheme.cursorFill }} />
-                      <Bar
-                        dataKey="count"
-                        fill={chartTheme.sequential}
-                        radius={[0, 4, 4, 0]}
-                        maxBarSize={MAX_BAR_SIZE}
-                        animationDuration={600}
-                        minPointSize={4}
-                        className="transition-opacity hover:opacity-80"
-                      >
-                        <LabelList dataKey="count" position="right" style={{ fill: chartTheme.labelColor, fontSize: 12 }} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div className="flex h-full flex-col sm:flex-row items-center gap-2">
+                    <div className="relative h-full min-h-[140px] w-full min-w-0 flex-1">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadialBarChart
+                          cx="50%"
+                          cy="50%"
+                          innerRadius="40%"
+                          outerRadius="100%"
+                          barSize={16}
+                          barGap={4}
+                          data={categoryRadialData}
+                          startAngle={90}
+                          endAngle={-270}
+                        >
+                          {/* No `background` here on purpose - Recharts draws a RadialBar's
+                              background track across the chart's FULL inner-to-outer radius
+                              band for every entry, not that entry's own narrow ring slice, so
+                              with more than one ring the tracks all overlap into one big gray
+                              disc instead of a thin track per ring. */}
+                          <PolarAngleAxis type="number" domain={[0, 100]} tick={false} axisLine={false} />
+                          <RadialBar dataKey="pct" cornerRadius={6} animationDuration={600}>
+                            {categoryRadialData.map((entry) => (
+                              <Cell
+                                key={entry.categoryId}
+                                fill={entry.fill}
+                                fillOpacity={!hoveredCategoryKey || hoveredCategoryKey === entry.categoryId ? 1 : 0.3}
+                                className="transition-opacity"
+                                onMouseEnter={() => setHoveredCategoryKey(entry.categoryId)}
+                                onMouseLeave={() => setHoveredCategoryKey(null)}
+                              />
+                            ))}
+                          </RadialBar>
+                          <Tooltip content={<RadialGaugeTooltip />} />
+                        </RadialBarChart>
+                      </ResponsiveContainer>
+                      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-2xl font-semibold tracking-tight tabular-nums">{categoryTotal}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {categoryRadialData.length} {categoryRadialData.length === 1 ? "category" : "categories"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex w-full sm:w-32 shrink-0 flex-col gap-2 overflow-y-auto overflow-x-hidden">
+                      {categoryRadialData.map((entry) => (
+                        <div
+                          key={entry.categoryId}
+                          onMouseEnter={() => setHoveredCategoryKey(entry.categoryId)}
+                          onMouseLeave={() => setHoveredCategoryKey(null)}
+                          className={`flex items-center gap-1.5 rounded px-1 py-0.5 transition-colors ${
+                            hoveredCategoryKey === entry.categoryId ? "bg-muted/70" : ""
+                          }`}
+                        >
+                          <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: entry.fill }} />
+                          <span className="min-w-0 flex-1 truncate text-xs text-foreground">{entry.name}</span>
+                          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{entry.pct}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </ChartCard>
               </RevealItem>
             </RevealGroup>
@@ -614,6 +617,12 @@ export default function DashboardPage() {
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={topAssigneesData} layout="vertical" margin={{ top: 4, right: 32, bottom: 4, left: 4 }} barCategoryGap="25%">
+                      <defs>
+                        <linearGradient id="topAssigneesBarGradient" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor={chartTheme.sequential} stopOpacity={0.55} />
+                          <stop offset="100%" stopColor={chartTheme.sequential} stopOpacity={1} />
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid horizontal={false} stroke={chartTheme.gridColor} />
                       <XAxis
                         type="number"
@@ -633,7 +642,7 @@ export default function DashboardPage() {
                       <Tooltip content={<ChartTooltip color={chartTheme.sequential} />} cursor={{ fill: chartTheme.cursorFill }} />
                       <Bar
                         dataKey="count"
-                        fill={chartTheme.sequential}
+                        fill="url(#topAssigneesBarGradient)"
                         radius={[0, 4, 4, 0]}
                         maxBarSize={MAX_BAR_SIZE}
                         animationDuration={600}
@@ -658,7 +667,11 @@ export default function DashboardPage() {
             <KpiGridSkeleton count={4} className="sm:grid-cols-2 md:grid-cols-4" />
           ) : (
             <RevealGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-              <RevealItem><KpiCard label="Total licenses" value={licenseStats.total} icon={KeyRound} /></RevealItem>
+              <RevealItem>
+                <Link href={toOrgHref("/licenses")} className="block h-full">
+                  <KpiCard label="Total licenses" value={licenseStats.total} icon={KeyRound} />
+                </Link>
+              </RevealItem>
               <RevealItem><KpiCard label="Active licenses" value={licenseStats.active} icon={ShieldCheck} bucket="good" /></RevealItem>
               <RevealItem><KpiCard label="Expiring soon" value={licenseStats.expiringSoon} icon={AlertTriangle} bucket="warning" /></RevealItem>
               <RevealItem><KpiCard label="Expired" value={licenseStats.expired} icon={XCircle} bucket="critical" /></RevealItem>
@@ -676,18 +689,27 @@ export default function DashboardPage() {
           ) : (
             <RevealGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <RevealItem>
-                <KpiCard
-                  label="Open tickets"
-                  value={helpdeskSummary.open}
-                  icon={TicketIcon}
-                  bucket="info"
-                  subtitle={
-                    helpdeskSummary.newInPeriod > 0
-                      ? `+${helpdeskSummary.newInPeriod} in last ${days}d`
-                      : `None in last ${days}d`
-                  }
-                  sparkline={ticketTrendData.map((d) => d.open)}
-                />
+                <Link href={toOrgHref("/helpdesk")} className="block h-full">
+                  <KpiCard
+                    label="Open tickets"
+                    value={helpdeskSummary.open}
+                    icon={TicketIcon}
+                    bucket="info"
+                    subtitle={
+                      <span className="inline-flex items-center gap-1">
+                        {helpdeskSummary.newInPeriod > 0 ? (
+                          <TrendingUp className="size-3" style={{ color: BUCKET_COLOR.info }} />
+                        ) : (
+                          <Minus className="size-3" />
+                        )}
+                        {helpdeskSummary.newInPeriod > 0
+                          ? `+${helpdeskSummary.newInPeriod} in last ${days}d`
+                          : `None in last ${days}d`}
+                      </span>
+                    }
+                    sparkline={ticketTrendData.map((d) => d.open)}
+                  />
+                </Link>
               </RevealItem>
               <RevealItem>
                 <KpiCard
@@ -705,8 +727,8 @@ export default function DashboardPage() {
             <RevealGroup className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <RevealItem>
                 <ChartCard title="Tickets by status" isEmpty={ticketStatusChartData.length === 0} emptyMessage="No tickets yet.">
-                  <div className="flex h-full items-center gap-2">
-                    <div className="relative h-full min-w-0 flex-1">
+                  <div className="flex h-full flex-col sm:flex-row items-center gap-2">
+                    <div className="relative h-full min-h-[140px] w-full min-w-0 flex-1">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Tooltip content={<DonutTooltip />} />
@@ -736,7 +758,7 @@ export default function DashboardPage() {
                         <span className="text-xs text-muted-foreground">Total</span>
                       </div>
                     </div>
-                    <div className="flex w-32 shrink-0 flex-col gap-2">
+                    <div className="flex w-full sm:w-32 shrink-0 flex-col gap-2">
                       {ticketStatusChartData.map((entry) => {
                         const pct = ticketStatusTotal > 0 ? Math.round((entry.count / ticketStatusTotal) * 100) : 0
                         return (
@@ -765,11 +787,31 @@ export default function DashboardPage() {
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={ticketTrendData} margin={{ top: 8, right: 12, bottom: 4, left: 4 }}>
+                      <defs>
+                        <linearGradient id="openTicketsTrendFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={BUCKET_COLOR.info} stopOpacity={0.25} />
+                          <stop offset="100%" stopColor={BUCKET_COLOR.info} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid vertical={false} stroke={chartTheme.gridColor} />
                       <XAxis dataKey="label" tick={{ fontSize: 12, fill: chartTheme.axisColor }} axisLine={{ stroke: chartTheme.gridColor }} tickLine={false} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: chartTheme.axisColor }} axisLine={{ stroke: chartTheme.gridColor }} tickLine={false} />
                       <Tooltip content={<MultiSeriesTooltip />} cursor={{ stroke: chartTheme.gridColor }} />
-                      <Line type="monotone" dataKey="open" stroke={BUCKET_COLOR.info} strokeWidth={2} dot={{ r: 3 }} animationDuration={600} />
+                      {/* Filled area under only the headline series (open tickets, the KPI this
+                          chart backs up) - a single Area with its own stroke replaces what would
+                          otherwise be a separate Line on the same dataKey, since two graphical
+                          series sharing one dataKey would double up in the shared tooltip.
+                          resolved/closed stay plain lines so the chart doesn't get visually noisy
+                          with three overlapping fills. */}
+                      <Area
+                        type="monotone"
+                        dataKey="open"
+                        stroke={BUCKET_COLOR.info}
+                        strokeWidth={2}
+                        fill="url(#openTicketsTrendFill)"
+                        dot={{ r: 3 }}
+                        animationDuration={600}
+                      />
                       <Line type="monotone" dataKey="resolved" stroke={BUCKET_COLOR.good} strokeWidth={2} dot={{ r: 3 }} animationDuration={600} />
                       <Line type="monotone" dataKey="closed" stroke={BUCKET_COLOR.muted} strokeWidth={2} dot={{ r: 3 }} animationDuration={600} />
                     </LineChart>
@@ -800,6 +842,12 @@ export default function DashboardPage() {
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={ticketCategoriesData} layout="vertical" margin={{ top: 4, right: 32, bottom: 4, left: 4 }} barCategoryGap="30%">
+                      <defs>
+                        <linearGradient id="ticketCategoriesBarGradient" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor={chartTheme.sequential} stopOpacity={0.55} />
+                          <stop offset="100%" stopColor={chartTheme.sequential} stopOpacity={1} />
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid horizontal={false} stroke={chartTheme.gridColor} />
                       <XAxis
                         type="number"
@@ -817,7 +865,16 @@ export default function DashboardPage() {
                         tickLine={false}
                       />
                       <Tooltip content={<ChartTooltip color={chartTheme.sequential} />} cursor={{ fill: chartTheme.cursorFill }} />
-                      <Bar dataKey="count" fill={chartTheme.sequential} radius={[0, 4, 4, 0]} maxBarSize={MAX_BAR_SIZE} animationDuration={600} minPointSize={4} />
+                      <Bar
+                        dataKey="count"
+                        fill="url(#ticketCategoriesBarGradient)"
+                        radius={[0, 4, 4, 0]}
+                        maxBarSize={MAX_BAR_SIZE}
+                        animationDuration={600}
+                        minPointSize={4}
+                      >
+                        <LabelList dataKey="count" position="right" style={{ fill: chartTheme.labelColor, fontSize: 12 }} />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </ChartCard>
@@ -829,34 +886,6 @@ export default function DashboardPage() {
 
       {!canViewAssets && !canViewLicenses && !canViewHelpdesk && (
         <p className="text-sm text-muted-foreground">You don&apos;t have access to any dashboard data yet.</p>
-      )}
-
-      {(canViewAuditLogs || canViewHelpdesk) && !hiddenSections.has("activity") && (
-        <section className="flex flex-col gap-4">
-          <SectionHeading icon={History}>Activity &amp; Insights</SectionHeading>
-          <RevealGroup className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {canViewAuditLogs && (
-              <RevealItem className="h-[220px] sm:h-[260px] lg:h-[320px]">
-                <div className="flex h-full flex-col gap-3 rounded-xl border bg-card p-5 shadow-soft-sm">
-                  <SectionHeading icon={History}>Recent Activity</SectionHeading>
-                  <div className="min-h-0 flex-1 overflow-y-auto">
-                    {loading ? <ActivityFeedSkeleton /> : <ActivityFeed entries={activity} />}
-                  </div>
-                </div>
-              </RevealItem>
-            )}
-            {canViewHelpdesk && helpdeskSummary && (
-              <RevealItem className="h-[220px] sm:h-[260px] lg:h-[320px]">
-                <TicketInsightsCard insights={helpdeskSummary.insights} />
-              </RevealItem>
-            )}
-            {canViewHelpdesk && helpdeskSummary && (
-              <RevealItem className="h-[220px] sm:h-[260px] lg:h-[320px]">
-                <TicketAlertsCard alerts={helpdeskSummary.alerts} hrefForAlert={(alert) => toOrgHref(`/helpdesk/${alert.id}`)} />
-              </RevealItem>
-            )}
-          </RevealGroup>
-        </section>
       )}
 
       {(canCreateAssets || canCreateTickets || canCreateTasks || canViewReports) && !hiddenSections.has("quickActions") && (
@@ -947,4 +976,11 @@ export default function DashboardPage() {
       </Sheet>
     </div>
   )
+}
+
+export default function DashboardPage() {
+  const { user, loading: authLoading } = useAuth()
+  if (authLoading) return <FullPageLoader />
+  if (user?.employeeTier === "employee") return <EmployeeDashboard />
+  return <AdminDashboard />
 }

@@ -3,7 +3,7 @@ import { authorize, requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadSpreadsheet } from "../../utils/upload";
 import * as vendorsController from "./vendors.controller";
-import { previewVendorImport, confirmVendorImport, downloadVendorTemplate } from "./vendors.import";
+import { previewVendorImport, confirmVendorImport, downloadVendorTemplate, getVendorImportHistory } from "./vendors.import";
 import {
   confirmVendorImportSchema,
   createVendorSchema,
@@ -11,6 +11,7 @@ import {
   updateVendorSchema,
   vendorIdParamsSchema,
 } from "./vendors.validation";
+import { listImportHistoryQuerySchema } from "../importHistory/importHistory.validation";
 
 export const vendorsRouter = Router();
 
@@ -24,6 +25,12 @@ vendorsRouter.post(
   confirmVendorImport
 );
 vendorsRouter.get("/import/template", authorize("vendors", "import"), downloadVendorTemplate);
+vendorsRouter.get(
+  "/import/history",
+  authorize("vendors", "import"),
+  validate({ query: listImportHistoryQuerySchema }),
+  getVendorImportHistory
+);
 
 vendorsRouter.get(
   "/deleted",

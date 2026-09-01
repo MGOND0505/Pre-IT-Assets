@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PermissionGrid, basicUserPermissions } from "@/components/users/permission-grid"
+import { ModulePermissionGrid, subAdminPermissions, emptyPermissions } from "@/components/users/permission-grid"
 import { PasswordRequirementsHint } from "@/components/auth/password-requirements-hint"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
@@ -24,6 +24,14 @@ import { useDepartmentOptions, useLocationOptions } from "@/lib/use-lookup-optio
 import { isPasswordValid, BASELINE_POLICY } from "@/lib/password-policy"
 
 const NONE = "__none__"
+
+type RoleChoice = "admin" | "subAdmin" | "employee"
+
+const ROLE_DESCRIPTIONS: Record<RoleChoice, string> = {
+  admin: "Full access to every module and action.",
+  subAdmin: "Broad operational access (assets, licenses, vendors, tickets, tasks, reports) without user or org-settings management. Editable below.",
+  employee: "Sees only their own assigned assets, tickets, and tasks in the Employee Portal. Gets the organization's configured default permissions (Administration > Settings > Employee Default Permissions).",
+}
 
 export function UserFormDialog({ onCreated }: { onCreated: () => void }) {
   const { user: currentUser } = useAuth()
@@ -38,8 +46,8 @@ export function UserFormDialog({ onCreated }: { onCreated: () => void }) {
   const [department, setDepartment] = React.useState("")
   const [location, setLocation] = React.useState("")
   const [password, setPassword] = React.useState("")
-  const [isAdmin, setIsAdmin] = React.useState(false)
-  const [permissions, setPermissions] = React.useState(basicUserPermissions())
+  const [role, setRole] = React.useState<RoleChoice>("employee")
+  const [permissions, setPermissions] = React.useState(subAdminPermissions())
 
   const { items: departments } = useDepartmentOptions()
   const { items: locations } = useLocationOptions()
@@ -52,8 +60,16 @@ export function UserFormDialog({ onCreated }: { onCreated: () => void }) {
     setDepartment("")
     setLocation("")
     setPassword("")
-    setIsAdmin(false)
-    setPermissions(basicUserPermissions())
+    setRole("employee")
+    setPermissions(subAdminPermissions())
+  }
+
+  function handleRoleChange(next: RoleChoice) {
+    setRole(next)
+    // Re-seed a fresh Sub Admin preset each time it's (re-)selected, same as switching between
+    // the helpdesk/task role presets elsewhere in this grid - a deliberate starting point, not
+    // sticky state carried over from a previous selection.
+    if (next === "subAdmin") setPermissions(subAdminPermissions())
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -78,8 +94,14 @@ export function UserFormDialog({ onCreated }: { onCreated: () => void }) {
         department: department || undefined,
         location: location || undefined,
         password,
-        isAdmin,
-        permissions,
+        isAdmin: role === "admin",
+        employeeTier: role === "admin" ? undefined : role,
+        // Employee omits permissions entirely - the backend falls back to the org's configured
+        // default employee template (settings.service.ts#getDefaultEmployeePermissions). Admin
+        // sends an explicit empty matrix (isAdmin bypasses it regardless, but this avoids an
+        // unnecessary settings lookup and a misleading stored value). Sub Admin sends its
+        // editable preset.
+        permissions: role === "admin" ? emptyPermissions() : role === "employee" ? undefined : permissions,
       })
       toast.success("User created")
       reset()
@@ -95,7 +117,7 @@ export function UserFormDialog({ onCreated }: { onCreated: () => void }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button>Add user</Button>} />
-      <DialogContent className="max-w-xl">
+      <DialogContent size="full">
         <DialogHeader>
           <DialogTitle>Add user</DialogTitle>
           <DialogDescription>
@@ -160,15 +182,27 @@ export function UserFormDialog({ onCreated }: { onCreated: () => void }) {
             <PasswordRequirementsHint password={password} policy={policy} />
           </div>
 
-          <div className="flex min-w-0 flex-col gap-2">
-            <Label>Permissions</Label>
-            <PermissionGrid
-              isAdmin={isAdmin}
-              onIsAdminChange={setIsAdmin}
-              permissions={permissions}
-              onPermissionsChange={setPermissions}
-            />
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="user-role">Role</Label>
+            <Select value={role} onValueChange={(v) => handleRoleChange(v as RoleChoice)}>
+              <SelectTrigger id="user-role" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="subAdmin">Sub Admin</SelectItem>
+                <SelectItem value="employee">Employee</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[role]}</p>
           </div>
+
+          {role === "subAdmin" && (
+            <div className="flex min-w-0 flex-col gap-2">
+              <Label>Permissions</Label>
+              <ModulePermissionGrid permissions={permissions} onPermissionsChange={setPermissions} />
+            </div>
+          )}
 
           <DialogFooter>
             <Button type="submit" disabled={submitting}>

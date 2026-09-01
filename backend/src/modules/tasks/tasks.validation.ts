@@ -19,10 +19,16 @@ export const updateTaskSchema = z.object({
 
 export const setTaskStatusSchema = z.object({
   status: z.enum(TASK_STATUSES),
+  reason: z.string().trim().min(1, "A reason is required when changing a task's status").max(500),
 });
 
 export const assignTaskSchema = z.object({
   assigneeId: z.string().min(1),
+  reason: z.string().trim().min(1, "A reason is required when reassigning a task").max(500),
+});
+
+export const addTaskCommentSchema = z.object({
+  body: z.string().trim().min(1).max(2000),
 });
 
 export const listTasksQuerySchema = z.object({

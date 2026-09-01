@@ -5,6 +5,7 @@ import { ApiError } from "../../utils/ApiError";
 import { parseSpreadsheet, findColumn } from "../../utils/spreadsheet";
 import { Vendor, type IVendor } from "../../models/Vendor";
 import { logAction } from "../audit/audit.service";
+import { recordImportBatch, listImportBatches } from "../importHistory/importHistory.service";
 import * as vendorsService from "./vendors.service";
 
 /** Canonical column headers - what "Download template" hands back. */
@@ -227,19 +228,32 @@ export const confirmVendorImport = asyncHandler(async (req: Request, res: Respon
     }
   }
 
+  const counts = { total: rows.length, added, updated, duplicates, invalid };
+
   await logAction({
     req,
     action: "IMPORT",
     module: "Vendor",
     recordLabel: `${added} added, ${updated} updated`,
-    newValue: { total: rows.length, added, updated, duplicates, invalid, errors: errors.length },
+    newValue: { ...counts, errors: errors.length },
   });
+  await recordImportBatch({ organizationId, module: "Vendor", userId: req.user?.id, fileName: null, counts, errors });
 
-  ok(res, { total: rows.length, added, updated, duplicates, invalid, errors }, "Import complete");
+  ok(res, { ...counts, errors }, "Import complete");
 });
 
 export const downloadVendorTemplate = asyncHandler(async (_req: Request, res: Response) => {
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", 'attachment; filename="vendor-import-template.csv"');
   res.send(VENDOR_IMPORT_TEMPLATE_COLUMNS.join(",") + "\n");
+});
+
+export const getVendorImportHistory = asyncHandler(async (req: Request, res: Response) => {
+  const result = await listImportBatches({
+    organizationId: req.organization!._id,
+    module: "Vendor",
+    page: req.query.page ? Number(req.query.page) : undefined,
+    limit: req.query.limit ? Number(req.query.limit) : undefined,
+  });
+  ok(res, result, "Import history");
 });

@@ -8,6 +8,7 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +34,7 @@ type User = {
   employeeId?: string
   department: { _id: string; name: string } | null
   isAdmin: boolean
+  employeeTier: "subAdmin" | "employee" | null
   permissions: PermissionsShape
   status: "Active" | "Inactive"
   isOnLeave: boolean
@@ -46,6 +48,14 @@ type PaginatedUsers = {
   page: number
   limit: number
   totalPages: number
+}
+
+// null covers every pre-existing account created before employeeTier existed - treated
+// identically to "subAdmin" everywhere else in the app (edit-permissions-dialog.tsx's own
+// roleOf), so label it the same way here too.
+function roleLabel(user: User): "Admin" | "Sub Admin" | "Employee" {
+  if (user.isAdmin) return "Admin"
+  return user.employeeTier === "employee" ? "Employee" : "Sub Admin"
 }
 
 function permissionSummary(user: User): string {
@@ -72,6 +82,9 @@ export default function UsersPage() {
   const [editPermissionsUser, setEditPermissionsUser] = React.useState<User | null>(null)
   const [leaveStatusUser, setLeaveStatusUser] = React.useState<User | null>(null)
   const [pendingReturnFromLeave, setPendingReturnFromLeave] = React.useState<User | null>(null)
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
+  const [pendingBulkPermissions, setPendingBulkPermissions] = React.useState(false)
+  const [applyingBulkPermissions, setApplyingBulkPermissions] = React.useState(false)
 
   const canView = can(currentUser, "users", "view")
   const canDelete = can(currentUser, "users", "delete")
@@ -136,7 +149,76 @@ export default function UsersPage() {
     }
   }
 
+  function toggleRow(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // Only teamMember accounts are eligible - the backend skips isAdmin accounts entirely
+  // (their access comes from the isAdmin bypass, not the permission matrix), so selecting
+  // them here would just produce a confusing "skipped" result.
+  const selectableIdsOnPage = (data?.items ?? []).filter((u) => !u.isAdmin).map((u) => u._id)
+  const allOnPageSelected =
+    selectableIdsOnPage.length > 0 && selectableIdsOnPage.every((id) => selectedIds.has(id))
+
+  function toggleAllOnPage() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (allOnPageSelected) {
+        selectableIdsOnPage.forEach((id) => next.delete(id))
+      } else {
+        selectableIdsOnPage.forEach((id) => next.add(id))
+      }
+      return next
+    })
+  }
+
+  async function applyBulkDefaultPermissions() {
+    setApplyingBulkPermissions(true)
+    try {
+      const res = await apiClient.post<
+        ApiEnvelope<{ updated: number; skipped: string[] }>
+      >("/users/bulk-apply-default-permissions", { userIds: Array.from(selectedIds) })
+      const { updated, skipped } = res.data.data
+      if (updated > 0) toast.success(`Default permissions applied to ${updated} user(s)`)
+      if (skipped.length > 0) toast.warning(`Skipped ${skipped.length}: ${skipped.slice(0, 3).join(", ")}${skipped.length > 3 ? "..." : ""}`)
+      setSelectedIds(new Set())
+      load()
+    } catch (err) {
+      toast.error(apiErrorMessage(err, "Could not apply default permissions"))
+    } finally {
+      setApplyingBulkPermissions(false)
+      setPendingBulkPermissions(false)
+    }
+  }
+
   const columns: ColumnDef<User, unknown>[] = [
+    ...(canManagePrivileged
+      ? [
+          {
+            id: "select",
+            header: () => (
+              <Checkbox
+                checked={allOnPageSelected}
+                onCheckedChange={toggleAllOnPage}
+                aria-label="Select all eligible users on this page"
+              />
+            ),
+            cell: ({ row }: { row: { original: User } }) =>
+              row.original.isAdmin ? null : (
+                <Checkbox
+                  checked={selectedIds.has(row.original._id)}
+                  onCheckedChange={() => toggleRow(row.original._id)}
+                  aria-label={`Select ${row.original.email}`}
+                />
+              ),
+          } satisfies ColumnDef<User, unknown>,
+        ]
+      : []),
     {
       accessorKey: "name",
       header: "Name",
@@ -165,6 +247,14 @@ export default function UsersPage() {
           {row.original.department?.name ?? "-"}
         </span>
       ),
+    },
+    {
+      id: "role",
+      header: "Role",
+      cell: ({ row }) => {
+        const role = roleLabel(row.original)
+        return <Badge variant={role === "Admin" ? "default" : role === "Sub Admin" ? "secondary" : "outline"}>{role}</Badge>
+      },
     },
     {
       id: "permissions",
@@ -250,6 +340,18 @@ export default function UsersPage() {
         {canManagePrivileged && <UserFormDialog onCreated={load} />}
       </div>
 
+      {canManagePrivileged && selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border bg-muted/40 px-4 py-2.5">
+          <span className="text-sm text-muted-foreground">{selectedIds.size} selected</span>
+          <Button size="sm" variant="outline" onClick={() => setPendingBulkPermissions(true)}>
+            Bulk update permissions
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+            Clear selection
+          </Button>
+        </div>
+      )}
+
       <DataTable columns={columns} data={data?.items ?? []} isLoading={loading} emptyMessage="No users yet." />
       {data && <Pagination page={data.page} totalPages={data.totalPages} onPageChange={setPage} />}
 
@@ -297,6 +399,7 @@ export default function UsersPage() {
           userId={editPermissionsUser._id}
           userEmail={editPermissionsUser.email}
           currentIsAdmin={editPermissionsUser.isAdmin}
+          currentEmployeeTier={editPermissionsUser.employeeTier}
           currentPermissions={editPermissionsUser.permissions}
           onSaved={load}
         />
@@ -321,6 +424,17 @@ export default function UsersPage() {
           description="They'll become eligible for new ticket auto-assignment again. Tickets already handed to their backup agent will NOT move back automatically."
           confirmLabel="Mark back"
           onConfirm={() => handleReturnFromLeave(pendingReturnFromLeave)}
+        />
+      )}
+
+      {pendingBulkPermissions && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => !open && !applyingBulkPermissions && setPendingBulkPermissions(false)}
+          title={`Apply default permissions to ${selectedIds.size} user(s)?`}
+          description="This replaces each selected user's current permissions with the organization's Employee Default Permissions template (configured under Administration > Settings). Admin accounts are skipped. They'll be affected immediately."
+          confirmLabel={applyingBulkPermissions ? "Applying..." : "Apply"}
+          onConfirm={applyBulkDefaultPermissions}
         />
       )}
     </div>

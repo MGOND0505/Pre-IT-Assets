@@ -1,15 +1,46 @@
 import { Router } from "express";
 import { authorize, requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
+import { uploadSpreadsheet } from "../../utils/upload";
 import * as departmentsController from "./departments.controller";
 import {
+  previewDepartmentImport,
+  confirmDepartmentImport,
+  downloadDepartmentTemplate,
+  getDepartmentImportHistory,
+} from "./departments.import";
+import {
+  confirmDepartmentImportSchema,
   createDepartmentSchema,
   departmentIdParamsSchema,
   listDepartmentsQuerySchema,
   updateDepartmentSchema,
 } from "./departments.validation";
+import { listImportHistoryQuerySchema } from "../importHistory/importHistory.validation";
 
 export const departmentsRouter = Router();
+
+// Mounted ahead of the generic "/:id" routes below, same ordering assets.routes.ts uses for its
+// own "/import/*" routes, so Express never mistakes "import" for an :id value.
+departmentsRouter.post(
+  "/import/preview",
+  authorize("departments", "import"),
+  uploadSpreadsheet.single("file"),
+  previewDepartmentImport
+);
+departmentsRouter.post(
+  "/import/confirm",
+  authorize("departments", "import"),
+  validate({ body: confirmDepartmentImportSchema }),
+  confirmDepartmentImport
+);
+departmentsRouter.get("/import/template", authorize("departments", "import"), downloadDepartmentTemplate);
+departmentsRouter.get(
+  "/import/history",
+  authorize("departments", "import"),
+  validate({ query: listImportHistoryQuerySchema }),
+  getDepartmentImportHistory
+);
 
 departmentsRouter.get(
   "/deleted",

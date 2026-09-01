@@ -3,6 +3,7 @@ import { authorize, requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import * as tasksController from "./tasks.controller";
 import {
+  addTaskCommentSchema,
   assignTaskSchema,
   createTaskSchema,
   listTasksQuerySchema,
@@ -20,6 +21,11 @@ tasksRouter.get(
   validate({ params: ticketIdParamsSchema }),
   tasksController.listSubtasksForTicket
 );
+
+// Always "mine" (assigned to me or created by me), independent of the tasks:assign view-all
+// permission - powers the Employee Portal dashboard's "My Tasks" widget. No org-wide task stats
+// endpoint exists to mirror; mounted ahead of "/:id" so Express never mistakes it for one.
+tasksRouter.get("/my-summary", authorize("tasks", "view"), tasksController.getMyTaskSummary);
 
 tasksRouter.get(
   "/deleted",
@@ -68,4 +74,17 @@ tasksRouter.post(
   requireAdmin,
   validate({ params: taskIdParamsSchema }),
   tasksController.restoreTask
+);
+
+tasksRouter.get(
+  "/:id/comments",
+  authorize("tasks", "view"),
+  validate({ params: taskIdParamsSchema }),
+  tasksController.listComments
+);
+tasksRouter.post(
+  "/:id/comments",
+  authorize("tasks", "comment"),
+  validate({ params: taskIdParamsSchema, body: addTaskCommentSchema }),
+  tasksController.addComment
 );

@@ -27,11 +27,6 @@ const envSchema = z.object({
   LOGIN_LOCKOUT_THRESHOLD: z.coerce.number().int().positive().default(5),
   LOGIN_LOCKOUT_DURATION_MINUTES: z.coerce.number().int().positive().default(15),
 
-  // A session is force-expired if no authenticated request has been made in this many minutes -
-  // independent of JWT_EXPIRES_IN, which is just the outer absolute cap. Enforced in
-  // middleware/authenticate.ts, which also slides this window forward on every valid request.
-  SESSION_IDLE_TIMEOUT_MINUTES: z.coerce.number().int().positive().default(30),
-
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   API_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),

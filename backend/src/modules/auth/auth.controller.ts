@@ -23,8 +23,8 @@ async function serializeCurrentUser(userId: string) {
 }
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
-  const { email, password, orgSlug, captchaToken } = req.body;
-  const { token, user, passwordExpiryWarning } = await authService.login(req, email, password, orgSlug, captchaToken);
+  const { email, password, orgSlug, captchaToken, portal } = req.body;
+  const { token, user, passwordExpiryWarning } = await authService.login(req, email, password, orgSlug, captchaToken, portal);
 
   setAuthCookie(res, token);
   const profile = await serializeCurrentUser(user.id);

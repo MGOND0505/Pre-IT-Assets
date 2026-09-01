@@ -32,3 +32,26 @@ export const listAssetCategoriesQuerySchema = z.object({
 export const assetCategoryIdParamsSchema = z.object({
   id: z.string().min(1),
 });
+
+const importStr = () => z.string().max(500).optional().default("");
+
+const mappedAssetCategoryImportRowSchema = z.object({
+  name: importStr(),
+  prefix: importStr(),
+  description: importStr(),
+});
+
+export const confirmAssetCategoryImportSchema = z.object({
+  rows: z
+    .array(
+      z.object({
+        rowIndex: z.number().int(),
+        mapped: mappedAssetCategoryImportRowSchema,
+        classification: z.enum(["new", "updated", "duplicate", "invalid"]),
+        reason: z.string().max(500).optional(),
+        existingId: z.string().optional(),
+      })
+    )
+    .max(2000),
+  fileName: z.string().max(255).optional(),
+});

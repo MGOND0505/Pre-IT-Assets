@@ -138,6 +138,7 @@ export function SidebarNav() {
   const visibleLeaf = (item: NavLeaf) => {
     if (item.superAdminOnly) return user?.role === "superAdmin"
     if (item.adminOnly && !user?.isAdmin) return false
+    if (item.employeeHidden && user?.employeeTier === "employee") return false
     if (item.permission && !can(user, item.permission.area, item.permission.action)) return false
     if (item.requiresModule && user?.role !== "superAdmin" && !user?.organization?.enabledModules.includes(item.requiresModule)) {
       return false

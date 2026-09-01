@@ -91,7 +91,7 @@ export function TaskFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {!isControlled && <DialogTrigger render={trigger ?? <Button>{ticketId ? "Add sub-task" : "Add Task"}</Button>} />}
-      <DialogContent>
+      <DialogContent size="full">
         <DialogHeader>
           <DialogTitle>{ticketId ? "Add sub-task" : "Add task"}</DialogTitle>
         </DialogHeader>

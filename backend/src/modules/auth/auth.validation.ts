@@ -9,6 +9,10 @@ export const loginSchema = z.object({
   // Required only when the target org has captchaEnabled - enforced in auth.service.ts, not
   // here, since that's a runtime per-org setting a static schema can't express.
   captchaToken: z.string().optional(),
+  // Absent = the regular org login page. "employee" = the org's dedicated Employee Portal login
+  // page (/{orgSlug}/employee-login) - enforced in auth.service.ts#login, which rejects any
+  // account that isn't Employee-tier even with a correct password.
+  portal: z.literal("employee").optional(),
 });
 
 export const forgotPasswordSchema = z.object({

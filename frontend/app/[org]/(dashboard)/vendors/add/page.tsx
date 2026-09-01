@@ -71,7 +71,7 @@ export default function AddVendorPage() {
         <p className="text-sm text-muted-foreground">Register a new vendor used across assets and licenses.</p>
       </div>
 
-      <Card className="max-w-3xl">
+      <Card>
         <CardHeader>
           <CardTitle>New vendor</CardTitle>
         </CardHeader>

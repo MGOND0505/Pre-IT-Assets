@@ -10,6 +10,7 @@ import { Department } from "../../models/Department";
 import { Vendor } from "../../models/Vendor";
 import { User } from "../../models/User";
 import { logAction } from "../audit/audit.service";
+import { recordImportBatch, listImportBatches } from "../importHistory/importHistory.service";
 import { notifyAssetImportBatch } from "../../services/alerts/assetChangeAlerts";
 import * as assetsService from "./assets.service";
 
@@ -633,21 +634,34 @@ export const confirmAssetImport = asyncHandler(async (req: Request, res: Respons
     }
   }
 
+  const counts = { total: rows.length, added, updated, duplicates, invalid };
+
   await logAction({
     req,
     action: "IMPORT",
     module: "Asset",
     recordLabel: `${added} added, ${updated} updated`,
-    newValue: { total: rows.length, added, updated, duplicates, invalid, errors: errors.length },
+    newValue: { ...counts, errors: errors.length },
   });
+  await recordImportBatch({ organizationId, module: "Asset", userId: req.user?.id, fileName: null, counts, errors });
 
   notifyAssetImportBatch(organizationId, { added, updated });
 
-  ok(res, { total: rows.length, added, updated, duplicates, invalid, errors }, "Import complete");
+  ok(res, { ...counts, errors }, "Import complete");
 });
 
 export const downloadAssetTemplate = asyncHandler(async (_req: Request, res: Response) => {
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", 'attachment; filename="asset-import-template.csv"');
   res.send(ASSET_IMPORT_TEMPLATE_COLUMNS.join(",") + "\n");
+});
+
+export const getAssetImportHistory = asyncHandler(async (req: Request, res: Response) => {
+  const result = await listImportBatches({
+    organizationId: req.organization!._id,
+    module: "Asset",
+    page: req.query.page ? Number(req.query.page) : undefined,
+    limit: req.query.limit ? Number(req.query.limit) : undefined,
+  });
+  ok(res, result, "Import history");
 });

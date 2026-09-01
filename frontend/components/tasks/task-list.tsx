@@ -4,8 +4,12 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
@@ -38,6 +42,9 @@ export function TaskList({ ticketId }: { ticketId: string }) {
   const { user } = useAuth()
   const [tasks, setTasks] = React.useState<Task[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [statusChange, setStatusChange] = React.useState<{ task: Task; status: TaskStatus } | null>(null)
+  const [reason, setReason] = React.useState("")
+  const [submitting, setSubmitting] = React.useState(false)
 
   const canView = can(user, "tasks", "view")
   const canCreate = can(user, "tasks", "create")
@@ -59,12 +66,18 @@ export function TaskList({ ticketId }: { ticketId: string }) {
     if (canView) load()
   }, [canView, load])
 
-  async function handleStatusChange(task: Task, status: TaskStatus) {
+  async function confirmStatusChange() {
+    if (!statusChange || !reason.trim()) return
+    setSubmitting(true)
     try {
-      await apiClient.patch(`/tasks/${task._id}/status`, { status })
+      await apiClient.patch(`/tasks/${statusChange.task._id}/status`, { status: statusChange.status, reason: reason.trim() })
+      setStatusChange(null)
+      setReason("")
       load()
     } catch (err) {
       toast.error(apiErrorMessage(err, "Could not update task status"))
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -94,8 +107,14 @@ export function TaskList({ ticketId }: { ticketId: string }) {
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline">{task.priority}</Badge>
-              {canUpdate ? (
-                <Select value={task.status} onValueChange={(v) => v && handleStatusChange(task, v as TaskStatus)}>
+              {/* The backend also lets the task's own assignee change its status without
+                  tasks:update (see tasks.controller.ts#setTaskStatus's isOwnTask bypass) - shown
+                  here too, not just to callers with the broader update permission. */}
+              {canUpdate || task.assignedTo?._id === user?._id ? (
+                <Select
+                  value={task.status}
+                  onValueChange={(v) => v && setStatusChange({ task, status: v as TaskStatus })}
+                >
                   <SelectTrigger className="h-7 w-32 text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -114,6 +133,34 @@ export function TaskList({ ticketId }: { ticketId: string }) {
           </CardContent>
         </Card>
       ))}
+
+      <Dialog open={statusChange !== null} onOpenChange={(open) => !open && setStatusChange(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Mark &quot;{statusChange?.task.title}&quot; as {statusChange?.status}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="task-status-reason">Reason (required)</Label>
+            <Textarea
+              id="task-status-reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Why is this task's status changing?"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusChange(null)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmStatusChange} disabled={!reason.trim() || submitting}>
+              {submitting ? "Saving..." : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

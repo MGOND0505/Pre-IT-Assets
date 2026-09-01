@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { permissionsSchema } from "../users/users.validation";
 
 export const updateSettingsSchema = z.object({
+  defaultEmployeePermissions: permissionsSchema.optional(),
   assetIdCompanyPrefix: z
     .string()
     .min(2)

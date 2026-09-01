@@ -9,9 +9,16 @@ const apiOrigin = new URL(process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localh
 // its challenge in an iframe, both from this origin - the only third-party host this app talks to.
 const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
 
+// Next.js App Router ships its own hydration/streaming payloads as inline <script> tags (no nonce
+// wired up in this app), so script-src needs 'unsafe-inline' or every page fails to hydrate -
+// confirmed the hard way: without it, pages render statically but nothing client-side ever runs
+// (no CAPTCHA, no button handlers, nothing). Dev builds additionally need 'unsafe-eval' for
+// webpack/Turbopack's HMR runtime; a production build doesn't eval, so it's left out there.
+const isProd = process.env.NODE_ENV === "production";
+
 const CSP = [
   `default-src 'self'`,
-  `script-src 'self' ${TURNSTILE_ORIGIN}`,
+  `script-src 'self' 'unsafe-inline'${isProd ? "" : " 'unsafe-eval'"} ${TURNSTILE_ORIGIN}`,
   `style-src 'self' 'unsafe-inline'`,
   `img-src 'self' data:`,
   `font-src 'self' data:`,

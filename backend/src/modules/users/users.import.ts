@@ -8,7 +8,7 @@ import { User, type IUser } from "../../models/User";
 import { Department } from "../../models/Department";
 import { Location } from "../../models/Location";
 import { logAction } from "../audit/audit.service";
-import { emptyPermissions, type PermissionsShape } from "../../config/permissions";
+import { recordImportBatch, listImportBatches } from "../importHistory/importHistory.service";
 import * as usersService from "./users.service";
 import * as authService from "../auth/auth.service";
 
@@ -18,28 +18,6 @@ import * as authService from "../auth/auth.service";
  * of the file entirely means there's no privilege-escalation surface to worry about in this
  * importer at all. */
 export const USER_IMPORT_TEMPLATE_COLUMNS = ["Name", "Email", "Employee ID", "Designation", "Phone", "Department", "Location"];
-
-/** The "Basic User" default - every bulk-imported row gets exactly this, not `emptyPermissions()`.
- * Without it, a freshly-imported employee could log in but would 403 on everything: every route
- * requires its own `view`/`create` flag just to pass `authorize()`, before the "assigned to me"
- * ownership filtering (assets.service.ts#canViewAllAssets, helpdesk.service.ts#canViewAllTickets,
- * tasks.service.ts#canViewAllTasks) even runs. Kept in sync with the frontend's own default (see
- * frontend/components/users/permission-grid.tsx#basicUserPermissions, used to seed the manual "Add
- * user" dialog) so a new employee lands in the same state whether created one at a time or in
- * bulk. Profile viewing needs no permission at all (it reads the logged-in user's own session),
- * so it isn't represented here. */
-function basicUserDefaultPermissions(): PermissionsShape {
-  const perms = emptyPermissions();
-  perms.assets.view = true;
-  perms.licenses.view = true;
-  perms.helpdesk.view = true;
-  perms.helpdesk.create = true;
-  perms.helpdesk.comment = true;
-  perms.helpdesk.reopen = true;
-  perms.tasks.view = true;
-  perms.tasks.create = true;
-  return perms;
-}
 
 type MappedFields = {
   name: string;
@@ -278,7 +256,9 @@ export const confirmUserImport = asyncHandler(async (req: Request, res: Response
           department: department ? String(department._id) : undefined,
           location: location ? String(location._id) : undefined,
           password: discardedPassword,
-          permissions: basicUserDefaultPermissions(),
+          // No `permissions` here on purpose - createUser's own fallback applies the org's
+          // configured default employee permissions (or the baseline, if never configured) so
+          // this stays the one place that decision is made, not duplicated here too.
           createdBy: req.user!.id,
         },
         organizationId
@@ -301,19 +281,32 @@ export const confirmUserImport = asyncHandler(async (req: Request, res: Response
     }
   }
 
+  const counts = { total: rows.length, added, updated, duplicates, invalid };
+
   await logAction({
     req,
     action: "IMPORT",
     module: "User",
     recordLabel: `${added} added, ${updated} updated`,
-    newValue: { total: rows.length, added, updated, duplicates, invalid, errors: errors.length },
+    newValue: { ...counts, errors: errors.length },
   });
+  await recordImportBatch({ organizationId, module: "User", userId: req.user?.id, fileName: null, counts, errors });
 
-  ok(res, { total: rows.length, added, updated, duplicates, invalid, errors }, "Import complete");
+  ok(res, { ...counts, errors }, "Import complete");
 });
 
 export const downloadUserTemplate = asyncHandler(async (_req: Request, res: Response) => {
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", 'attachment; filename="user-import-template.csv"');
   res.send(USER_IMPORT_TEMPLATE_COLUMNS.join(",") + "\n");
+});
+
+export const getUserImportHistory = asyncHandler(async (req: Request, res: Response) => {
+  const result = await listImportBatches({
+    organizationId: req.organization!._id,
+    module: "User",
+    page: req.query.page ? Number(req.query.page) : undefined,
+    limit: req.query.limit ? Number(req.query.limit) : undefined,
+  });
+  ok(res, result, "Import history");
 });

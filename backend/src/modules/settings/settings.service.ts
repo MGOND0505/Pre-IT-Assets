@@ -2,6 +2,7 @@ import { SystemSettings, type ISystemSettings } from "../../models/SystemSetting
 import { BASELINE_POLICY, type PasswordPolicy } from "../../utils/passwordPolicy";
 import { env } from "../../config/env";
 import { ApiError } from "../../utils/ApiError";
+import { basicUserDefaultPermissions, type PermissionsShape } from "../../config/permissions";
 
 /** Defaults for fields added after the singleton was first created - schema defaults only
  * apply to brand-new documents, not ones already persisted without the field. */
@@ -105,6 +106,16 @@ export async function updateSettings(organizationId: string, input: Partial<ISys
   Object.assign(settings, input);
   await settings.save();
   return settings;
+}
+
+/** The single place that decides what a newly-created employee's starting permissions are - an
+ * org's own configured template (Administration > Settings > Employee Default Permissions) if
+ * they've ever saved one, else the app's baseline (config/permissions.ts#basicUserDefaultPermissions).
+ * Used by users.service.ts#createUser (both the single "Add user" flow and bulk import, which no
+ * longer carries its own separate copy) and the "Bulk Update Permissions" action. */
+export async function getDefaultEmployeePermissions(organizationId: string): Promise<PermissionsShape> {
+  const settings = await getSettings(organizationId);
+  return settings.defaultEmployeePermissions ?? basicUserDefaultPermissions();
 }
 
 export async function getPasswordPolicy(organizationId: string): Promise<PasswordPolicy> {

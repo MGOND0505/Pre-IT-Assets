@@ -42,6 +42,23 @@ type PreviewResult = {
 
 type ConfirmResult = { total: number; added: number; updated: number; duplicates: number; invalid: number; errors: string[] }
 
+type ImportHistoryItem = {
+  _id: string
+  performedBySnapshot: { name: string | null; email: string | null }
+  fileName: string | null
+  counts: { total: number; added: number; updated: number; duplicates: number; invalid: number }
+  errors: string[]
+  createdAt: string
+}
+
+type ImportHistoryResult = {
+  items: ImportHistoryItem[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
 const BADGE_VARIANT: Record<Classification, "default" | "secondary" | "outline" | "destructive"> = {
   new: "default",
   updated: "outline",
@@ -54,6 +71,12 @@ const TARGETS = [
   { value: "licenses", label: "Licenses" },
   { value: "users", label: "Users" },
   { value: "vendors", label: "Vendors" },
+  { value: "departments", label: "Departments" },
+  { value: "locations", label: "Locations" },
+  { value: "asset-categories", label: "Asset Categories" },
+  { value: "license-categories", label: "License Categories" },
+  { value: "helpdesk-categories", label: "Ticket Categories" },
+  { value: "helpdesk-priorities", label: "Helpdesk Priorities" },
 ] as const
 
 type UploadTarget = (typeof TARGETS)[number]["value"]
@@ -77,13 +100,23 @@ export default function UploadDataPage() {
   const [result, setResult] = React.useState<ConfirmResult | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
-  // Users import has no separate permission action (deliberately - see users.routes.ts's own
-  // comment on why bulk creation stays Admin-only, same as single-user creation) so it's gated by
-  // isAdmin directly rather than can(user,"users","import"), which doesn't exist.
+  const [history, setHistory] = React.useState<ImportHistoryResult | null>(null)
+  const [historyLoading, setHistoryLoading] = React.useState(false)
+  const [historyPage, setHistoryPage] = React.useState(1)
+  const [expandedBatchId, setExpandedBatchId] = React.useState<string | null>(null)
+
+  // Users import is gated by the "create" action (matching users.routes.ts's /import/* routes -
+  // unlike every other module here, "users" has no "import" action in its own matrix at all), so
+  // a Sub-Super Admin whose org grant includes users:create can now reach this page even without
+  // any other module's import permission. The 4 category/priority targets still have no permission
+  // module of their own, so they stay covered by the plain isAdmin bypass below.
   const canUpload =
     can(user, "assets", "import") ||
     can(user, "licenses", "import") ||
     can(user, "vendors", "import") ||
+    can(user, "departments", "import") ||
+    can(user, "locations", "import") ||
+    can(user, "users", "create") ||
     Boolean(user?.isAdmin)
 
   function reset() {
@@ -100,6 +133,44 @@ export default function UploadDataPage() {
   function handleDownloadTemplate() {
     window.open(orgScopedApiUrl(`/${target}/import/template`), "_blank")
   }
+
+  // Client-side only - `errors` is already in the confirm response, so no new backend endpoint
+  // is needed just to hand the same list back as a file instead of on-screen text.
+  function downloadErrorReport(errors: string[], fileNamePrefix: string) {
+    const csv = ["Error"].concat(errors.map((e) => `"${e.replace(/"/g, '""')}"`)).join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `${fileNamePrefix}-errors-${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const loadHistory = React.useCallback(
+    async (page = 1) => {
+      setHistoryLoading(true)
+      try {
+        const res = await apiClient.get<ApiEnvelope<ImportHistoryResult>>(`/${target}/import/history`, {
+          params: { page, limit: 10 },
+        })
+        setHistory(res.data.data)
+        setHistoryPage(page)
+        setExpandedBatchId(null)
+      } catch (err) {
+        toast.error(apiErrorMessage(err, "Could not load import history"))
+      } finally {
+        setHistoryLoading(false)
+      }
+    },
+    [target]
+  )
+
+  React.useEffect(() => {
+    loadHistory(1)
+    // Only re-fetch when the target itself changes - loadHistory's own identity changes with it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target])
 
   async function handlePreview() {
     if (!file) {
@@ -129,12 +200,13 @@ export default function UploadDataPage() {
     try {
       const body =
         preview.mode === "per-user"
-          ? { mode: "per-user", groups: preview.groups }
-          : { mode: "catalog", rows: preview.rows }
+          ? { mode: "per-user", groups: preview.groups, fileName: file?.name }
+          : { mode: "catalog", rows: preview.rows, fileName: file?.name }
       const res = await apiClient.post<ApiEnvelope<ConfirmResult>>(`/${target}/import/confirm`, body)
       setResult(res.data.data)
       const r = res.data.data
       toast.success(`${r.total} total | ${r.added} added | ${r.updated} updated | ${r.duplicates} duplicates | ${r.errors.length} errors`)
+      loadHistory(1)
     } catch (err) {
       toast.error(apiErrorMessage(err, "Could not import the file"))
     } finally {
@@ -205,7 +277,7 @@ export default function UploadDataPage() {
               </Select>
             )}
 
-            {target !== "users" && target !== "vendors" && (
+            {(target === "assets" || target === "licenses") && (
               <Button variant="outline" onClick={handleDownloadCurrentData}>
                 Download current data (CSV)
               </Button>
@@ -337,8 +409,13 @@ export default function UploadDataPage() {
 
       {result && (
         <Card className="max-w-2xl">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-start justify-between gap-3">
             <CardTitle className="text-base">Import complete</CardTitle>
+            {result.errors.length > 0 && (
+              <Button size="sm" variant="outline" onClick={() => downloadErrorReport(result.errors, target)}>
+                Download error report (CSV)
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-sm">
             <p className="text-base font-medium">
@@ -356,6 +433,100 @@ export default function UploadDataPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Import history</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {historyLoading ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : !history || history.items.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No imports yet for this data type.</p>
+          ) : (
+            <>
+              <div className="overflow-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>When</TableHead>
+                      <TableHead>Who</TableHead>
+                      <TableHead>File</TableHead>
+                      <TableHead>Added</TableHead>
+                      <TableHead>Updated</TableHead>
+                      <TableHead>Duplicates</TableHead>
+                      <TableHead>Invalid</TableHead>
+                      <TableHead>Errors</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {history.items.map((batch) => (
+                      <React.Fragment key={batch._id}>
+                        <TableRow
+                          className={batch.errors.length > 0 ? "cursor-pointer" : undefined}
+                          onClick={() => {
+                            if (batch.errors.length === 0) return
+                            setExpandedBatchId((prev) => (prev === batch._id ? null : batch._id))
+                          }}
+                        >
+                          <TableCell className="whitespace-nowrap">{new Date(batch.createdAt).toLocaleString()}</TableCell>
+                          <TableCell>{batch.performedBySnapshot.name ?? batch.performedBySnapshot.email ?? "-"}</TableCell>
+                          <TableCell className="max-w-40 truncate">{batch.fileName ?? "-"}</TableCell>
+                          <TableCell>{batch.counts.added}</TableCell>
+                          <TableCell>{batch.counts.updated}</TableCell>
+                          <TableCell>{batch.counts.duplicates}</TableCell>
+                          <TableCell>{batch.counts.invalid}</TableCell>
+                          <TableCell>
+                            {batch.errors.length > 0 ? (
+                              <Badge variant="destructive">{batch.errors.length}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">0</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                        {expandedBatchId === batch._id && (
+                          <TableRow>
+                            <TableCell colSpan={8} className="bg-muted/30">
+                              <div className="flex flex-col gap-1 py-1 text-xs text-destructive">
+                                {batch.errors.map((e, i) => (
+                                  <span key={i}>{e}</span>
+                                ))}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {history.totalPages > 1 && (
+                <div className="flex items-center justify-between text-sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={historyPage <= 1}
+                    onClick={() => loadHistory(historyPage - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-muted-foreground">
+                    Page {history.page} of {history.totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={historyPage >= history.totalPages}
+                    onClick={() => loadHistory(historyPage + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

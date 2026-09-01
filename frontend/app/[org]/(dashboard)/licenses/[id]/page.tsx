@@ -191,7 +191,7 @@ export default function LicenseDetailPage() {
       </Card>
 
       <Dialog open={editing} onOpenChange={setEditing}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent size="full">
           <DialogHeader>
             <DialogTitle>Edit {license.licenseId}</DialogTitle>
           </DialogHeader>
