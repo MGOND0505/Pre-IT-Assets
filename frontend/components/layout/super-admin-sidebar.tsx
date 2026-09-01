@@ -8,8 +8,6 @@ import { toast } from "sonner"
 
 import { AppLogo } from "@/components/layout/app-logo"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { AiAssistantSidebarCard } from "@/components/ai/ai-assistant-sidebar-card"
-import { OPEN_SUPER_ADMIN_AI_ASSISTANT_EVENT } from "@/lib/ai-assistant-events"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { cn } from "@/lib/utils"
 
@@ -141,10 +139,6 @@ export function SuperAdminSidebar() {
           )}
         </div>
       </ScrollArea>
-      <AiAssistantSidebarCard
-        eventName={OPEN_SUPER_ADMIN_AI_ASSISTANT_EVENT}
-        description="Ask anything about organizations, users, assets, and tickets - across your whole system."
-      />
     </div>
   )
 }

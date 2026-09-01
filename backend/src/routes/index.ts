@@ -22,7 +22,6 @@ import { helpdeskPrioritiesRouter } from "../modules/helpdeskPriorities/helpdesk
 import { tasksRouter } from "../modules/tasks/tasks.routes";
 import { searchRouter } from "../modules/search/search.routes";
 import { analyticsRouter } from "../modules/analytics/analytics.routes";
-import { aiAssistantRouter } from "../modules/ai-assistant/ai-assistant.routes";
 import { notificationsRouter } from "../modules/notifications/notifications.routes";
 
 /** Mounted under /api/:orgSlug - authenticate + resolveOrganization already ran by the time
@@ -68,5 +67,4 @@ orgScopedRouter.use("/helpdesk-categories", requireModuleEnabled("helpdesk"), he
 orgScopedRouter.use("/helpdesk-priorities", requireModuleEnabled("helpdesk"), helpdeskPrioritiesRouter);
 orgScopedRouter.use("/tasks", requireModuleEnabled("tasks"), tasksRouter);
 orgScopedRouter.use("/search", searchRouter);
-orgScopedRouter.use("/ai-assistant", requireModuleEnabled("aiAssistant"), aiAssistantRouter);
 orgScopedRouter.use("/notifications", notificationsRouter);

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { toast } from "sonner"
-import { Boxes, KeyRound, Truck, Building, MapPin, BarChart3, LifeBuoy, ListChecks, Sparkles, X } from "lucide-react"
+import { Boxes, KeyRound, Truck, Building, MapPin, BarChart3, LifeBuoy, ListChecks, X } from "lucide-react"
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -19,7 +19,6 @@ const MODULE_ICON: Record<EntitlementModule, React.ComponentType<{ className?: s
   reports: BarChart3,
   helpdesk: LifeBuoy,
   tasks: ListChecks,
-  aiAssistant: Sparkles,
 }
 
 const MODULE_DESCRIPTION: Record<EntitlementModule, string> = {
@@ -31,7 +30,6 @@ const MODULE_DESCRIPTION: Record<EntitlementModule, string> = {
   reports: "Generate and export reports",
   helpdesk: "Ticketing and support management",
   tasks: "Assign and track team tasks",
-  aiAssistant: "Conversational AI over assets, tickets, and tasks",
 }
 
 /** Inline panel (not a modal) for toggling which real, existing entitlement modules an

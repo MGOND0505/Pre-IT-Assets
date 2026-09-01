@@ -3,9 +3,9 @@ import type { EntitlementModule, PermissionAction, PermissionModule, Permissions
 import { ApiError } from "../utils/ApiError";
 
 /** The one place this check is expressed - both the `authorize()` middleware (for normal HTTP
- * routes) and anything checking permissions outside a route handler (e.g. the AssetIQ AI tool
- * layer, which must re-check a target module's permission itself since a tool call isn't a
- * route) call this, so the two can never drift apart. The `?.` matters: any user whose stored
+ * routes) and anything checking permissions outside a route handler (which must re-check a
+ * target module's permission itself since it isn't a route) call this, so the two can never
+ * drift apart. The `?.` matters: any user whose stored
  * `permissions` document predates a newly-added module simply has no entry there rather than
  * crashing - treated the same as "not granted." */
 export function hasPermission(

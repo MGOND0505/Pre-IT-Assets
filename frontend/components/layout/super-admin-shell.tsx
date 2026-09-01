@@ -9,7 +9,6 @@ import { ThemeToggle } from "@/components/layout/theme-toggle"
 import { UserMenu } from "@/components/layout/user-menu"
 import { SuperAdminSearch } from "@/components/layout/super-admin-search"
 import { SuperAdminSidebar } from "@/components/layout/super-admin-sidebar"
-import { SuperAdminAiAssistant } from "@/components/ai/super-admin-ai-assistant"
 import { useAuth } from "@/lib/auth-context"
 
 /** Sidebar shell for the Super Admin's own pages (Dashboard, Organizations, Sub-Super Admins) -
@@ -50,7 +49,6 @@ export function SuperAdminShell({ children }: { children: React.ReactNode }) {
           <div className="mx-auto w-full max-w-[1600px] p-6 lg:px-8 lg:py-7">{children}</div>
         </main>
       </div>
-      <SuperAdminAiAssistant />
     </div>
   )
 }

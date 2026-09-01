@@ -9,7 +9,6 @@ import {
   BarChart3,
   UploadCloud,
   Settings,
-  Sparkles,
   User,
   Users,
   type LucideIcon,
@@ -78,13 +77,6 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
 export const navConfig: NavEntry[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Notifications", href: "/notifications", icon: Bell },
-  {
-    label: "AssetIQ AI",
-    href: "/ai-assistant",
-    icon: Sparkles,
-    permission: { area: "aiAssistant", action: "view" },
-    requiresModule: "aiAssistant",
-  },
   { label: "Organization", href: "/organization", superAdminOnly: true, icon: Building2 },
   {
     label: "Assets",

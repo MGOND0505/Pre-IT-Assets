@@ -12,7 +12,6 @@ export const PERMISSION_MODULES = [
   "settings",
   "helpdesk",
   "tasks",
-  "aiAssistant",
   "customFields",
   "roles",
 ] as const;
@@ -39,7 +38,6 @@ export const ENTITLEMENT_MODULES = [
   "reports",
   "helpdesk",
   "tasks",
-  "aiAssistant",
 ] as const;
 export type EntitlementModule = (typeof ENTITLEMENT_MODULES)[number];
 
@@ -95,7 +93,6 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
     "export",
   ],
   tasks: ["view", "create", "update", "delete", "assign", "comment"],
-  aiAssistant: ["view"],
   customFields: ["view", "create", "update", "delete"],
   roles: ["view", "create", "update", "delete"],
 };
