@@ -20,7 +20,6 @@ import {
   Archive,
   Boxes,
   CheckCircle2,
-  IndianRupee,
   KeyRound,
   ShieldCheck,
   UserCheck,
@@ -49,7 +48,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { FullPageLoader } from "@/components/layout/full-page-loader"
-import { KpiCard, ValueKpiCard, KpiGridSkeleton, BUCKET_COLOR, type Bucket } from "@/components/dashboard/kpi-card"
+import { KpiCard, KpiGridSkeleton, BUCKET_COLOR, type Bucket } from "@/components/dashboard/kpi-card"
 import { ChartCard, ChartTooltip, MultiSeriesTooltip, DonutTooltip, useChartTheme } from "@/components/dashboard/chart-card"
 import { SectionHeading } from "@/components/dashboard/section-heading"
 import { AttentionBanner } from "@/components/dashboard/attention-banner"
@@ -375,9 +374,9 @@ export default function DashboardPage() {
           <SectionHeading icon={Boxes}>Assets</SectionHeading>
 
           {loading || !assetStats ? (
-            <KpiGridSkeleton count={7} />
+            <KpiGridSkeleton count={6} />
           ) : (
-            <RevealGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+            <RevealGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
               <RevealItem><KpiCard label="Total assets" value={assetStats.total} icon={Boxes} /></RevealItem>
               <RevealItem><KpiCard label="Active assets" value={assetStats.active} icon={Activity} bucket="info" /></RevealItem>
               <RevealItem><KpiCard label="Assigned" value={byStatus["Assigned"] ?? 0} icon={UserCheck} bucket="info" /></RevealItem>
@@ -391,7 +390,6 @@ export default function DashboardPage() {
               </RevealItem>
               <RevealItem><KpiCard label="Under repair" value={byStatus["Under Repair"] ?? 0} icon={Wrench} bucket="warning" /></RevealItem>
               <RevealItem><KpiCard label="Retired" value={byStatus["Retired"] ?? 0} icon={Archive} bucket="muted" /></RevealItem>
-              <RevealItem><ValueKpiCard label="Total asset value" value={assetStats.totalValue} icon={IndianRupee} /></RevealItem>
             </RevealGroup>
           )}
 

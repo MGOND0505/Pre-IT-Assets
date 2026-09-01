@@ -47,6 +47,13 @@ type Settings = {
   googleServiceAccountEmail: string
   googleServiceAccountPrivateKeySet: boolean
   googleSenderEmail: string
+  passwordMinLength: number
+  passwordRequireUppercase: boolean
+  passwordRequireNumber: boolean
+  passwordRequireSpecialChar: boolean
+  passwordHistoryLimit: number
+  passwordExpiryDays: number
+  passwordExpiryWarningDays: number
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -131,6 +138,11 @@ export default function SettingsPage() {
       return
     }
 
+    if (settings.passwordExpiryDays > 0 && settings.passwordExpiryWarningDays > settings.passwordExpiryDays) {
+      toast.error("Password expiry warning period cannot be longer than the expiry period itself")
+      return
+    }
+
     setSubmitting(true)
     try {
       const res = await apiClient.put<ApiEnvelope<Settings>>("/settings", {
@@ -162,6 +174,13 @@ export default function SettingsPage() {
         googleServiceAccountEmail: settings.googleServiceAccountEmail,
         googleServiceAccountPrivateKey: googlePrivateKeyInput || undefined,
         googleSenderEmail: settings.googleSenderEmail,
+        passwordMinLength: settings.passwordMinLength,
+        passwordRequireUppercase: settings.passwordRequireUppercase,
+        passwordRequireNumber: settings.passwordRequireNumber,
+        passwordRequireSpecialChar: settings.passwordRequireSpecialChar,
+        passwordHistoryLimit: settings.passwordHistoryLimit,
+        passwordExpiryDays: settings.passwordExpiryDays,
+        passwordExpiryWarningDays: settings.passwordExpiryWarningDays,
       })
       setSettings(res.data.data)
       setRenewalDaysInput(res.data.data.licenseRenewalAlertDays.join(", "))
@@ -748,6 +767,115 @@ export default function SettingsPage() {
                 {sendingTestEmail ? "Sending..." : "Send test email"}
               </Button>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-lg">
+        <CardHeader>
+          <CardTitle>Password Policy</CardTitle>
+          <CardDescription>Controls what passwords are accepted for every user in this organization.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="password-min-length">Minimum password length</Label>
+            <Input
+              id="password-min-length"
+              type="number"
+              min={8}
+              max={64}
+              disabled={!canWrite}
+              value={settings.passwordMinLength}
+              onChange={(e) => setSettings({ ...settings, passwordMinLength: Number(e.target.value) })}
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <Label htmlFor="password-require-uppercase">Require an uppercase letter</Label>
+            <input
+              id="password-require-uppercase"
+              type="checkbox"
+              disabled={!canWrite}
+              checked={settings.passwordRequireUppercase}
+              onChange={(e) => setSettings({ ...settings, passwordRequireUppercase: e.target.checked })}
+              className="size-4"
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <Label htmlFor="password-require-number">Require a number</Label>
+            <input
+              id="password-require-number"
+              type="checkbox"
+              disabled={!canWrite}
+              checked={settings.passwordRequireNumber}
+              onChange={(e) => setSettings({ ...settings, passwordRequireNumber: e.target.checked })}
+              className="size-4"
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <Label htmlFor="password-require-special">Require a special character</Label>
+            <input
+              id="password-require-special"
+              type="checkbox"
+              disabled={!canWrite}
+              checked={settings.passwordRequireSpecialChar}
+              onChange={(e) => setSettings({ ...settings, passwordRequireSpecialChar: e.target.checked })}
+              className="size-4"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2 border-t pt-4">
+            <Label htmlFor="password-history-limit">Previous password reuse limit</Label>
+            <Input
+              id="password-history-limit"
+              type="number"
+              min={0}
+              max={10}
+              disabled={!canWrite}
+              value={settings.passwordHistoryLimit}
+              onChange={(e) => setSettings({ ...settings, passwordHistoryLimit: Number(e.target.value) })}
+            />
+            <p className="text-xs text-muted-foreground">
+              How many of a user's most recent passwords they cannot reuse. 0 disables the check.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t pt-4">
+            <Label htmlFor="password-expiry-days">Password expiration period (days)</Label>
+            <Input
+              id="password-expiry-days"
+              type="number"
+              min={0}
+              max={180}
+              disabled={!canWrite}
+              value={settings.passwordExpiryDays}
+              onChange={(e) => setSettings({ ...settings, passwordExpiryDays: Number(e.target.value) })}
+            />
+            <p className="text-xs text-muted-foreground">0 to 180 days. 0 means passwords never expire.</p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="password-expiry-warning-days">Password expiry warning period (days)</Label>
+            <Input
+              id="password-expiry-warning-days"
+              type="number"
+              min={0}
+              max={180}
+              disabled={!canWrite}
+              value={settings.passwordExpiryWarningDays}
+              onChange={(e) => setSettings({ ...settings, passwordExpiryWarningDays: Number(e.target.value) })}
+            />
+            <p className="text-xs text-muted-foreground">
+              How many days before expiry a user starts seeing a warning after logging in.
+            </p>
+          </div>
+
+          {canWrite && (
+            <Button onClick={handleSave} disabled={submitting} className="self-start">
+              {submitting ? "Saving..." : "Save settings"}
+            </Button>
           )}
         </CardContent>
       </Card>

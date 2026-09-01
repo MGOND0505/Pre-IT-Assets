@@ -1,10 +1,41 @@
 import { Ticket, TICKET_STATUSES, type ITicket, type TicketStatus } from "../../models/Ticket";
 import { HelpdeskPriority } from "../../models/HelpdeskPriority";
+import { HelpdeskCategory } from "../../models/HelpdeskCategory";
 import { User } from "../../models/User";
 import { ApiError } from "../../utils/ApiError";
 import { claimNextTicketSequence } from "../settings/settings.service";
-import { autoAssignTicket } from "./roundRobin.service";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
+
+const AVAILABLE_AGENT_FILTER = { status: "Active" as const, isDeleted: false, isOnLeave: { $ne: true } };
+
+type AutoAssignResult = { agentId: string; autoForwarded: boolean };
+
+/** Resolves who a brand-new ticket should auto-assign to, based on its category's configured
+ * `defaultAgent` - falling back to that agent's own `backupAgent` if they're currently on leave.
+ * Never throws; a category with no default agent, or where neither the agent nor their backup is
+ * available, just returns null and the ticket is created unassigned. This is the one place
+ * category-based auto-assignment happens - there is no team/rotation involved (see
+ * HelpdeskCategory.ts's `defaultAgent` doc comment). */
+async function resolveAutoAssignee(categoryId: string | null | undefined, organizationId: string): Promise<AutoAssignResult | null> {
+  if (!categoryId) return null;
+
+  const category = await HelpdeskCategory.findOne({ _id: categoryId, organization: organizationId }).select("defaultAgent");
+  if (!category?.defaultAgent) return null;
+
+  const isAvailable = (userId: unknown) =>
+    User.exists({ _id: userId, organization: organizationId, ...AVAILABLE_AGENT_FILTER });
+
+  if (await isAvailable(category.defaultAgent)) {
+    return { agentId: String(category.defaultAgent), autoForwarded: false };
+  }
+
+  const defaultAgent = await User.findById(category.defaultAgent).select("backupAgent");
+  if (defaultAgent?.backupAgent && (await isAvailable(defaultAgent.backupAgent))) {
+    return { agentId: String(defaultAgent.backupAgent), autoForwarded: true };
+  }
+
+  return null;
+}
 
 const POPULATE_FIELDS = [
   { path: "category", select: "name" },
@@ -13,7 +44,6 @@ const POPULATE_FIELDS = [
   { path: "department", select: "name" },
   { path: "location", select: "name" },
   { path: "assignedAgent", select: "name email" },
-  { path: "assignedTeam", select: "name tier" },
 ];
 
 async function generateTicketId(organizationId: string): Promise<string> {
@@ -119,8 +149,12 @@ export async function createTicket(input: CreateInput, organizationId: string, r
         createdBy: requesterId,
       });
 
-      await autoAssignTicket(ticket);
-      await ticket.save();
+      const autoAssign = await resolveAutoAssignee(input.category, organizationId);
+      if (autoAssign) {
+        ticket.assignedAgent = autoAssign.agentId as never;
+        if (autoAssign.autoForwarded) ticket.status = "Auto-Forwarded";
+        await ticket.save();
+      }
 
       return getTicketById(ticket.id, organizationId);
     } catch (err) {
@@ -147,7 +181,11 @@ export async function updateTicket(id: string, input: UpdateInput, organizationI
   return getTicketById(id, organizationId);
 }
 
-const TERMINAL_STATUSES: TicketStatus[] = ["Resolved", "Closed"];
+export const TERMINAL_STATUSES: TicketStatus[] = ["Resolved", "Closed"];
+
+/** How long after being closed a ticket may still be reopened - past this window the requester
+ * must file a new ticket instead. See helpdesk.controller.ts#setTicketStatus. */
+export const REOPEN_WINDOW_HOURS = 36;
 
 export async function setTicketStatus(id: string, status: TicketStatus, resolution: string | undefined, organizationId: string) {
   if (!TICKET_STATUSES.includes(status)) throw new ApiError(400, "Invalid ticket status");
@@ -174,8 +212,14 @@ export async function setTicketStatus(id: string, status: TicketStatus, resoluti
 
 export async function assignTicket(id: string, agentId: string, organizationId: string) {
   const ticket = await getTicketById(id, organizationId);
-  const agent = await User.findOne({ _id: agentId, organization: organizationId });
-  if (!agent) throw new ApiError(404, "Agent not found");
+  const agent = await User.findOne({
+    _id: agentId,
+    organization: organizationId,
+    status: "Active",
+    isDeleted: false,
+    isOnLeave: { $ne: true },
+  });
+  if (!agent) throw new ApiError(404, "Agent not found or not available");
 
   ticket.assignedAgent = agent._id as never;
   await ticket.save();

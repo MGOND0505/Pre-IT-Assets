@@ -28,6 +28,7 @@ export type SearchResult = {
 
 export type SearchContext = {
   organizationId: string;
+  userId: string;
   role: UserRole;
   isAdmin: boolean;
   enabledModules: EntitlementModule[];
@@ -57,10 +58,15 @@ export async function searchOrganization(ctx: SearchContext, rawQuery: string): 
   const lookups: Promise<SearchResult[]>[] = [];
 
   if (canView(ctx, "assets", "assets")) {
+    // Same restriction as assets.service.ts#canViewAllAssets - a caller who can't manage assets
+    // beyond their own must not find someone else's asset via search either, even just a
+    // title/id result (they'd 404 clicking into it, but the leak itself is the point of the fix).
+    const canViewAllAssets = ctx.isAdmin || Boolean(ctx.permissions.assets?.update);
     lookups.push(
       Asset.find({
         organization: ctx.organizationId,
         isDeleted: false,
+        ...(canViewAllAssets ? {} : { assignedUser: ctx.userId }),
         $or: [{ name: rx }, { assetId: rx }, { serialNumber: rx }, { serviceTag: rx }, { imei: rx }],
       })
         .select("name assetId")

@@ -1,6 +1,16 @@
 import { HelpdeskCategory, type IHelpdeskCategory } from "../../models/HelpdeskCategory";
+import { User } from "../../models/User";
 import { ApiError } from "../../utils/ApiError";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
+
+/** A category's default agent is a standing configuration, not a live assignment - so unlike
+ * assignTicket()'s guard, this deliberately does NOT reject someone currently on leave (they may
+ * simply be away temporarily; the category mapping itself shouldn't need re-configuring for that). */
+async function assertValidDefaultAgent(defaultAgent: string | null | undefined, organizationId: string) {
+  if (!defaultAgent) return;
+  const agent = await User.findOne({ _id: defaultAgent, organization: organizationId, status: "Active", isDeleted: false });
+  if (!agent) throw new ApiError(400, "Default agent not found or not available");
+}
 
 type ListInput = { page?: number; limit?: number; search?: string; status?: "Active" | "Inactive"; includeDeleted?: boolean };
 
@@ -14,6 +24,7 @@ export async function listHelpdeskCategories(input: ListInput, organizationId: s
 
   const [items, total] = await Promise.all([
     HelpdeskCategory.find(filter)
+      .populate("defaultAgent", "name")
       .sort({ name: 1 })
       .skip((page - 1) * limit)
       .limit(limit),
@@ -25,7 +36,10 @@ export async function listHelpdeskCategories(input: ListInput, organizationId: s
 }
 
 export async function getHelpdeskCategoryById(id: string, organizationId: string) {
-  const category = await HelpdeskCategory.findOne({ organization: organizationId, _id: id, isDeleted: false });
+  const category = await HelpdeskCategory.findOne({ organization: organizationId, _id: id, isDeleted: false }).populate(
+    "defaultAgent",
+    "name"
+  );
   if (!category) throw new ApiError(404, "Helpdesk category not found");
   return category;
 }
@@ -41,18 +55,23 @@ async function assertUnique(organizationId: string, name?: string, excludeId?: s
   if (existing) throw new ApiError(409, "A helpdesk category with this name already exists");
 }
 
-export async function createHelpdeskCategory(input: { name: string; description?: string }, organizationId: string) {
+export async function createHelpdeskCategory(
+  input: { name: string; description?: string; defaultAgent?: string | null },
+  organizationId: string
+) {
   await assertUnique(organizationId, input.name);
+  await assertValidDefaultAgent(input.defaultAgent, organizationId);
   return HelpdeskCategory.create({ organization: organizationId, ...input });
 }
 
 export async function updateHelpdeskCategory(
   id: string,
-  input: Partial<{ name: string; description: string; status: "Active" | "Inactive" }>,
+  input: Partial<{ name: string; description: string; defaultAgent: string | null; status: "Active" | "Inactive" }>,
   organizationId: string
 ) {
   const category = await getHelpdeskCategoryById(id, organizationId);
   await assertUnique(organizationId, input.name, id);
+  await assertValidDefaultAgent(input.defaultAgent, organizationId);
 
   Object.assign(category, input);
   await category.save();

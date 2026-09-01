@@ -6,8 +6,12 @@ import * as assetsService from "./assets.service";
 
 type ListAssetsQuery = Parameters<typeof assetsService.listAssets>[0];
 
+function requestingUserFrom(req: Request) {
+  return { id: req.user!.id, isAdmin: req.user!.isAdmin, permissions: req.user!.permissions };
+}
+
 export const listAssets = asyncHandler(async (req: Request, res: Response) => {
-  const result = await assetsService.listAssets(req.query as never, req.organization!._id);
+  const result = await assetsService.listAssets(req.query as never, req.organization!._id, requestingUserFrom(req));
   ok(res, result, "Assets");
 });
 
@@ -19,13 +23,14 @@ export const getAssetStats = asyncHandler(async (req: Request, res: Response) =>
 export const listDeletedAssets = asyncHandler(async (req: Request, res: Response) => {
   const result = await assetsService.listAssets(
     { ...(req.query as unknown as ListAssetsQuery), includeDeleted: true },
-    req.organization!._id
+    req.organization!._id,
+    requestingUserFrom(req)
   );
   ok(res, result, "Deleted assets");
 });
 
 export const getAsset = asyncHandler(async (req: Request, res: Response) => {
-  const asset = await assetsService.getAssetById(req.params.id, req.organization!._id);
+  const asset = await assetsService.getAssetByIdForRequester(req.params.id, req.organization!._id, requestingUserFrom(req));
   ok(res, asset, "Asset");
 });
 

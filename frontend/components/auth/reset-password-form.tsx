@@ -10,11 +10,21 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PasswordRequirementsHint } from "@/components/auth/password-requirements-hint"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
+import { isPasswordValid, BASELINE_POLICY } from "@/lib/password-policy"
 
+// This page is deliberately flat (/reset-password/[token], no org segment in the URL - the
+// token itself encodes which user/org, not the route) - so there's no org slug here to fetch
+// that org's own configured policy from, unlike every other password form in this app. Falls
+// back to the fixed baseline (which is also every org's own default, so this matches the common
+// case) and skips CAPTCHA entirely - possessing a valid emailed token is already a much stronger
+// bot-barrier than the login/forgot-password forms this feature is really meant to protect.
 const schema = z
   .object({
-    newPassword: z.string().min(8, "Password must be at least 8 characters"),
+    newPassword: z.string().refine((value) => isPasswordValid(value, BASELINE_POLICY), {
+      message: "Password does not meet the requirements below",
+    }),
     confirmPassword: z.string().min(1, "Please confirm your password"),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
@@ -31,6 +41,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<Values>({ resolver: zodResolver(schema) })
 
@@ -53,6 +64,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
         <Label htmlFor="newPassword">New password</Label>
         <Input id="newPassword" type="password" {...register("newPassword")} />
         {errors.newPassword && <p className="text-sm text-destructive">{errors.newPassword.message}</p>}
+        <PasswordRequirementsHint password={watch("newPassword") ?? ""} policy={BASELINE_POLICY} />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="confirmPassword">Confirm new password</Label>

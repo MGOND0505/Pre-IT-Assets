@@ -16,14 +16,18 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PermissionGrid } from "@/components/users/permission-grid"
+import { PermissionGrid, basicUserPermissions } from "@/components/users/permission-grid"
+import { PasswordRequirementsHint } from "@/components/auth/password-requirements-hint"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
-import { emptyPermissions } from "@/lib/permissions"
+import { useAuth } from "@/lib/auth-context"
 import { useDepartmentOptions, useLocationOptions } from "@/lib/use-lookup-options"
+import { isPasswordValid, BASELINE_POLICY } from "@/lib/password-policy"
 
 const NONE = "__none__"
 
 export function UserFormDialog({ onCreated }: { onCreated: () => void }) {
+  const { user: currentUser } = useAuth()
+  const policy = currentUser?.passwordPolicy ?? BASELINE_POLICY
   const [open, setOpen] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
 
@@ -35,7 +39,7 @@ export function UserFormDialog({ onCreated }: { onCreated: () => void }) {
   const [location, setLocation] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [isAdmin, setIsAdmin] = React.useState(false)
-  const [permissions, setPermissions] = React.useState(emptyPermissions())
+  const [permissions, setPermissions] = React.useState(basicUserPermissions())
 
   const { items: departments } = useDepartmentOptions()
   const { items: locations } = useLocationOptions()
@@ -49,7 +53,7 @@ export function UserFormDialog({ onCreated }: { onCreated: () => void }) {
     setLocation("")
     setPassword("")
     setIsAdmin(false)
-    setPermissions(emptyPermissions())
+    setPermissions(basicUserPermissions())
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -59,8 +63,8 @@ export function UserFormDialog({ onCreated }: { onCreated: () => void }) {
       toast.error("Name and email are required")
       return
     }
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters")
+    if (!isPasswordValid(password, policy)) {
+      toast.error("Password does not meet the requirements")
       return
     }
 
@@ -153,6 +157,7 @@ export function UserFormDialog({ onCreated }: { onCreated: () => void }) {
           <div className="flex flex-col gap-2">
             <Label htmlFor="user-password">Temporary password</Label>
             <Input id="user-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordRequirementsHint password={password} policy={policy} />
           </div>
 
           <div className="flex min-w-0 flex-col gap-2">

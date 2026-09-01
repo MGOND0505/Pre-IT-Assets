@@ -2,7 +2,7 @@ import { Router } from "express";
 import { authorize } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import * as aiAssistantController from "./ai-assistant.controller";
-import { chatSchema, tokenSchema } from "./ai-assistant.validation";
+import { chatSchema, tokenSchema, sessionIdParamsSchema, listSessionsQuerySchema } from "./ai-assistant.validation";
 
 export const aiAssistantRouter = Router();
 
@@ -27,4 +27,23 @@ aiAssistantRouter.post(
   authorize("aiAssistant", "view"),
   validate({ body: tokenSchema }),
   aiAssistantController.cancelChange
+);
+
+aiAssistantRouter.get(
+  "/sessions",
+  authorize("aiAssistant", "view"),
+  validate({ query: listSessionsQuerySchema }),
+  aiAssistantController.listSessions
+);
+aiAssistantRouter.get(
+  "/sessions/:id/messages",
+  authorize("aiAssistant", "view"),
+  validate({ params: sessionIdParamsSchema }),
+  aiAssistantController.getSessionMessages
+);
+aiAssistantRouter.delete(
+  "/sessions/:id",
+  authorize("aiAssistant", "view"),
+  validate({ params: sessionIdParamsSchema }),
+  aiAssistantController.deleteSession
 );

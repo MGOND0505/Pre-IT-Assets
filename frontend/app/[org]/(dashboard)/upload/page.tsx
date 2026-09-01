@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -51,11 +52,23 @@ const BADGE_VARIANT: Record<Classification, "default" | "secondary" | "outline" 
 const TARGETS = [
   { value: "assets", label: "Assets" },
   { value: "licenses", label: "Licenses" },
+  { value: "users", label: "Users" },
+  { value: "vendors", label: "Vendors" },
 ] as const
+
+type UploadTarget = (typeof TARGETS)[number]["value"]
+
+function isValidTarget(value: string | null): value is UploadTarget {
+  return TARGETS.some((t) => t.value === value)
+}
 
 export default function UploadDataPage() {
   const { user, loading: authLoading } = useAuth()
-  const [target, setTarget] = React.useState<"assets" | "licenses">("assets")
+  const searchParams = useSearchParams()
+  // Seeds the initial target from a deep link like /upload?target=users (the User Management
+  // nav group's "Bulk Upload" entry) - not a visible filter control, just a starting selection.
+  const initialTarget = searchParams.get("target")
+  const [target, setTarget] = React.useState<UploadTarget>(isValidTarget(initialTarget) ? initialTarget : "assets")
   const [licenseMode, setLicenseMode] = React.useState<LicenseMode>("catalog")
   const [file, setFile] = React.useState<File | null>(null)
   const [previewing, setPreviewing] = React.useState(false)
@@ -64,7 +77,14 @@ export default function UploadDataPage() {
   const [result, setResult] = React.useState<ConfirmResult | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
-  const canUpload = can(user, "assets", "import") || can(user, "licenses", "import")
+  // Users import has no separate permission action (deliberately - see users.routes.ts's own
+  // comment on why bulk creation stays Admin-only, same as single-user creation) so it's gated by
+  // isAdmin directly rather than can(user,"users","import"), which doesn't exist.
+  const canUpload =
+    can(user, "assets", "import") ||
+    can(user, "licenses", "import") ||
+    can(user, "vendors", "import") ||
+    Boolean(user?.isAdmin)
 
   function reset() {
     setFile(null)
@@ -151,7 +171,7 @@ export default function UploadDataPage() {
             <Select
               value={target}
               onValueChange={(v) => {
-                setTarget((v as "assets" | "licenses") ?? "assets")
+                setTarget((v as UploadTarget) ?? "assets")
                 reset()
               }}
             >
@@ -185,9 +205,11 @@ export default function UploadDataPage() {
               </Select>
             )}
 
-            <Button variant="outline" onClick={handleDownloadCurrentData}>
-              Download current data (CSV)
-            </Button>
+            {target !== "users" && target !== "vendors" && (
+              <Button variant="outline" onClick={handleDownloadCurrentData}>
+                Download current data (CSV)
+              </Button>
+            )}
             <Button variant="outline" onClick={handleDownloadTemplate}>
               Download template (CSV)
             </Button>

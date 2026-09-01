@@ -12,6 +12,7 @@ import { NotificationTemplate, NOTIFICATION_TEMPLATE_KEYS, type NotificationTemp
 import { NotificationLog } from "../../models/NotificationLog";
 import * as settingsService from "./settings.service";
 import type { ISystemSettings } from "../../models/SystemSettings";
+import { env } from "../../config/env";
 
 /** Secret fields that must never be echoed back to the client verbatim - only whether one is set. */
 const SECRET_FIELDS = ["smtpPassword", "m365ClientSecret", "googleServiceAccountPrivateKey"] as const;
@@ -23,6 +24,9 @@ function maskSettings(settings: ISystemSettings & { toObject?: () => Record<stri
     masked[field] = "";
     masked[`${field}Set`] = Boolean(settings[field as keyof ISystemSettings]);
   }
+  // Not a stored field - computed from server-wide env config, so the Settings UI can disable
+  // the CAPTCHA toggle with a clear explanation instead of a silent 400 on save.
+  masked.captchaConfigured = Boolean(env.TURNSTILE_SECRET_KEY);
   return masked;
 }
 
@@ -47,7 +51,10 @@ export const getSettings = asyncHandler(async (req: Request, res: Response) => {
 });
 
 /** Public (unauthenticated) - the branding subset needed to render the login page, sidebar,
- * etc. before login. Mounted behind resolvePublicOrganization, not authenticate. */
+ * etc. before login. Mounted behind resolvePublicOrganization, not authenticate. Also carries
+ * the org's password policy (for the pre-login reset-password form's live requirements hint)
+ * and CAPTCHA config (site key is public/safe to expose - the secret key never leaves the
+ * server) - three pre-login consumers, one payload, no extra route. */
 export const getBranding = asyncHandler(async (req: Request, res: Response) => {
   const settings = await settingsService.getSettings(req.organization!._id);
   ok(
@@ -57,6 +64,15 @@ export const getBranding = asyncHandler(async (req: Request, res: Response) => {
       teamName: settings.teamName,
       sidebarColor: settings.sidebarColor,
       appBackgroundColor: settings.appBackgroundColor,
+      passwordPolicy: {
+        minLength: settings.passwordMinLength,
+        requireUppercase: settings.passwordRequireUppercase,
+        requireNumber: settings.passwordRequireNumber,
+        requireSpecialChar: settings.passwordRequireSpecialChar,
+        historyLimit: settings.passwordHistoryLimit,
+      },
+      captchaEnabled: settings.captchaEnabled && Boolean(env.TURNSTILE_SITE_KEY),
+      captchaSiteKey: settings.captchaEnabled ? (env.TURNSTILE_SITE_KEY ?? null) : null,
     },
     "Branding"
   );

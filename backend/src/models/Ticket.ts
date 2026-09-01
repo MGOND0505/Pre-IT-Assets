@@ -1,8 +1,21 @@
 import { Schema, model, type Types } from "mongoose";
-import type { SupportTier } from "./SupportTeam";
 
-export const TICKET_STATUSES = ["New", "Open", "In Progress", "Pending", "Resolved", "Closed", "Reopened"] as const;
+export const TICKET_STATUSES = [
+  "New",
+  "Open",
+  "In Progress",
+  "Forwarded",
+  "Auto-Forwarded",
+  "Pending",
+  "Resolved",
+  "Closed",
+  "Reopened",
+] as const;
 export type TicketStatus = (typeof TICKET_STATUSES)[number];
+
+// SLA escalation tier - previously also drove Support Team matching (now removed); kept as a
+// plain SLA-escalation concept (see escalationScheduler.ts).
+export type SupportTier = "L1" | "L2" | "L3";
 
 export interface ITicket {
   organization: Types.ObjectId;
@@ -15,7 +28,6 @@ export interface ITicket {
   department: Types.ObjectId | null;
   location: Types.ObjectId | null;
   assignedAgent: Types.ObjectId | null;
-  assignedTeam: Types.ObjectId | null;
   tier: SupportTier;
   status: TicketStatus;
   resolution: string;
@@ -46,7 +58,6 @@ const ticketSchema = new Schema<ITicket>(
     department: { type: Schema.Types.ObjectId, ref: "Department", default: null },
     location: { type: Schema.Types.ObjectId, ref: "Location", default: null },
     assignedAgent: { type: Schema.Types.ObjectId, ref: "User", default: null },
-    assignedTeam: { type: Schema.Types.ObjectId, ref: "SupportTeam", default: null },
     tier: { type: String, enum: ["L1", "L2", "L3"], default: "L1" },
     status: { type: String, enum: TICKET_STATUSES, default: "New", index: true },
     resolution: { type: String, default: "" },

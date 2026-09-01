@@ -8,7 +8,6 @@ import { Department } from "../../models/Department";
 import { Location } from "../../models/Location";
 import { HelpdeskCategory } from "../../models/HelpdeskCategory";
 import { HelpdeskPriority } from "../../models/HelpdeskPriority";
-import { SupportTeam } from "../../models/SupportTeam";
 import { User } from "../../models/User";
 import { Ticket } from "../../models/Ticket";
 import { TicketComment } from "../../models/TicketComment";
@@ -45,7 +44,7 @@ type SoftDeletable = { organization: unknown; deletedAt: Date | null; isDeleted:
 /** Finds every record of one model, scoped to one organization, past THAT organization's own
  * configured Recycle Bin retention window and permanently deletes it, logging a PURGE audit
  * entry per record. For models with no dependent data (Vendor, Department, Location,
- * HelpdeskCategory, HelpdeskPriority, SupportTeam, User, Task, License) - Ticket and Asset have
+ * HelpdeskCategory, HelpdeskPriority, User, Task, License) - Ticket and Asset have
  * their own cascade-aware purge below. */
 async function purgeSimple<T extends SoftDeletable>(
   model: Model<T>,
@@ -123,7 +122,6 @@ export async function sweepExpiredDeletedData(): Promise<void> {
       purgeSimple(Location, "Location", org._id, cutoff, (d) => d.name),
       purgeSimple(HelpdeskCategory, "HelpdeskCategory", org._id, cutoff, (d) => d.name),
       purgeSimple(HelpdeskPriority, "HelpdeskPriority", org._id, cutoff, (d) => d.name),
-      purgeSimple(SupportTeam, "SupportTeam", org._id, cutoff, (d) => d.name),
       purgeSimple(User, "User", org._id, cutoff, (d) => d.email),
       purgeSimple(Task, "Task", org._id, cutoff, (d) => d.title),
       purgeSimple(License, "License", org._id, cutoff, (d) => d.softwareName),

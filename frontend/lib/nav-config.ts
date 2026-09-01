@@ -9,6 +9,7 @@ import {
   UploadCloud,
   Settings,
   Sparkles,
+  Users,
   type LucideIcon,
 } from "lucide-react"
 import type { EntitlementModule, PermissionAction, PermissionModule } from "@/lib/permissions"
@@ -63,7 +64,13 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
  */
 export const navConfig: NavEntry[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
-  { label: "AssetIQ AI", href: "/ai-assistant", icon: Sparkles, permission: { area: "aiAssistant", action: "view" } },
+  {
+    label: "AssetIQ AI",
+    href: "/ai-assistant",
+    icon: Sparkles,
+    permission: { area: "aiAssistant", action: "view" },
+    requiresModule: "aiAssistant",
+  },
   { label: "Organization", href: "/organization", superAdminOnly: true, icon: Building2 },
   {
     label: "Assets",
@@ -84,6 +91,14 @@ export const navConfig: NavEntry[] = [
     ],
   },
   {
+    label: "Vendors",
+    icon: Building2,
+    children: [
+      { label: "All Vendors", href: "/vendors", permission: { area: "vendors", action: "view" }, requiresModule: "vendors" },
+      { label: "Add Vendor", href: "/vendors/add", permission: { area: "vendors", action: "create" }, requiresModule: "vendors" },
+    ],
+  },
+  {
     label: "Tickets",
     icon: LifeBuoy,
     children: [
@@ -91,7 +106,6 @@ export const navConfig: NavEntry[] = [
       { label: "Add Ticket", href: "/helpdesk/add", permission: { area: "helpdesk", action: "create" }, requiresModule: "helpdesk" },
       { label: "Categories", href: "/helpdesk/categories", permission: { area: "helpdesk", action: "view" }, requiresModule: "helpdesk" },
       { label: "Priorities", href: "/helpdesk/priorities", permission: { area: "helpdesk", action: "view" }, requiresModule: "helpdesk" },
-      { label: "Support Teams", href: "/helpdesk/teams", permission: { area: "helpdesk", action: "view" }, requiresModule: "helpdesk" },
     ],
   },
   {
@@ -111,19 +125,30 @@ export const navConfig: NavEntry[] = [
     icon: UploadCloud,
   },
   {
-    label: "Settings",
-    icon: Settings,
+    label: "User Management",
+    icon: Users,
     children: [
-      { label: "Users", href: "/users", permission: { area: "users", action: "view" } },
-      { label: "Departments", href: "/departments", permission: { area: "departments", action: "view" }, requiresModule: "departments" },
-      { label: "Locations", href: "/locations", permission: { area: "locations", action: "view" }, requiresModule: "locations" },
-      { label: "Vendors", href: "/vendors", permission: { area: "vendors", action: "view" }, requiresModule: "vendors" },
-      { label: "Audit Logs", href: "/administration/audit-logs", permission: { area: "auditLogs", action: "view" } },
+      { label: "All Users", href: "/users", permission: { area: "users", action: "view" } },
+      {
+        label: "Bulk Upload",
+        href: "/upload?target=users",
+        permission: { area: "users", action: "view" },
+        adminOnly: true,
+      },
       {
         label: "Login History",
         href: "/administration/login-history",
         permission: { area: "auditLogs", action: "view" },
       },
+    ],
+  },
+  {
+    label: "Settings",
+    icon: Settings,
+    children: [
+      { label: "Departments", href: "/departments", permission: { area: "departments", action: "view" }, requiresModule: "departments" },
+      { label: "Locations", href: "/locations", permission: { area: "locations", action: "view" }, requiresModule: "locations" },
+      { label: "Audit Logs", href: "/administration/audit-logs", permission: { area: "auditLogs", action: "view" } },
       {
         label: "Notification Templates",
         href: "/administration/notification-templates",

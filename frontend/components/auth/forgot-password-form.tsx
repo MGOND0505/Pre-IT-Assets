@@ -9,12 +9,17 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { TurnstileWidget } from "@/components/auth/turnstile-widget"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
+import { useBranding } from "@/lib/branding-context"
 
 const schema = z.object({ email: z.string().email("Enter a valid email address") })
 type Values = z.infer<typeof schema>
 
 export function ForgotPasswordForm({ orgSlug }: { orgSlug?: string } = {}) {
+  const { branding } = useBranding()
+  const captchaRequired = Boolean(orgSlug) && branding.captchaEnabled && Boolean(branding.captchaSiteKey)
+  const [captchaToken, setCaptchaToken] = React.useState<string | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
   const [sent, setSent] = React.useState(false)
 
@@ -27,7 +32,7 @@ export function ForgotPasswordForm({ orgSlug }: { orgSlug?: string } = {}) {
   async function onSubmit(values: Values) {
     setSubmitting(true)
     try {
-      await apiClient.post("/auth/forgot-password", { ...values, orgSlug })
+      await apiClient.post("/auth/forgot-password", { ...values, orgSlug, captchaToken: captchaToken ?? undefined })
       setSent(true)
     } catch (err) {
       toast.error(apiErrorMessage(err, "Something went wrong"))
@@ -52,7 +57,8 @@ export function ForgotPasswordForm({ orgSlug }: { orgSlug?: string } = {}) {
         <Input id="email" type="email" placeholder="you@company.com" {...register("email")} />
         {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
       </div>
-      <Button type="submit" className="w-full" disabled={submitting}>
+      {captchaRequired && <TurnstileWidget siteKey={branding.captchaSiteKey!} onToken={setCaptchaToken} />}
+      <Button type="submit" className="w-full" disabled={submitting || (captchaRequired && !captchaToken)}>
         {submitting ? "Sending..." : "Send reset link"}
       </Button>
     </form>

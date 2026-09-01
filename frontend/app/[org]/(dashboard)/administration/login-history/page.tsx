@@ -18,6 +18,7 @@ type LoginHistoryEntry = {
   reason: string | null
   ipAddress: string | null
   createdAt: string
+  captchaVerified: boolean | null
 }
 
 type Paginated = { items: LoginHistoryEntry[]; total: number; page: number; totalPages: number }
@@ -64,6 +65,15 @@ export default function LoginHistoryPage() {
     },
     { accessorKey: "reason", header: "Reason" },
     { accessorKey: "ipAddress", header: "IP" },
+    {
+      accessorKey: "captchaVerified",
+      header: "CAPTCHA",
+      cell: ({ row }) => {
+        const value = row.original.captchaVerified
+        if (value === null) return <span className="text-muted-foreground">-</span>
+        return <Badge variant={value ? "outline" : "destructive"}>{value ? "Verified" : "Failed"}</Badge>
+      },
+    },
   ]
 
   if (authLoading) {

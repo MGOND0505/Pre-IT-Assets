@@ -11,6 +11,7 @@ export const NOTIFICATION_TEMPLATE_KEYS = [
   "ticketCreated",
   "ticketAssigned",
   "ticketReassigned",
+  "ticketUnassigned",
   "ticketStatusChanged",
   "ticketCommentAdded",
   "ticketSlaWarning",

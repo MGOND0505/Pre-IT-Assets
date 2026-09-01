@@ -13,7 +13,6 @@ import { Department } from "../../models/Department";
 import { Location } from "../../models/Location";
 import { HelpdeskCategory } from "../../models/HelpdeskCategory";
 import { HelpdeskPriority } from "../../models/HelpdeskPriority";
-import { SupportTeam } from "../../models/SupportTeam";
 import { Ticket } from "../../models/Ticket";
 import { TicketComment } from "../../models/TicketComment";
 import { Task } from "../../models/Task";
@@ -72,7 +71,6 @@ export async function purgeOrganization(organizationId: string, actorName = "Sys
     Location.deleteMany(orgFilter),
     HelpdeskCategory.deleteMany(orgFilter),
     HelpdeskPriority.deleteMany(orgFilter),
-    SupportTeam.deleteMany(orgFilter),
     TicketComment.deleteMany(orgFilter),
     Ticket.deleteMany(orgFilter),
     Task.deleteMany(orgFilter),

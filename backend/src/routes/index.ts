@@ -16,7 +16,6 @@ import { reportsRouter } from "../modules/reports/reports.routes";
 import { helpdeskRouter } from "../modules/helpdesk/helpdesk.routes";
 import { helpdeskCategoriesRouter } from "../modules/helpdeskCategories/helpdeskCategories.routes";
 import { helpdeskPrioritiesRouter } from "../modules/helpdeskPriorities/helpdeskPriorities.routes";
-import { supportTeamsRouter } from "../modules/supportTeams/supportTeams.routes";
 import { tasksRouter } from "../modules/tasks/tasks.routes";
 import { searchRouter } from "../modules/search/search.routes";
 import { analyticsRouter } from "../modules/analytics/analytics.routes";
@@ -55,7 +54,6 @@ orgScopedRouter.use("/analytics", requireModuleEnabled("reports"), analyticsRout
 orgScopedRouter.use("/helpdesk", requireModuleEnabled("helpdesk"), helpdeskRouter);
 orgScopedRouter.use("/helpdesk-categories", requireModuleEnabled("helpdesk"), helpdeskCategoriesRouter);
 orgScopedRouter.use("/helpdesk-priorities", requireModuleEnabled("helpdesk"), helpdeskPrioritiesRouter);
-orgScopedRouter.use("/support-teams", requireModuleEnabled("helpdesk"), supportTeamsRouter);
 orgScopedRouter.use("/tasks", requireModuleEnabled("tasks"), tasksRouter);
 orgScopedRouter.use("/search", searchRouter);
-orgScopedRouter.use("/ai-assistant", aiAssistantRouter);
+orgScopedRouter.use("/ai-assistant", requireModuleEnabled("aiAssistant"), aiAssistantRouter);

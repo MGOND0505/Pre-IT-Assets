@@ -27,6 +27,11 @@ const envSchema = z.object({
   LOGIN_LOCKOUT_THRESHOLD: z.coerce.number().int().positive().default(5),
   LOGIN_LOCKOUT_DURATION_MINUTES: z.coerce.number().int().positive().default(15),
 
+  // A session is force-expired if no authenticated request has been made in this many minutes -
+  // independent of JWT_EXPIRES_IN, which is just the outer absolute cap. Enforced in
+  // middleware/authenticate.ts, which also slides this window forward on every valid request.
+  SESSION_IDLE_TIMEOUT_MINUTES: z.coerce.number().int().positive().default(30),
+
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   API_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
@@ -46,6 +51,13 @@ const envSchema = z.object({
   METABASE_URL: z.string().url().optional(),
   METABASE_EMBEDDING_SECRET_KEY: z.string().min(16).optional(),
   METABASE_DASHBOARD_ID: z.coerce.number().int().positive().optional(),
+
+  // CAPTCHA (Cloudflare Turnstile) - one global site/secret key pair for the whole deployment
+  // (every org shares one domain via path-based routing, and Turnstile registers keys per-domain,
+  // not per-tenant); each org's own SystemSettings.captchaEnabled toggle just decides whether
+  // that org's users must solve it. Both optional - CAPTCHA simply can't be enabled if unset.
+  TURNSTILE_SITE_KEY: z.string().optional(),
+  TURNSTILE_SECRET_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

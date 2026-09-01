@@ -69,6 +69,11 @@ export default function HelpdeskCategoriesPage() {
     { accessorKey: "name", header: "Name" },
     { accessorKey: "description", header: "Description" },
     {
+      id: "defaultAgent",
+      header: "Default Agent",
+      cell: ({ row }) => row.original.defaultAgent?.name ?? "-",
+    },
+    {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (
@@ -110,7 +115,7 @@ export default function HelpdeskCategoriesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Ticket Categories</h1>
-          <p className="text-sm text-muted-foreground">Group tickets by category for round-robin routing and reporting.</p>
+          <p className="text-sm text-muted-foreground">Group tickets by category, each with its own default agent for auto-assignment.</p>
         </div>
         {canWrite && <HelpdeskCategoryFormDialog onSaved={load} />}
       </div>

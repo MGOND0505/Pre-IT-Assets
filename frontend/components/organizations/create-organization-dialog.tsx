@@ -16,8 +16,10 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { PasswordRequirementsHint } from "@/components/auth/password-requirements-hint"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { ENTITLEMENT_MODULES, MODULE_LABELS, type EntitlementModule } from "@/lib/permissions"
+import { isPasswordValid, BASELINE_POLICY } from "@/lib/password-policy"
 
 function slugify(value: string): string {
   return value
@@ -82,8 +84,8 @@ export function CreateOrganizationDialog({ onCreated }: { onCreated: (slug: stri
       toast.error("Organization name and slug are required")
       return
     }
-    if (!adminName.trim() || !adminEmail.trim() || adminPassword.length < 8) {
-      toast.error("Admin name, email, and an 8+ character password are required")
+    if (!adminName.trim() || !adminEmail.trim() || !isPasswordValid(adminPassword, BASELINE_POLICY)) {
+      toast.error("Admin name, email, and a password meeting the requirements are required")
       return
     }
     setSubmitting(true)
@@ -224,6 +226,7 @@ export function CreateOrganizationDialog({ onCreated }: { onCreated: (slug: stri
                   value={adminPassword}
                   onChange={(e) => setAdminPassword(e.target.value)}
                 />
+                <PasswordRequirementsHint password={adminPassword} policy={BASELINE_POLICY} />
               </div>
             </div>
           </div>

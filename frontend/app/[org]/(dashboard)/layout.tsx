@@ -8,7 +8,6 @@ import { Info } from "lucide-react"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Topbar } from "@/components/layout/topbar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AiAssistant } from "@/components/ai/ai-assistant"
 import { CommandPalette } from "@/components/ai/command-palette"
 import { CursorGlow } from "@/components/ai/cursor-glow"
 import { FullPageLoader } from "@/components/layout/full-page-loader"
@@ -76,7 +75,6 @@ export default function DashboardLayout({ children }: LayoutProps<"/[org]">) {
       </div>
 
       <CommandPalette />
-      <AiAssistant />
       <CursorGlow />
     </div>
   )

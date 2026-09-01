@@ -2,14 +2,25 @@
 
 import * as React from "react"
 import { apiClient, type ApiEnvelope } from "@/lib/api-client"
+import { BASELINE_POLICY, type PasswordPolicy } from "@/lib/password-policy"
 
 export type Branding = {
   teamName: string
   sidebarColor: string
   appBackgroundColor: string
+  passwordPolicy: PasswordPolicy
+  captchaEnabled: boolean
+  captchaSiteKey: string | null
 }
 
-const DEFAULT_BRANDING: Branding = { teamName: "", sidebarColor: "", appBackgroundColor: "" }
+const DEFAULT_BRANDING: Branding = {
+  teamName: "",
+  sidebarColor: "",
+  appBackgroundColor: "",
+  passwordPolicy: BASELINE_POLICY,
+  captchaEnabled: false,
+  captchaSiteKey: null,
+}
 
 type BrandingContextValue = {
   branding: Branding

@@ -67,6 +67,12 @@ helpdeskRouter.patch(
   validate({ params: ticketIdParamsSchema, body: assignTicketSchema }),
   helpdeskController.assignTicket
 );
+helpdeskRouter.get(
+  "/:id/assignment-history",
+  authorize("helpdesk", "view"),
+  validate({ params: ticketIdParamsSchema }),
+  helpdeskController.getAssignmentHistory
+);
 helpdeskRouter.delete(
   "/:id",
   authorize("helpdesk", "delete"),

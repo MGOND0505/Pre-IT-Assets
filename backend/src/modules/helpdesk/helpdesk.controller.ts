@@ -3,20 +3,14 @@ import path from "node:path";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok, fail } from "../../utils/response";
 import { ApiError } from "../../utils/ApiError";
+import { User } from "../../models/User";
 import { TICKET_ATTACHMENTS_DIR } from "../../utils/upload";
 import { logAction } from "../audit/audit.service";
 import * as helpdeskService from "./helpdesk.service";
+import { REOPEN_WINDOW_HOURS } from "./helpdesk.service";
 import * as ticketCommentsService from "./ticketComments.service";
-import { notifyTicketEvent } from "./helpdeskNotifications";
-
-/** Ticket refs (requester/assignedAgent/...) are always populated by helpdesk.service.ts's
- * getTicketById - this pulls the raw id back out regardless, so notification helpers never care
- * whether they were handed a populated doc or a raw ObjectId. */
-function idOf(ref: unknown): string | null {
-  if (!ref) return null;
-  if (typeof ref === "string") return ref;
-  return String((ref as { _id: unknown })._id ?? ref);
-}
+import * as assignmentHistoryService from "./assignmentHistory.service";
+import { notifyTicketEvent, buildAssignmentVars, nameOf, idOf } from "./helpdeskNotifications";
 
 export const listTickets = asyncHandler(async (req: Request, res: Response) => {
   const result = await helpdeskService.listTickets(req.query as never, req.organization!._id, {
@@ -44,9 +38,19 @@ export const createTicket = asyncHandler(async (req: Request, res: Response) => 
     newValue: { subject: ticket.subject, priority: req.body.priority },
   });
 
-  const vars = { ticketId: ticket.ticketId, subject: ticket.subject };
-  await notifyTicketEvent("ticketCreated", idOf(ticket.requester), req.organization!._id, vars);
+  await notifyTicketEvent("ticketCreated", idOf(ticket.requester), req.organization!._id, {
+    ticketId: ticket.ticketId,
+    subject: ticket.subject,
+  });
+
+  // Auto-assigned via the ticket's category defaultAgent (helpdesk.service.ts#resolveAutoAssignee)
+  // - status "Auto-Forwarded" is the signal that it went to the backup agent instead of the
+  // category's own default agent, who must currently be on leave.
   if (ticket.assignedAgent) {
+    const wasAutoForwarded = ticket.status === "Auto-Forwarded";
+    const vars = buildAssignmentVars(ticket, {
+      assignedBy: wasAutoForwarded ? "Auto-forwarded (category default agent on leave)" : "Category default agent",
+    });
     await notifyTicketEvent("ticketAssigned", idOf(ticket.assignedAgent), req.organization!._id, vars);
   }
 
@@ -74,6 +78,12 @@ export const setTicketStatus = asyncHandler(async (req: Request, res: Response) 
   if (before.status === "Closed" && req.body.status === "Reopened" && !req.user!.isAdmin && !req.user!.permissions.helpdesk.reopen) {
     throw new ApiError(403, "You do not have permission to reopen a closed ticket");
   }
+  if (before.status === "Closed" && req.body.status === "Reopened") {
+    const reopenDeadline = before.closedAt ? before.closedAt.getTime() + REOPEN_WINDOW_HOURS * 60 * 60 * 1000 : 0;
+    if (Date.now() > reopenDeadline) {
+      throw new ApiError(400, `This ticket was closed more than ${REOPEN_WINDOW_HOURS} hours ago and can no longer be reopened. Please create a new ticket instead.`);
+    }
+  }
   if (["Closed"].includes(req.body.status) && !req.user!.isAdmin && !req.user!.permissions.helpdesk.close) {
     throw new ApiError(403, "You do not have permission to close this ticket");
   }
@@ -97,33 +107,79 @@ export const setTicketStatus = asyncHandler(async (req: Request, res: Response) 
   ok(res, ticket, "Ticket status updated");
 });
 
+/**
+ * The full "reassign one ticket" side-effect chain (mutate + audit + both notifications) -
+ * shared by the direct PATCH /:id/assign route below AND users.controller.ts#setLeaveStatus's
+ * bulk on-leave handover, so a handed-over ticket gets exactly the same audit trail, Assignment
+ * History entry, and emails as a manually reassigned one. `assignedByLabel` lets a caller other
+ * than "the logged-in user reassigning by hand" (e.g. an admin marking someone on leave) describe
+ * itself in the email/history instead of defaulting to req.user's own name.
+ */
+export async function reassignTicketAndNotify(
+  ticketId: string,
+  newAgentId: string,
+  organizationId: string,
+  req: Request,
+  assignedByLabel?: string
+) {
+  const before = await helpdeskService.getTicketById(ticketId, organizationId);
+  const wasAssigned = Boolean(before.assignedAgent);
+  const previousAgentId = idOf(before.assignedAgent);
+
+  const ticket = await helpdeskService.assignTicket(ticketId, newAgentId, organizationId);
+
+  let actorName = assignedByLabel;
+  if (!actorName) {
+    const actor = await User.findById(req.user!.id).select("name");
+    actorName = actor?.name ?? "Unknown";
+  }
+
+  await logAction({
+    req,
+    action: wasAssigned ? "REASSIGN" : "ASSIGN",
+    module: "Ticket",
+    recordId: ticket.id,
+    recordLabel: ticket.ticketId,
+    oldValue: previousAgentId ? { agentId: previousAgentId, agentName: nameOf(before.assignedAgent) } : null,
+    newValue: { agentId: newAgentId, agentName: nameOf(ticket.assignedAgent) },
+  });
+
+  const vars = buildAssignmentVars(ticket, {
+    assignedBy: actorName,
+    previousAgent: wasAssigned ? nameOf(before.assignedAgent) : undefined,
+  });
+  await notifyTicketEvent(wasAssigned ? "ticketReassigned" : "ticketAssigned", newAgentId, organizationId, vars);
+
+  // The outgoing agent (if any, and if actually different from the new one) is no longer on the
+  // hook for this ticket - they should know it left their queue rather than find out by it
+  // silently disappearing from their list.
+  if (wasAssigned && previousAgentId && previousAgentId !== newAgentId) {
+    await notifyTicketEvent("ticketUnassigned", previousAgentId, organizationId, vars);
+  }
+
+  return ticket;
+}
+
 export const assignTicket = asyncHandler(async (req: Request, res: Response) => {
   const before = await helpdeskService.getTicketById(req.params.id, req.organization!._id);
-
   if (before.assignedAgent && !req.user!.isAdmin && !req.user!.permissions.helpdesk.reassign) {
     throw new ApiError(403, "You do not have permission to reassign this ticket");
   }
 
-  const ticket = await helpdeskService.assignTicket(req.params.id, req.body.agentId, req.organization!._id);
-
-  await logAction({
-    req,
-    action: before.assignedAgent ? "REASSIGN" : "ASSIGN",
-    module: "Ticket",
-    recordId: ticket.id,
-    recordLabel: ticket.ticketId,
-    oldValue: { assignedAgent: before.assignedAgent },
-    newValue: { assignedAgent: req.body.agentId },
-  });
-
-  await notifyTicketEvent(
-    before.assignedAgent ? "ticketReassigned" : "ticketAssigned",
-    req.body.agentId,
-    req.organization!._id,
-    { ticketId: ticket.ticketId, subject: ticket.subject }
-  );
-
+  const ticket = await reassignTicketAndNotify(req.params.id, req.body.agentId, req.organization!._id, req);
   ok(res, ticket, "Ticket assigned");
+});
+
+export const getAssignmentHistory = asyncHandler(async (req: Request, res: Response) => {
+  await helpdeskService.getTicketById(req.params.id, req.organization!._id); // 404s + org-scopes
+
+  const canViewHistory = req.user!.isAdmin || req.user!.permissions.helpdesk.assign || req.user!.permissions.helpdesk.update;
+  if (!canViewHistory) {
+    throw new ApiError(403, "You do not have permission to view this ticket's assignment history");
+  }
+
+  const history = await assignmentHistoryService.listTicketAssignmentHistory(req.params.id, req.organization!._id);
+  ok(res, history, "Assignment history");
 });
 
 export const deleteTicket = asyncHandler(async (req: Request, res: Response) => {

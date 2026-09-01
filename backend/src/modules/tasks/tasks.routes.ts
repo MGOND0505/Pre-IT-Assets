@@ -41,9 +41,13 @@ tasksRouter.put(
   validate({ params: taskIdParamsSchema, body: updateTaskSchema }),
   tasksController.updateTask
 );
+// Deliberately gated on "view" here, not "update" - an assignee without the broader tasks:update
+// grant must still be able to mark their OWN task's status (see tasksController.setTaskStatus's
+// own isAdmin || tasks.update || "I'm the assignee" check). Anyone without even "view" never gets
+// this far regardless.
 tasksRouter.patch(
   "/:id/status",
-  authorize("tasks", "update"),
+  authorize("tasks", "view"),
   validate({ params: taskIdParamsSchema, body: setTaskStatusSchema }),
   tasksController.setTaskStatus
 );

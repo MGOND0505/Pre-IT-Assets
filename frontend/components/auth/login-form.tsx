@@ -12,8 +12,10 @@ import { Button } from "@/components/ui/button"
 import { MagneticButton } from "@/components/ui/magnetic-button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { apiClient, apiErrorMessage } from "@/lib/api-client"
+import { TurnstileWidget } from "@/components/auth/turnstile-widget"
+import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
+import { useBranding } from "@/lib/branding-context"
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid email address"),
@@ -26,6 +28,23 @@ export function LoginForm({ orgSlug }: { orgSlug?: string } = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { refresh } = useAuth()
+  const { branding } = useBranding()
+  // Org-scoped login (orgAdmin/teamMember) follows that org's own captchaEnabled toggle. The
+  // flat login (superAdmin/subSuperAdmin - no org to hold a toggle) has no per-org home for this,
+  // so it requires CAPTCHA unconditionally whenever the server has it configured at all - fetched
+  // from a small flat, unauthenticated endpoint since /public/branding is itself org-scoped.
+  const [flatCaptchaSiteKey, setFlatCaptchaSiteKey] = React.useState<string | null>(null)
+  React.useEffect(() => {
+    if (orgSlug) return
+    apiClient
+      .get<ApiEnvelope<{ captchaSiteKey: string | null }>>("/public/captcha-config")
+      .then((res) => setFlatCaptchaSiteKey(res.data.data.captchaSiteKey))
+      .catch(() => setFlatCaptchaSiteKey(null))
+  }, [orgSlug])
+
+  const captchaSiteKey = orgSlug ? (branding.captchaEnabled ? branding.captchaSiteKey : null) : flatCaptchaSiteKey
+  const captchaRequired = Boolean(captchaSiteKey)
+  const [captchaToken, setCaptchaToken] = React.useState<string | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
 
   const {
@@ -37,8 +56,17 @@ export function LoginForm({ orgSlug }: { orgSlug?: string } = {}) {
   async function onSubmit(values: LoginValues) {
     setSubmitting(true)
     try {
-      await apiClient.post("/auth/login", { ...values, orgSlug })
+      const res = await apiClient.post<ApiEnvelope<{ passwordExpiryWarning: { daysRemaining: number } | null }>>(
+        "/auth/login",
+        { ...values, orgSlug, captchaToken: captchaToken ?? undefined }
+      )
       await refresh()
+      const warning = res.data.data.passwordExpiryWarning
+      if (warning) {
+        toast.warning(
+          `Your password expires in ${warning.daysRemaining} day${warning.daysRemaining === 1 ? "" : "s"} - change it soon.`
+        )
+      }
       const redirectTo = searchParams.get("from") ?? (orgSlug ? `/${orgSlug}` : "/")
       router.replace(redirectTo)
     } catch (err) {
@@ -68,8 +96,9 @@ export function LoginForm({ orgSlug }: { orgSlug?: string } = {}) {
         <Input id="password" type="password" {...register("password")} />
         {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
       </div>
+      {captchaRequired && <TurnstileWidget siteKey={captchaSiteKey!} onToken={setCaptchaToken} />}
       <MagneticButton className="w-full">
-        <Button type="submit" className="w-full" disabled={submitting}>
+        <Button type="submit" className="w-full" disabled={submitting || (captchaRequired && !captchaToken)}>
           {submitting ? "Signing in..." : "Sign in"}
         </Button>
       </MagneticButton>

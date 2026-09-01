@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { authorize, requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
+import { uploadSpreadsheet } from "../../utils/upload";
 import * as usersController from "./users.controller";
+import { previewUserImport, confirmUserImport, downloadUserTemplate } from "./users.import";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
 import { User } from "../../models/User";
@@ -9,6 +11,7 @@ import {
   adminResetPasswordSchema,
   createUserSchema,
   listUsersQuerySchema,
+  setLeaveStatusSchema,
   updateUserPermissionsSchema,
   updateUserSchema,
   userIdParamsSchema,
@@ -49,6 +52,16 @@ usersRouter.get(
 // brand-new Admin account in one call - a privilege-escalation vector, not a scope decision.
 usersRouter.post("/", requireAdmin, validate({ body: createUserSchema }), usersController.createUser);
 
+// Bulk import is creation-at-scale, so it gets the exact same Admin-only treatment as the single
+// POST / above, rather than a new `users:import` permission action - a granular import permission
+// would reopen the same privilege-escalation door that comment explains, just via a spreadsheet
+// instead of a single request body. Mounted ahead of the generic "/:id" routes below, same
+// ordering assets.routes.ts uses for its own "/import/*" routes, so Express never mistakes
+// "import" for an :id value.
+usersRouter.post("/import/preview", requireAdmin, uploadSpreadsheet.single("file"), previewUserImport);
+usersRouter.post("/import/confirm", requireAdmin, confirmUserImport);
+usersRouter.get("/import/template", requireAdmin, downloadUserTemplate);
+
 usersRouter.get(
   "/deleted",
   requireAdmin,
@@ -87,6 +100,12 @@ usersRouter.patch(
   requireAdmin,
   validate({ params: userIdParamsSchema }),
   usersController.deactivateUser
+);
+usersRouter.patch(
+  "/:id/leave",
+  requireAdmin,
+  validate({ params: userIdParamsSchema, body: setLeaveStatusSchema }),
+  usersController.setLeaveStatus
 );
 usersRouter.patch(
   "/:id/reset-password",

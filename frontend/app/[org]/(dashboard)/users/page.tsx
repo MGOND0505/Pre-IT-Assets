@@ -21,6 +21,7 @@ import { UserFormDialog } from "@/components/users/user-form-dialog"
 import { UserStatusBadge } from "@/components/users/user-status-badge"
 import { AdminResetPasswordDialog } from "@/components/users/admin-reset-password-dialog"
 import { EditPermissionsDialog } from "@/components/users/edit-permissions-dialog"
+import { LeaveStatusDialog } from "@/components/users/leave-status-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can, PERMISSION_MODULES, type PermissionsShape } from "@/lib/permissions"
@@ -34,6 +35,8 @@ type User = {
   isAdmin: boolean
   permissions: PermissionsShape
   status: "Active" | "Inactive"
+  isOnLeave: boolean
+  backupAgent: string | null
   createdDate: string
 }
 
@@ -67,6 +70,8 @@ export default function UsersPage() {
   const [pendingDelete, setPendingDelete] = React.useState<User | null>(null)
   const [resetPasswordUser, setResetPasswordUser] = React.useState<User | null>(null)
   const [editPermissionsUser, setEditPermissionsUser] = React.useState<User | null>(null)
+  const [leaveStatusUser, setLeaveStatusUser] = React.useState<User | null>(null)
+  const [pendingReturnFromLeave, setPendingReturnFromLeave] = React.useState<User | null>(null)
 
   const canView = can(currentUser, "users", "view")
   const canDelete = can(currentUser, "users", "delete")
@@ -104,6 +109,18 @@ export default function UsersPage() {
       toast.error(apiErrorMessage(err, "Could not update user status"))
     } finally {
       setPendingStatusChange(null)
+    }
+  }
+
+  async function handleReturnFromLeave(targetUser: User) {
+    try {
+      await apiClient.patch(`/users/${targetUser._id}/leave`, { isOnLeave: false })
+      toast.success(`${targetUser.email} marked back from leave`)
+      load()
+    } catch (err) {
+      toast.error(apiErrorMessage(err, "Could not update leave status"))
+    } finally {
+      setPendingReturnFromLeave(null)
     }
   }
 
@@ -159,7 +176,12 @@ export default function UsersPage() {
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => <UserStatusBadge status={row.original.status} />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1.5">
+          <UserStatusBadge status={row.original.status} />
+          {row.original.isOnLeave && <Badge variant="warning">On Leave</Badge>}
+        </div>
+      ),
     },
     {
       id: "actions",
@@ -186,6 +208,13 @@ export default function UsersPage() {
                 >
                   {row.original.status === "Active" ? "Deactivate" : "Activate"}
                 </DropdownMenuItem>
+                {row.original.isOnLeave ? (
+                  <DropdownMenuItem onClick={() => setPendingReturnFromLeave(row.original)}>
+                    Mark back from leave
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={() => setLeaveStatusUser(row.original)}>Mark on leave</DropdownMenuItem>
+                )}
               </>
             )}
             {canDelete && (
@@ -270,6 +299,28 @@ export default function UsersPage() {
           currentIsAdmin={editPermissionsUser.isAdmin}
           currentPermissions={editPermissionsUser.permissions}
           onSaved={load}
+        />
+      )}
+
+      {leaveStatusUser && (
+        <LeaveStatusDialog
+          open
+          onOpenChange={(open) => !open && setLeaveStatusUser(null)}
+          userId={leaveStatusUser._id}
+          userName={leaveStatusUser.name}
+          currentBackupAgentId={leaveStatusUser.backupAgent}
+          onSaved={load}
+        />
+      )}
+
+      {pendingReturnFromLeave && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => !open && setPendingReturnFromLeave(null)}
+          title={`Mark ${pendingReturnFromLeave.email} back from leave?`}
+          description="They'll become eligible for new ticket auto-assignment again. Tickets already handed to their backup agent will NOT move back automatically."
+          confirmLabel="Mark back"
+          onConfirm={() => handleReturnFromLeave(pendingReturnFromLeave)}
         />
       )}
     </div>

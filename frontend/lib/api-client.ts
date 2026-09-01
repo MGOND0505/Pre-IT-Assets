@@ -51,6 +51,14 @@ apiClient.interceptors.response.use(
           const orgSlug = getOrgSlugFromPathname(window.location.pathname)
           window.location.href = orgSlug ? `/${orgSlug}/login` : "/login"
         }
+      } else if (error.response?.status === 428) {
+        // A password change is required (admin-forced reset, or the org's expiry policy) -
+        // authenticate.ts blocks everything except this page, /auth/me, and logout.
+        const isChangePasswordRoute = window.location.pathname.includes("/profile/change-password")
+        if (!isChangePasswordRoute) {
+          const orgSlug = getOrgSlugFromPathname(window.location.pathname)
+          window.location.href = orgSlug ? `/${orgSlug}/profile/change-password` : "/profile/change-password"
+        }
       }
     }
     return Promise.reject(error)

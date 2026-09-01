@@ -83,7 +83,6 @@ const MODULES: ModuleConfig[] = [
     apiBase: "/helpdesk-priorities",
     getLabel: (i) => String(i.name ?? "-"),
   },
-  { key: "support-teams", label: "Support Teams", apiBase: "/support-teams", getLabel: (i) => String(i.name ?? "-") },
 ]
 
 export default function RecycleBinPage() {

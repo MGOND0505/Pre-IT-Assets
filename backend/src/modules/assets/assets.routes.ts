@@ -123,7 +123,11 @@ assetsRouter.get(
   authorize("assets", "view"),
   validate({ params: assetIdParamsSchema }),
   asyncHandler(async (req, res) => {
-    await assetsService.getAssetById(req.params.id, req.organization!._id);
+    await assetsService.getAssetByIdForRequester(req.params.id, req.organization!._id, {
+      id: req.user!.id,
+      isAdmin: req.user!.isAdmin,
+      permissions: req.user!.permissions,
+    });
     const history = await listAssetHistory(req.params.id);
     ok(res, history, "Asset history");
   })

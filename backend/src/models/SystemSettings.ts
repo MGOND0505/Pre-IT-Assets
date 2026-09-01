@@ -38,6 +38,14 @@ export interface ISystemSettings {
   googleServiceAccountEmail: string;
   googleServiceAccountPrivateKey: string;
   googleSenderEmail: string;
+  passwordMinLength: number;
+  passwordRequireUppercase: boolean;
+  passwordRequireNumber: boolean;
+  passwordRequireSpecialChar: boolean;
+  passwordHistoryLimit: number;
+  passwordExpiryDays: number;
+  passwordExpiryWarningDays: number;
+  captchaEnabled: boolean;
 }
 
 const systemSettingsSchema = new Schema<ISystemSettings>(
@@ -77,6 +85,14 @@ const systemSettingsSchema = new Schema<ISystemSettings>(
     googleServiceAccountEmail: { type: String, default: "", trim: true },
     googleServiceAccountPrivateKey: { type: String, default: "" },
     googleSenderEmail: { type: String, default: "", trim: true },
+    passwordMinLength: { type: Number, default: 8, min: 8, max: 64 },
+    passwordRequireUppercase: { type: Boolean, default: true },
+    passwordRequireNumber: { type: Boolean, default: true },
+    passwordRequireSpecialChar: { type: Boolean, default: true },
+    passwordHistoryLimit: { type: Number, default: 2, min: 0, max: 10 },
+    passwordExpiryDays: { type: Number, default: 0, min: 0, max: 180 },
+    passwordExpiryWarningDays: { type: Number, default: 14, min: 0, max: 180 },
+    captchaEnabled: { type: Boolean, default: false },
   },
   { timestamps: { createdAt: "createdDate", updatedAt: "updatedDate" } }
 );

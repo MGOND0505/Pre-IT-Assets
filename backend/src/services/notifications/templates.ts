@@ -37,11 +37,25 @@ export const DEFAULT_TEMPLATES: Record<NotificationTemplateKey, { subject: strin
   },
   ticketAssigned: {
     subject: "Ticket {{ticketId}} assigned to you",
-    bodyHtml: "<p>Ticket <b>{{ticketId}}</b> - {{subject}} has been assigned to you.</p>",
+    bodyHtml:
+      "<p>Ticket <b>{{ticketId}}</b> - {{subject}} has been assigned to you.</p>" +
+      "<ul><li>Priority: {{priority}}</li><li>Category: {{category}}</li>" +
+      "<li>Requester: {{requester}} ({{requesterEmail}})</li>" +
+      "<li>Assigned by: {{assignedBy}}</li></ul>",
   },
   ticketReassigned: {
     subject: "Ticket {{ticketId}} reassigned",
-    bodyHtml: "<p>Ticket <b>{{ticketId}}</b> - {{subject}} has been reassigned to you.</p>",
+    bodyHtml:
+      "<p>Ticket <b>{{ticketId}}</b> - {{subject}} has been reassigned to you.</p>" +
+      "<ul><li>Priority: {{priority}}</li><li>Category: {{category}}</li>" +
+      "<li>Requester: {{requester}} ({{requesterEmail}})</li>" +
+      "<li>Previously assigned to: {{previousAgent}}</li><li>Reassigned by: {{assignedBy}}</li></ul>",
+  },
+  ticketUnassigned: {
+    subject: "Ticket {{ticketId}} was reassigned away from you",
+    bodyHtml:
+      "<p>Ticket <b>{{ticketId}}</b> - {{subject}} has been reassigned to {{assignedAgent}} and is no longer in your queue.</p>" +
+      "<ul><li>Reassigned by: {{assignedBy}}</li></ul>",
   },
   ticketStatusChanged: {
     subject: "Ticket {{ticketId}} status changed to {{status}}",
@@ -57,7 +71,10 @@ export const DEFAULT_TEMPLATES: Record<NotificationTemplateKey, { subject: strin
   },
   ticketEscalated: {
     subject: "Ticket {{ticketId}} escalated to {{tier}}",
-    bodyHtml: "<p>Ticket <b>{{ticketId}}</b> - {{subject}} breached its SLA and has been escalated to {{tier}}.</p>",
+    bodyHtml:
+      "<p>Ticket <b>{{ticketId}}</b> - {{subject}} breached its SLA and has been escalated to {{tier}}.</p>" +
+      "<ul><li>Priority: {{priority}}</li><li>Category: {{category}}</li>" +
+      "<li>Requester: {{requester}} ({{requesterEmail}})</li></ul>",
   },
   ticketResolved: {
     subject: "Ticket {{ticketId}} resolved",

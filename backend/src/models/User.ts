@@ -1,5 +1,5 @@
 import { Schema, model, type HydratedDocument, type Types } from "mongoose";
-import { emptyPermissions, PERMISSION_MODULES, type PermissionsShape } from "../config/permissions";
+import { emptyPermissions, PERMISSION_MODULES, PERMISSION_ACTIONS, type PermissionsShape } from "../config/permissions";
 
 export type UserRole = "superAdmin" | "subSuperAdmin" | "orgAdmin" | "teamMember";
 
@@ -33,10 +33,19 @@ export interface IUser {
   designation?: string;
   phone?: string;
   status: "Active" | "Inactive";
+  // Helpdesk assignment availability - independent of `status`, which is about account access,
+  // not workload. While true, helpdesk.service.ts#assignTicket treats this agent as unavailable
+  // for new ticket assignment.
+  isOnLeave: boolean;
+  backupAgent: Types.ObjectId | null;
   mustChangePassword: boolean;
   tokenVersion: number;
   passwordResetTokenHash?: string;
   passwordResetExpires?: Date;
+  // Most-recent-first bcrypt hashes of past passwords, trimmed to the org's (or the baseline's)
+  // configured historyLimit at write time - see utils/passwordPolicy.ts.
+  passwordHistory: string[];
+  passwordChangedAt: Date | null;
   failedLoginAttempts: number;
   lockedUntil: Date | null;
   lastLoginAt: Date | null;
@@ -48,14 +57,15 @@ export interface IUser {
 
 export type UserDoc = HydratedDocument<IUser>;
 
-const modulePermissionSchema = {
-  view: { type: Boolean, default: false },
-  create: { type: Boolean, default: false },
-  update: { type: Boolean, default: false },
-  delete: { type: Boolean, default: false },
-  import: { type: Boolean, default: false },
-  export: { type: Boolean, default: false },
-};
+// Derived from PERMISSION_ACTIONS (config/permissions.ts) rather than hardcoded, so this can
+// never again silently drift out of sync with PermissionsShape's own field list - it previously
+// only declared the 6 core actions, meaning Mongoose quietly stripped every module-specific one
+// (assign, reassign, close, reopen, comment, internalNote, manageAttachments, editAssetId) on
+// every save. A field mattering only for certain modules (see MODULE_ACTIONS) still always exists
+// here for every module - harmless, since it's simply never read/set for a module that ignores it.
+const modulePermissionSchema = Object.fromEntries(
+  PERMISSION_ACTIONS.map((action) => [action, { type: Boolean, default: false }])
+);
 
 export const permissionsSchemaDefinition = Object.fromEntries(
   PERMISSION_MODULES.map((moduleKey) => [moduleKey, modulePermissionSchema])
@@ -98,10 +108,14 @@ const userSchema = new Schema<IUser>(
     designation: { type: String, trim: true },
     phone: { type: String, trim: true },
     status: { type: String, enum: ["Active", "Inactive"], default: "Active", index: true },
+    isOnLeave: { type: Boolean, default: false },
+    backupAgent: { type: Schema.Types.ObjectId, ref: "User", default: null },
     mustChangePassword: { type: Boolean, default: true },
     tokenVersion: { type: Number, default: 0 },
     passwordResetTokenHash: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
+    passwordHistory: { type: [String], default: [], select: false },
+    passwordChangedAt: { type: Date, default: null },
     failedLoginAttempts: { type: Number, default: 0 },
     lockedUntil: { type: Date, default: null },
     lastLoginAt: { type: Date, default: null },
@@ -118,6 +132,7 @@ const userSchema = new Schema<IUser>(
         delete (ret as Record<string, unknown>).passwordHash;
         delete (ret as Record<string, unknown>).passwordResetTokenHash;
         delete (ret as Record<string, unknown>).passwordResetExpires;
+        delete (ret as Record<string, unknown>).passwordHistory;
         return ret;
       },
     },

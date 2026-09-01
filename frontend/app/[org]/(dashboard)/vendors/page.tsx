@@ -7,6 +7,8 @@ import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +30,8 @@ export default function VendorsPage() {
   const [data, setData] = React.useState<Paginated | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [page, setPage] = React.useState(1)
+  const [search, setSearch] = React.useState("")
+  const [status, setStatus] = React.useState<"Active" | "Inactive" | "">("")
   const [editing, setEditing] = React.useState<Vendor | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<Vendor | null>(null)
 
@@ -39,14 +43,16 @@ export default function VendorsPage() {
   const load = React.useCallback(async () => {
     setLoading(true)
     try {
-      const res = await apiClient.get<ApiEnvelope<Paginated>>("/vendors", { params: { page, limit: 10 } })
+      const res = await apiClient.get<ApiEnvelope<Paginated>>("/vendors", {
+        params: { page, limit: 10, search: search || undefined, status: status || undefined },
+      })
       setData(res.data.data)
     } catch (err) {
       toast.error(apiErrorMessage(err, "Could not load vendors"))
     } finally {
       setLoading(false)
     }
-  }, [page])
+  }, [page, search, status])
 
   React.useEffect(() => {
     if (canView) load()
@@ -149,6 +155,34 @@ export default function VendorsPage() {
           <p className="text-sm text-muted-foreground">Manage the vendors used across the system.</p>
         </div>
         {canCreate && <VendorFormDialog onSaved={load} />}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Input
+          placeholder="Search by name, contact, or email..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
+          className="max-w-xs"
+        />
+        <Select
+          value={status || "all"}
+          onValueChange={(v) => {
+            setStatus(v === "all" ? "" : (v as "Active" | "Inactive"))
+            setPage(1)
+          }}
+        >
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="Active">Active</SelectItem>
+            <SelectItem value="Inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <DataTable columns={columns} data={data?.items ?? []} isLoading={loading} emptyMessage="No vendors yet." />

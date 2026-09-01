@@ -4,6 +4,10 @@ import { ok } from "../../utils/response";
 import { logAction } from "../audit/audit.service";
 import * as usersService from "./users.service";
 import { listLoginHistoryForUser } from "./loginHistory.service";
+import { Ticket } from "../../models/Ticket";
+import { User } from "../../models/User";
+import { TERMINAL_STATUSES, setTicketStatus } from "../helpdesk/helpdesk.service";
+import { reassignTicketAndNotify } from "../helpdesk/helpdesk.controller";
 
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
   const user = await usersService.createUser({ ...req.body, createdBy: req.user!.id }, req.organization!._id);
@@ -84,6 +88,57 @@ export const deactivateUser = asyncHandler(async (req: Request, res: Response) =
   await logAction({ req, action: "DEACTIVATE", module: "User", recordId: user.id, recordLabel: user.email });
 
   ok(res, user, "User deactivated");
+});
+
+export const setLeaveStatus = asyncHandler(async (req: Request, res: Response) => {
+  const organizationId = req.organization!._id;
+  const target = await usersService.getUserById(req.params.id, organizationId);
+
+  const user = await usersService.setLeaveStatus(req.params.id, req.body, organizationId);
+
+  await logAction({
+    req,
+    action: user.isOnLeave ? "MARK_ON_LEAVE" : "MARK_BACK_FROM_LEAVE",
+    module: "User",
+    recordId: user.id,
+    recordLabel: user.email,
+    newValue: user.isOnLeave ? { backupAgentId: String(user.backupAgent) } : null,
+  });
+
+  let reassignedTicketCount = 0;
+  if (user.isOnLeave && user.backupAgent) {
+    const admin = await User.findById(req.user!.id).select("name");
+    const assignedByLabel = `${admin?.name ?? "Admin"} (${target.name} is on leave)`;
+
+    const openTickets = await Ticket.find({
+      organization: organizationId,
+      assignedAgent: req.params.id,
+      isDeleted: false,
+      status: { $nin: TERMINAL_STATUSES },
+    }).select("_id");
+
+    for (const t of openTickets) {
+      const reassigned = await reassignTicketAndNotify(String(t._id), String(user.backupAgent), organizationId, req, assignedByLabel);
+
+      if (reassigned.status !== "Auto-Forwarded") {
+        const previousStatus = reassigned.status;
+        await setTicketStatus(String(t._id), "Auto-Forwarded", undefined, organizationId);
+        await logAction({
+          req,
+          action: "STATUS_CHANGE",
+          module: "Ticket",
+          recordId: String(t._id),
+          recordLabel: reassigned.ticketId,
+          oldValue: { status: previousStatus },
+          newValue: { status: "Auto-Forwarded" },
+        });
+      }
+
+      reassignedTicketCount += 1;
+    }
+  }
+
+  ok(res, { user, reassignedTicketCount }, "Leave status updated");
 });
 
 export const adminResetPassword = asyncHandler(async (req: Request, res: Response) => {

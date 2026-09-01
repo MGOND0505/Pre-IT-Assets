@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { TicketStatusBadge, TICKET_STATUSES, type TicketStatus } from "@/components/helpdesk/ticket-status-badge"
+import { TicketAssignmentHistory } from "@/components/helpdesk/ticket-assignment-history"
 import { TaskList } from "@/components/tasks/task-list"
 import { apiClient, apiErrorMessage, orgScopedApiUrl, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
@@ -31,7 +32,6 @@ type Ticket = {
   department: { _id: string; name: string } | null
   location: { _id: string; name: string } | null
   assignedAgent: { _id: string; name: string; email: string } | null
-  assignedTeam: { _id: string; name: string; tier: string } | null
   tier: "L1" | "L2" | "L3"
   status: TicketStatus
   resolution: string
@@ -68,6 +68,7 @@ export default function TicketDetailPage() {
   const [isInternal, setIsInternal] = React.useState(false)
   const [files, setFiles] = React.useState<FileList | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
+  const [historyRefreshKey, setHistoryRefreshKey] = React.useState(0)
 
   const canUpdate = can(user, "helpdesk", "update")
   const canAssign = can(user, "helpdesk", "assign")
@@ -125,6 +126,7 @@ export default function TicketDetailPage() {
       await apiClient.patch(`/helpdesk/${params.id}/assign`, { agentId: assigneeId })
       toast.success("Ticket assigned")
       load()
+      setHistoryRefreshKey((k) => k + 1)
     } catch (err) {
       toast.error(apiErrorMessage(err, "Could not assign ticket"))
     }
@@ -205,6 +207,8 @@ export default function TicketDetailPage() {
           </Card>
 
           <TaskList ticketId={ticket._id} />
+
+          <TicketAssignmentHistory key={historyRefreshKey} ticketId={ticket._id} />
 
           <div className="flex flex-col gap-3">
             <h2 className="text-sm font-semibold text-muted-foreground">Comments &amp; Activity</h2>

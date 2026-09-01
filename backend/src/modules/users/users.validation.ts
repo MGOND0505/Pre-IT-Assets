@@ -1,14 +1,9 @@
 import { z } from "zod";
-import { PERMISSION_MODULES } from "../../config/permissions";
+import { PERMISSION_ACTIONS, PERMISSION_MODULES } from "../../config/permissions";
 
-const modulePermissionsSchema = z.object({
-  view: z.boolean().optional().default(false),
-  create: z.boolean().optional().default(false),
-  update: z.boolean().optional().default(false),
-  delete: z.boolean().optional().default(false),
-  import: z.boolean().optional().default(false),
-  export: z.boolean().optional().default(false),
-});
+const modulePermissionsSchema = z.object(
+  Object.fromEntries(PERMISSION_ACTIONS.map((action) => [action, z.boolean().optional().default(false)]))
+);
 
 export const permissionsSchema = z.object(
   Object.fromEntries(PERMISSION_MODULES.map((moduleKey) => [moduleKey, modulePermissionsSchema.optional()]))
@@ -43,6 +38,11 @@ export const updateUserPermissionsSchema = z.object({
 
 export const adminResetPasswordSchema = z.object({
   newPassword: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+export const setLeaveStatusSchema = z.object({
+  isOnLeave: z.boolean(),
+  backupAgentId: z.string().min(1).optional(),
 });
 
 export const listUsersQuerySchema = z.object({

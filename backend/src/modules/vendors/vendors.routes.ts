@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { authorize, requireAdmin } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
+import { uploadSpreadsheet } from "../../utils/upload";
 import * as vendorsController from "./vendors.controller";
+import { previewVendorImport, confirmVendorImport, downloadVendorTemplate } from "./vendors.import";
 import {
   createVendorSchema,
   listVendorsQuerySchema,
@@ -10,6 +12,12 @@ import {
 } from "./vendors.validation";
 
 export const vendorsRouter = Router();
+
+// Mounted ahead of the generic "/:id" routes below, same ordering assets.routes.ts uses for its
+// own "/import/*" routes, so Express never mistakes "import" for an :id value.
+vendorsRouter.post("/import/preview", authorize("vendors", "import"), uploadSpreadsheet.single("file"), previewVendorImport);
+vendorsRouter.post("/import/confirm", authorize("vendors", "import"), confirmVendorImport);
+vendorsRouter.get("/import/template", authorize("vendors", "import"), downloadVendorTemplate);
 
 vendorsRouter.get(
   "/deleted",

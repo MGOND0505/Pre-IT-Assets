@@ -11,6 +11,9 @@
     "migrate:organizations": "tsx src/scripts/migrateToOrganizations.ts",
     "seed:superadmin": "tsx src/scripts/seedSuperAdmin.ts",
     "setup:reporting-views": "tsx src/scripts/setupReportingViews.ts",
+    "reseed:ticket-notification-templates": "tsx src/scripts/reseedTicketNotificationTemplates.ts",
+    "migrate:enable-ai-assistant": "tsx src/scripts/enableAiAssistantForExistingOrgs.ts",
+    "migrate:backfill-password-changed-at": "tsx src/scripts/backfillPasswordChangedAt.ts",
     "lint": "eslint src --ext .ts",
     "test": "vitest run"
   },

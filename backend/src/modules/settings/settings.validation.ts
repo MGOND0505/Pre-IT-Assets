@@ -47,6 +47,14 @@ export const updateSettingsSchema = z.object({
   googleServiceAccountEmail: z.string().trim().email().optional().or(z.literal("")),
   googleServiceAccountPrivateKey: z.string().max(10000).optional(),
   googleSenderEmail: z.string().trim().email().optional().or(z.literal("")),
+  passwordMinLength: z.coerce.number().int().min(8).max(64).optional(),
+  passwordRequireUppercase: z.boolean().optional(),
+  passwordRequireNumber: z.boolean().optional(),
+  passwordRequireSpecialChar: z.boolean().optional(),
+  passwordHistoryLimit: z.coerce.number().int().min(0).max(10).optional(),
+  passwordExpiryDays: z.coerce.number().int().min(0).max(180).optional(),
+  passwordExpiryWarningDays: z.coerce.number().int().min(0).max(180).optional(),
+  captchaEnabled: z.boolean().optional(),
 });
 
 export const updateTemplateSchema = z.object({

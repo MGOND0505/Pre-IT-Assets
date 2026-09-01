@@ -1,24 +1,11 @@
 import type { Request, Response } from "express";
-import { env } from "../../config/env";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
-import { parseDurationMs } from "../../utils/duration";
 import { User } from "../../models/User";
 import * as authService from "./auth.service";
-
-function setAuthCookie(res: Response, token: string) {
-  res.cookie(env.JWT_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: env.COOKIE_SECURE,
-    sameSite: "lax",
-    path: "/",
-    maxAge: parseDurationMs(env.JWT_EXPIRES_IN),
-  });
-}
-
-function clearAuthCookie(res: Response) {
-  res.clearCookie(env.JWT_COOKIE_NAME, { path: "/" });
-}
+import { getPasswordPolicy } from "../settings/settings.service";
+import { BASELINE_POLICY } from "../../utils/passwordPolicy";
+import { setAuthCookie, clearAuthCookie } from "../../utils/authCookie";
 
 async function serializeCurrentUser(userId: string) {
   const user = await User.findById(userId)
@@ -26,16 +13,22 @@ async function serializeCurrentUser(userId: string) {
     .populate("department", "name")
     .populate("location", "name");
   if (!user) return null;
-  return user.toJSON();
+
+  // user.organization is now a POPULATED document, not the raw ObjectId - Document#populated()
+  // returns the original id regardless, avoiding the classic "String(populatedDoc)" bug.
+  const organizationId = user.populated("organization") as string | undefined;
+  const passwordPolicy = organizationId ? await getPasswordPolicy(organizationId) : BASELINE_POLICY;
+
+  return { ...user.toJSON(), passwordPolicy };
 }
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
-  const { email, password, orgSlug } = req.body;
-  const { token, user } = await authService.login(req, email, password, orgSlug);
+  const { email, password, orgSlug, captchaToken } = req.body;
+  const { token, user, passwordExpiryWarning } = await authService.login(req, email, password, orgSlug, captchaToken);
 
   setAuthCookie(res, token);
   const profile = await serializeCurrentUser(user.id);
-  ok(res, profile, "Logged in");
+  ok(res, { ...profile, passwordExpiryWarning }, "Logged in");
 });
 
 export const logout = asyncHandler(async (req: Request, res: Response) => {
@@ -56,12 +49,12 @@ export const me = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
-  await authService.forgotPassword(req.body.email, req.body.orgSlug);
+  await authService.forgotPassword(req.body.email, req.body.orgSlug, req.body.captchaToken, req.ip);
   ok(res, null, "If that email exists, a reset link has been sent");
 });
 
 export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
-  await authService.resetPassword(req.params.token, req.body.newPassword);
+  await authService.resetPassword(req.params.token, req.body.newPassword, req.body.captchaToken, req.ip);
   ok(res, null, "Password has been reset, please log in");
 });
 

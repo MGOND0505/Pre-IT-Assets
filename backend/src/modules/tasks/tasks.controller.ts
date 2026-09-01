@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
+import { ApiError } from "../../utils/ApiError";
 import { logAction } from "../audit/audit.service";
 import * as tasksService from "./tasks.service";
 import { notifyTaskEvent } from "./taskNotifications";
@@ -67,6 +68,12 @@ export const updateTask = asyncHandler(async (req: Request, res: Response) => {
 
 export const setTaskStatus = asyncHandler(async (req: Request, res: Response) => {
   const before = await tasksService.getTaskById(req.params.id, req.organization!._id);
+
+  const isOwnTask = idOf(before.assignedTo) === req.user!.id;
+  if (!req.user!.isAdmin && !req.user!.permissions.tasks.update && !isOwnTask) {
+    throw new ApiError(403, "You do not have permission to update this task");
+  }
+
   const task = await tasksService.setTaskStatus(req.params.id, req.body.status, req.organization!._id);
 
   await logAction({

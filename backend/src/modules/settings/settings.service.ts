@@ -1,4 +1,7 @@
 import { SystemSettings, type ISystemSettings } from "../../models/SystemSettings";
+import { BASELINE_POLICY, type PasswordPolicy } from "../../utils/passwordPolicy";
+import { env } from "../../config/env";
+import { ApiError } from "../../utils/ApiError";
 
 /** Defaults for fields added after the singleton was first created - schema defaults only
  * apply to brand-new documents, not ones already persisted without the field. */
@@ -33,6 +36,14 @@ const BACKFILL_DEFAULTS: Partial<ISystemSettings> = {
   googleServiceAccountEmail: "",
   googleServiceAccountPrivateKey: "",
   googleSenderEmail: "",
+  passwordMinLength: BASELINE_POLICY.minLength,
+  passwordRequireUppercase: BASELINE_POLICY.requireUppercase,
+  passwordRequireNumber: BASELINE_POLICY.requireNumber,
+  passwordRequireSpecialChar: BASELINE_POLICY.requireSpecialChar,
+  passwordHistoryLimit: BASELINE_POLICY.historyLimit,
+  passwordExpiryDays: 0,
+  passwordExpiryWarningDays: 14,
+  captchaEnabled: false,
 };
 
 /** One settings document per organization, created lazily on first access. */
@@ -86,10 +97,25 @@ export async function claimNextTaskSequence(organizationId: string): Promise<{ p
 }
 
 export async function updateSettings(organizationId: string, input: Partial<ISystemSettings>) {
+  if (input.captchaEnabled && !env.TURNSTILE_SECRET_KEY) {
+    throw new ApiError(400, "Configure TURNSTILE_SITE_KEY/TURNSTILE_SECRET_KEY on the server first.");
+  }
+
   const settings = await getSettings(organizationId);
   Object.assign(settings, input);
   await settings.save();
   return settings;
+}
+
+export async function getPasswordPolicy(organizationId: string): Promise<PasswordPolicy> {
+  const settings = await getSettings(organizationId);
+  return {
+    minLength: settings.passwordMinLength,
+    requireUppercase: settings.passwordRequireUppercase,
+    requireNumber: settings.passwordRequireNumber,
+    requireSpecialChar: settings.passwordRequireSpecialChar,
+    historyLimit: settings.passwordHistoryLimit,
+  };
 }
 
 export async function setLogo(organizationId: string, fileName: string) {

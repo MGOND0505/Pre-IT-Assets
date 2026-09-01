@@ -26,6 +26,7 @@ export const ENTITLEMENT_MODULES = [
   "reports",
   "helpdesk",
   "tasks",
+  "aiAssistant",
 ] as const;
 export type EntitlementModule = (typeof ENTITLEMENT_MODULES)[number];
 
@@ -58,7 +59,7 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
   dashboard: ["view"],
   assets: ["view", "create", "update", "delete", "import", "export", "editAssetId"],
   licenses: ["view", "create", "update", "delete", "import", "export"],
-  vendors: ["view", "create", "update", "delete"],
+  vendors: ["view", "create", "update", "delete", "import"],
   departments: ["view", "create", "update", "delete"],
   locations: ["view", "create", "update", "delete"],
   users: ["view", "create", "update", "delete"],

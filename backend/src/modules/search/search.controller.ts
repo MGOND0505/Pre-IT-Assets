@@ -9,6 +9,7 @@ export const search = asyncHandler(async (req: Request, res: Response) => {
   const results = await searchService.searchOrganization(
     {
       organizationId: req.organization!._id,
+      userId: req.user!.id,
       role: req.user!.role,
       isAdmin: req.user!.isAdmin,
       enabledModules: req.organization!.enabledModules,

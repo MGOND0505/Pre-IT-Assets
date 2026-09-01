@@ -1,12 +1,17 @@
 import cron from "node-cron";
-import { Ticket } from "../../models/Ticket";
-import type { SupportTier } from "../../models/SupportTeam";
+import { Ticket, type SupportTier } from "../../models/Ticket";
 import { Task } from "../../models/Task";
 import { AuditLog } from "../../models/AuditLog";
-import { autoAssignTicket } from "../../modules/helpdesk/roundRobin.service";
-import { notifyTicketEvent } from "../../modules/helpdesk/helpdeskNotifications";
+import { notifyTicketEvent, buildAssignmentVars, idOf } from "../../modules/helpdesk/helpdeskNotifications";
 import { notifyTaskEvent } from "../../modules/tasks/taskNotifications";
 import { logger } from "../../utils/logger";
+
+const ESCALATION_POPULATE_FIELDS = [
+  { path: "category", select: "name" },
+  { path: "priority", select: "name" },
+  { path: "requester", select: "name email" },
+  { path: "assignedAgent", select: "name email" },
+];
 
 const TASK_TERMINAL_STATUSES = ["Done", "Cancelled"];
 
@@ -38,9 +43,10 @@ async function sendSlaWarnings(): Promise<number> {
   return tickets.length;
 }
 
-/** Escalates any ticket past its resolution SLA to the next tier (L1 -> L2 -> L3), re-running
- * round-robin for the new tier. A ticket already at L3 just stays flagged as breached - there's
- * nowhere further to escalate to. */
+/** Escalates any ticket past its resolution SLA to the next tier (L1 -> L2 -> L3) and flags it
+ * breached - a purely SLA-status change now (no reassignment: with Support Teams removed there's
+ * no team-based mechanism left to hand it to). A ticket already at L3 just stays flagged as
+ * breached - there's nowhere further to escalate to. */
 async function escalateBreachedTickets(): Promise<number> {
   const now = new Date();
 
@@ -49,7 +55,7 @@ async function escalateBreachedTickets(): Promise<number> {
     status: { $nin: TERMINAL_STATUSES },
     slaResolutionDueAt: { $ne: null, $lt: now },
     slaResolutionBreached: false,
-  });
+  }).populate(ESCALATION_POPULATE_FIELDS);
 
   for (const ticket of tickets) {
     ticket.slaResolutionBreached = true;
@@ -57,11 +63,7 @@ async function escalateBreachedTickets(): Promise<number> {
 
     if (nextTier) {
       const previousTier = ticket.tier;
-      const previousAgent = ticket.assignedAgent;
       ticket.tier = nextTier;
-      ticket.assignedAgent = null;
-      ticket.assignedTeam = null;
-      await autoAssignTicket(ticket);
       await ticket.save();
 
       await AuditLog.create({
@@ -72,16 +74,13 @@ async function escalateBreachedTickets(): Promise<number> {
         module: "Ticket",
         recordId: String(ticket._id),
         recordLabel: ticket.ticketId,
-        oldValue: { tier: previousTier, agent: previousAgent },
-        newValue: { tier: ticket.tier, agent: ticket.assignedAgent },
+        oldValue: { tier: previousTier },
+        newValue: { tier: ticket.tier },
       });
 
       if (ticket.assignedAgent) {
-        await notifyTicketEvent("ticketEscalated", String(ticket.assignedAgent), String(ticket.organization), {
-          ticketId: ticket.ticketId,
-          subject: ticket.subject,
-          tier: ticket.tier,
-        });
+        const vars = buildAssignmentVars(ticket, { assignedBy: "System (SLA breach)", tier: ticket.tier });
+        await notifyTicketEvent("ticketEscalated", idOf(ticket.assignedAgent), String(ticket.organization), vars);
       }
     } else {
       await ticket.save();

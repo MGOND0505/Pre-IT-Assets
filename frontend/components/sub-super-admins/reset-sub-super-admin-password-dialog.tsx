@@ -14,7 +14,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PasswordRequirementsHint } from "@/components/auth/password-requirements-hint"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
+import { isPasswordValid, BASELINE_POLICY } from "@/lib/password-policy"
 
 export function ResetSubSuperAdminPasswordDialog({
   open,
@@ -31,8 +33,8 @@ export function ResetSubSuperAdminPasswordDialog({
   const [submitting, setSubmitting] = React.useState(false)
 
   async function handleReset() {
-    if (newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters")
+    if (!isPasswordValid(newPassword, BASELINE_POLICY)) {
+      toast.error("Password does not meet the requirements")
       return
     }
     setSubmitting(true)
@@ -63,6 +65,7 @@ export function ResetSubSuperAdminPasswordDialog({
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
           />
+          <PasswordRequirementsHint password={newPassword} policy={BASELINE_POLICY} />
         </div>
         <DialogFooter>
           <Button onClick={handleReset} disabled={submitting}>

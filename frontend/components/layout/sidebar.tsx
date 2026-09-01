@@ -4,7 +4,6 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { SidebarNav } from "@/components/layout/sidebar-nav"
 import { AppLogo } from "@/components/layout/app-logo"
 import { AiAssistantSidebarCard } from "@/components/ai/ai-assistant-sidebar-card"
-import { OPEN_AI_ASSISTANT_EVENT } from "@/lib/ai-assistant-events"
 import { useBranding } from "@/lib/branding-context"
 import { isValidHexColor, sidebarOverrideVars } from "@/lib/color-utils"
 
@@ -23,10 +22,7 @@ export function Sidebar() {
       <ScrollArea className="flex-1">
         <SidebarNav />
       </ScrollArea>
-      <AiAssistantSidebarCard
-        eventName={OPEN_AI_ASSISTANT_EVENT}
-        description="Ask anything about your assets, licenses, tickets, and people."
-      />
+      <AiAssistantSidebarCard description="Ask anything about your assets, licenses, tickets, and people." />
     </div>
   )
 }

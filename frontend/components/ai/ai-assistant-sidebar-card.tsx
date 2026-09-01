@@ -1,19 +1,21 @@
 "use client"
 
+import Link from "next/link"
 import { Sparkles } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useOrgHref } from "@/lib/use-org-href"
 
 /**
  * The sidebar's own entry point into the AI Assistant - lives inside the nav itself (between
  * the nav list and the sidebar footer) rather than a separate floating button, per the
- * reference design. Decoupled from the actual assistant panel (rendered once at the dashboard
- * layout's root, not inside the sidebar - the sidebar itself re-mounts a second time inside the
- * mobile nav drawer, so it can't own the panel's state) via the same "dispatch a window event,
- * the real component listens for it" pattern CommandPaletteTrigger already uses for Cmd/Ctrl+K.
+ * reference design. The org-scoped sidebar links straight to the real /ai-assistant chat page;
+ * the super admin sidebar has no such page (there's no cross-org chat backend) so it still
+ * dispatches a window event opening its own search widget - pass `eventName` for that case.
  */
-export function AiAssistantSidebarCard({ eventName, description }: { eventName: string; description: string }) {
+export function AiAssistantSidebarCard({ description, eventName }: { description: string; eventName?: string }) {
+  const toOrgHref = useOrgHref()
   return (
     <div className="mx-3 mb-3 flex shrink-0 flex-col gap-3 rounded-xl border border-sidebar-border bg-sidebar-accent/40 p-4">
       <div className="flex items-center gap-2">
@@ -30,10 +32,17 @@ export function AiAssistantSidebarCard({ eventName, description }: { eventName: 
         </Badge>
       </div>
       <p className="text-xs leading-relaxed text-sidebar-foreground/60">{description}</p>
-      <Button type="button" size="sm" className="w-full" onClick={() => window.dispatchEvent(new CustomEvent(eventName))}>
-        <Sparkles className="size-3.5" />
-        Open Assistant
-      </Button>
+      {eventName ? (
+        <Button type="button" size="sm" className="w-full" onClick={() => window.dispatchEvent(new CustomEvent(eventName))}>
+          <Sparkles className="size-3.5" />
+          Open Assistant
+        </Button>
+      ) : (
+        <Button type="button" size="sm" className="w-full" render={<Link href={toOrgHref("/ai-assistant")} />}>
+          <Sparkles className="size-3.5" />
+          Open Assistant
+        </Button>
+      )}
     </div>
   )
 }

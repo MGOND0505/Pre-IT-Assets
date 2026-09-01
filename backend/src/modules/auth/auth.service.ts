@@ -9,6 +9,39 @@ import { signToken } from "../../utils/jwt";
 import { emailProvider } from "../../services/email";
 import { logAction } from "../audit/audit.service";
 import * as organizationsService from "../organizations/organizations.service";
+import { getPasswordPolicy, getSettings } from "../settings/settings.service";
+import { BASELINE_POLICY, validatePasswordAgainstPolicy, assertPasswordNotReused, pushPasswordHistory } from "../../utils/passwordPolicy";
+import { verifyTurnstileToken } from "../../utils/turnstile";
+
+/** Throws if CAPTCHA is required and the token is missing/invalid. Used by forgotPassword/
+ * resetPassword, which don't write to LoginHistory at all - login() uses resolveCaptchaStatus
+ * below instead, since a failed CAPTCHA there still needs its own LoginHistory entry before the
+ * request is rejected. */
+async function assertCaptchaSolved(organizationId: string | null, captchaToken: string | undefined, remoteIp?: string) {
+  const verified = await resolveCaptchaStatus(organizationId, captchaToken, remoteIp);
+  if (verified === false) {
+    throw new ApiError(400, "Please complete the CAPTCHA challenge.");
+  }
+}
+
+/** null = CAPTCHA not required for this attempt. true/false = required, and whether the
+ * supplied token actually verified. Applies to every role with no exception: org-scoped
+ * accounts (orgAdmin/teamMember) follow their own org's configurable captchaEnabled toggle;
+ * the org-agnostic flat login (superAdmin/subSuperAdmin - no org to hold a toggle) requires it
+ * unconditionally whenever the server has Turnstile configured at all. */
+async function resolveCaptchaStatus(
+  organizationId: string | null,
+  captchaToken: string | undefined,
+  remoteIp?: string
+): Promise<boolean | null> {
+  if (!organizationId) {
+    if (!env.TURNSTILE_SECRET_KEY) return null;
+    return Boolean(captchaToken) && (await verifyTurnstileToken(captchaToken!, remoteIp));
+  }
+  const settings = await getSettings(organizationId);
+  if (!settings.captchaEnabled) return null;
+  return Boolean(captchaToken) && (await verifyTurnstileToken(captchaToken!, remoteIp));
+}
 
 function requestMeta(req: Request) {
   return { ipAddress: req.ip ?? null, userAgent: req.get("user-agent") ?? null };
@@ -27,9 +60,23 @@ async function resolveLoginOrganizationId(orgSlug?: string): Promise<string | nu
   return String(org._id);
 }
 
-export async function login(req: Request, email: string, password: string, orgSlug?: string) {
+export async function login(req: Request, email: string, password: string, orgSlug?: string, captchaToken?: string) {
   const normalizedEmail = email.toLowerCase().trim();
   const organizationId = await resolveLoginOrganizationId(orgSlug);
+  const captchaVerified = await resolveCaptchaStatus(organizationId, captchaToken, req.ip);
+
+  if (captchaVerified === false) {
+    await LoginHistory.create({
+      organization: organizationId,
+      emailAttempted: normalizedEmail,
+      action: "login_failed",
+      reason: "captcha_failed",
+      captchaVerified: false,
+      ...requestMeta(req),
+    });
+    throw new ApiError(400, "Please complete the CAPTCHA challenge.");
+  }
+
   const user = await User.findOne({ organization: organizationId, email: normalizedEmail, isDeleted: false }).select(
     "+passwordHash"
   );
@@ -40,6 +87,7 @@ export async function login(req: Request, email: string, password: string, orgSl
       emailAttempted: normalizedEmail,
       action: "login_failed",
       reason: "not_found",
+      captchaVerified,
       ...requestMeta(req),
     });
     throw new ApiError(401, "Invalid email or password");
@@ -52,6 +100,7 @@ export async function login(req: Request, email: string, password: string, orgSl
       emailAttempted: normalizedEmail,
       action: "login_failed",
       reason: "account_inactive",
+      captchaVerified,
       ...requestMeta(req),
     });
     throw new ApiError(401, "This account has been deactivated");
@@ -64,6 +113,7 @@ export async function login(req: Request, email: string, password: string, orgSl
       emailAttempted: normalizedEmail,
       action: "login_failed",
       reason: "account_locked",
+      captchaVerified,
       ...requestMeta(req),
     });
     const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
@@ -89,6 +139,7 @@ export async function login(req: Request, email: string, password: string, orgSl
       emailAttempted: normalizedEmail,
       action: "login_failed",
       reason: "invalid_password",
+      captchaVerified,
       ...requestMeta(req),
     });
 
@@ -108,6 +159,24 @@ export async function login(req: Request, email: string, password: string, orgSl
   user.lastLoginAt = new Date();
   user.failedLoginAttempts = 0;
   user.lockedUntil = null;
+
+  // Password expiration - org-configurable, 0 days means "never expires". Forcing the change
+  // itself just sets the same mustChangePassword flag admin-forced resets already use;
+  // authenticate.ts is what actually blocks the rest of the app until it's cleared.
+  let passwordExpiryWarning: { daysRemaining: number } | null = null;
+  if (organizationId && user.passwordChangedAt) {
+    const settings = await getSettings(organizationId);
+    if (settings.passwordExpiryDays > 0) {
+      const ageDays = (Date.now() - user.passwordChangedAt.getTime()) / (24 * 60 * 60 * 1000);
+      const daysRemaining = Math.ceil(settings.passwordExpiryDays - ageDays);
+      if (daysRemaining <= 0) {
+        user.mustChangePassword = true;
+      } else if (daysRemaining <= settings.passwordExpiryWarningDays) {
+        passwordExpiryWarning = { daysRemaining };
+      }
+    }
+  }
+
   await user.save();
 
   await LoginHistory.create({
@@ -115,12 +184,13 @@ export async function login(req: Request, email: string, password: string, orgSl
     user: user.id,
     emailAttempted: normalizedEmail,
     action: "login_success",
+    captchaVerified,
     ...requestMeta(req),
   });
 
-  const token = signToken({ sub: user.id, tokenVersion: user.tokenVersion });
+  const token = signToken({ sub: user.id, tokenVersion: user.tokenVersion, lastActivity: Date.now() });
 
-  return { token, user };
+  return { token, user, passwordExpiryWarning };
 }
 
 export async function recordLogout(req: Request, userId: string, email: string, organizationId: string | null) {
@@ -133,7 +203,7 @@ export async function recordLogout(req: Request, userId: string, email: string, 
   });
 }
 
-export async function forgotPassword(email: string, orgSlug?: string) {
+export async function forgotPassword(email: string, orgSlug?: string, captchaToken?: string, remoteIp?: string) {
   const normalizedEmail = email.toLowerCase().trim();
 
   // Always behave the same way whether or not the account/org exists, to avoid leaking
@@ -145,6 +215,8 @@ export async function forgotPassword(email: string, orgSlug?: string) {
     if (!org || organizationsService.getSubscriptionState(org) === "Suspended") return;
     organizationId = String(org._id);
   }
+
+  await assertCaptchaSolved(organizationId, captchaToken, remoteIp);
 
   const user = await User.findOne({ organization: organizationId, email: normalizedEmail, isDeleted: false });
   if (!user) return;
@@ -168,19 +240,29 @@ export async function forgotPassword(email: string, orgSlug?: string) {
   );
 }
 
-export async function resetPassword(rawToken: string, newPassword: string) {
+export async function resetPassword(rawToken: string, newPassword: string, captchaToken?: string, remoteIp?: string) {
   const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
 
   const user = await User.findOne({
     passwordResetTokenHash: tokenHash,
     passwordResetExpires: { $gt: new Date() },
-  }).select("+passwordResetTokenHash +passwordResetExpires");
+  }).select("+passwordResetTokenHash +passwordResetExpires +passwordHash +passwordHistory");
 
   if (!user) {
     throw new ApiError(400, "Reset link is invalid or has expired");
   }
 
+  await assertCaptchaSolved(user.organization ? String(user.organization) : null, captchaToken, remoteIp);
+
+  const policy = user.organization ? await getPasswordPolicy(String(user.organization)) : BASELINE_POLICY;
+  const violations = validatePasswordAgainstPolicy(newPassword, policy);
+  if (violations.length > 0) throw new ApiError(400, violations.join(" "));
+  await assertPasswordNotReused(newPassword, user, policy.historyLimit);
+
+  const oldHash = user.passwordHash;
   user.passwordHash = await bcrypt.hash(newPassword, env.BCRYPT_SALT_ROUNDS);
+  pushPasswordHistory(user, oldHash, policy.historyLimit);
+  user.passwordChangedAt = new Date();
   user.passwordResetTokenHash = undefined;
   user.passwordResetExpires = undefined;
   user.mustChangePassword = false;
@@ -191,7 +273,7 @@ export async function resetPassword(rawToken: string, newPassword: string) {
 }
 
 export async function changePassword(req: Request, userId: string, currentPassword: string, newPassword: string) {
-  const user = await User.findById(userId).select("+passwordHash");
+  const user = await User.findById(userId).select("+passwordHash +passwordHistory");
 
   if (!user) {
     throw new ApiError(404, "User not found");
@@ -203,7 +285,15 @@ export async function changePassword(req: Request, userId: string, currentPasswo
     throw new ApiError(400, "Current password is incorrect");
   }
 
+  const policy = user.organization ? await getPasswordPolicy(String(user.organization)) : BASELINE_POLICY;
+  const violations = validatePasswordAgainstPolicy(newPassword, policy);
+  if (violations.length > 0) throw new ApiError(400, violations.join(" "));
+  await assertPasswordNotReused(newPassword, user, policy.historyLimit);
+
+  const oldHash = user.passwordHash;
   user.passwordHash = await bcrypt.hash(newPassword, env.BCRYPT_SALT_ROUNDS);
+  pushPasswordHistory(user, oldHash, policy.historyLimit);
+  user.passwordChangedAt = new Date();
   user.mustChangePassword = false;
   user.tokenVersion += 1;
   await user.save();

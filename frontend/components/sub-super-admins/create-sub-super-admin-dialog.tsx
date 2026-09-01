@@ -15,7 +15,9 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { OrgAccessEditor, type OrgAccessEntry, type OrgOption } from "@/components/sub-super-admins/org-access-editor"
+import { PasswordRequirementsHint } from "@/components/auth/password-requirements-hint"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
+import { isPasswordValid, BASELINE_POLICY } from "@/lib/password-policy"
 
 export function CreateSubSuperAdminDialog({
   organizations,
@@ -43,8 +45,8 @@ export function CreateSubSuperAdminDialog({
       toast.error("Name and email are required")
       return
     }
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters")
+    if (!isPasswordValid(password, BASELINE_POLICY)) {
+      toast.error("Password does not meet the requirements")
       return
     }
 
@@ -81,6 +83,7 @@ export function CreateSubSuperAdminDialog({
           <div className="flex flex-col gap-2">
             <Label htmlFor="ssa-password">Temporary password</Label>
             <Input id="ssa-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordRequirementsHint password={password} policy={BASELINE_POLICY} />
           </div>
 
           <div className="min-w-0 border-t pt-4">

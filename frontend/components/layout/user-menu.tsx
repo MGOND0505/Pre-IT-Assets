@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { LogOut, KeyRound } from "lucide-react"
+import { LogOut, KeyRound, User } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -61,6 +61,10 @@ export function UserMenu() {
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
+        <DropdownMenuItem render={<Link href={toOrgHref("/profile")} />}>
+          <User className="size-4" />
+          My Profile
+        </DropdownMenuItem>
         <DropdownMenuItem render={<Link href={toOrgHref("/profile/change-password")} />}>
           <KeyRound className="size-4" />
           Change password

@@ -14,12 +14,17 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
+import { useUserOptions } from "@/lib/use-lookup-options"
+
+const NONE = "__none__"
 
 export type HelpdeskCategory = {
   _id: string
   name: string
   description: string
+  defaultAgent: { _id: string; name: string } | null
   status: "Active" | "Inactive"
 }
 
@@ -44,12 +49,15 @@ export function HelpdeskCategoryFormDialog({
 
   const [name, setName] = React.useState("")
   const [description, setDescription] = React.useState("")
+  const [defaultAgent, setDefaultAgent] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
+  const { items: users } = useUserOptions()
 
   React.useEffect(() => {
     if (open) {
       setName(category?.name ?? "")
       setDescription(category?.description ?? "")
+      setDefaultAgent(category?.defaultAgent?._id ?? "")
     }
   }, [open, category])
 
@@ -60,11 +68,12 @@ export function HelpdeskCategoryFormDialog({
     }
     setSubmitting(true)
     try {
+      const payload = { name, description, defaultAgent: defaultAgent || null }
       if (isEdit && category) {
-        await apiClient.put(`/helpdesk-categories/${category._id}`, { name, description })
+        await apiClient.put(`/helpdesk-categories/${category._id}`, payload)
         toast.success("Category updated")
       } else {
-        await apiClient.post("/helpdesk-categories", { name, description })
+        await apiClient.post("/helpdesk-categories", payload)
         toast.success("Category created")
       }
       setOpen(false)
@@ -91,6 +100,25 @@ export function HelpdeskCategoryFormDialog({
           <div className="flex flex-col gap-2">
             <Label htmlFor="hdcat-description">Description</Label>
             <Input id="hdcat-description" value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="hdcat-default-agent">Default agent</Label>
+            <Select value={defaultAgent || NONE} onValueChange={(v) => setDefaultAgent(v === NONE ? "" : (v ?? ""))}>
+              <SelectTrigger id="hdcat-default-agent" className="w-full">
+                <SelectValue placeholder="No default agent" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>None</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u._id} value={u._id}>
+                    {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              New tickets in this category auto-assign to this agent (or their backup, if on leave).
+            </p>
           </div>
         </div>
         <DialogFooter>

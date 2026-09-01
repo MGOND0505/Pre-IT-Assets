@@ -50,6 +50,6 @@ export function takePendingChange(token: string, organizationId: string, userId:
   return change;
 }
 
-export function discardPendingChange(token: string, organizationId: string, userId: string): boolean {
-  return takePendingChange(token, organizationId, userId) !== null;
+export function discardPendingChange(token: string, organizationId: string, userId: string): PendingAiChange | null {
+  return takePendingChange(token, organizationId, userId);
 }

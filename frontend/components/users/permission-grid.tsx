@@ -18,6 +18,25 @@ import { cn } from "@/lib/utils"
 
 export { emptyPermissions }
 
+/** The "Basic User" default - what a freshly-opened "Add user" dialog starts from, instead of
+ * `emptyPermissions()`. Kept in sync with the backend's own default for bulk-imported employees
+ * (backend/src/modules/users/users.import.ts#basicUserDefaultPermissions) so a new employee lands
+ * in the same state whether created one at a time or in bulk - can still see/create their own
+ * tickets, view assets/licenses, and see/create their own tasks, without an admin needing to
+ * manually check anything first. */
+export function basicUserPermissions(): PermissionsShape {
+  const perms = emptyPermissions()
+  perms.assets.view = true
+  perms.licenses.view = true
+  perms.helpdesk.view = true
+  perms.helpdesk.create = true
+  perms.helpdesk.comment = true
+  perms.helpdesk.reopen = true
+  perms.tasks.view = true
+  perms.tasks.create = true
+  return perms
+}
+
 const ACTION_LABELS: Record<PermissionAction, string> = {
   view: "View",
   create: "Create",
@@ -48,8 +67,9 @@ type HelpdeskRoleKey = "requester" | "l1Support" | "l2Support" | "l3Support" | "
 /** Named-role presets scoped to just the helpdesk module's row, per the spec's "configurable
  * roles" (Helpdesk Admin/Manager/L1-L3 Support/Requester) - convenience buttons over the same
  * granular PermissionsShape, not a second role/permission data model. L1/L2/L3 map to the same
- * action set today (the tier concept itself lives in SupportTeam membership, not here) but keep
- * distinct labels since a manager picking "L2 Support" is a meaningful, self-documenting choice. */
+ * action set today (a ticket's tier is a plain SLA-escalation field on the Ticket itself, not a
+ * permission concept) but keep distinct labels since a manager picking "L2 Support" is a
+ * meaningful, self-documenting choice. */
 const HELPDESK_ROLE_ACTIONS: Record<HelpdeskRoleKey, PermissionAction[]> = {
   requester: ["view", "create", "comment"],
   l1Support: ["view", "update", "comment", "internalNote", "manageAttachments", "close", "reopen"],
@@ -91,6 +111,24 @@ const HELPDESK_ROLE_LABELS: Record<HelpdeskRoleKey, string> = {
   l3Support: "L3 Support",
   helpdeskManager: "Helpdesk Manager",
   helpdeskAdmin: "Helpdesk Admin",
+}
+
+type TaskRoleKey = "employee" | "manager"
+
+/** Same convenience-preset idea as HELPDESK_ROLE_ACTIONS, scoped to the Tasks module row. An
+ * "Employee" needs no permissions at all to see and update the status of tasks assigned to them
+ * (that's enforced by assignment, not the permission matrix - see tasks.controller.ts), but the
+ * preset still exists so it's a discoverable, explicit choice rather than "leave everything
+ * unchecked and hope that's right". A "Manager" additionally sees the whole org's tasks and can
+ * assign them to others (tasks:assign already grants both, via tasks.service.ts#canViewAllTasks). */
+const TASK_ROLE_ACTIONS: Record<TaskRoleKey, PermissionAction[]> = {
+  employee: ["view"],
+  manager: ["view", "create", "update", "assign"],
+}
+
+const TASK_ROLE_LABELS: Record<TaskRoleKey, string> = {
+  employee: "Employee",
+  manager: "Manager",
 }
 
 type PresetKey =
@@ -188,6 +226,15 @@ export function ModulePermissionGrid({
     onPermissionsChange({ ...permissions, helpdesk: nextHelpdesk })
   }
 
+  function applyTaskRole(role: TaskRoleKey) {
+    const wanted = new Set(TASK_ROLE_ACTIONS[role])
+    const nextTasks = { ...permissions.tasks }
+    for (const action of MODULE_ACTIONS.tasks) {
+      nextTasks[action] = wanted.has(action)
+    }
+    onPermissionsChange({ ...permissions, tasks: nextTasks })
+  }
+
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pb-1">
@@ -226,6 +273,24 @@ export function ModulePermissionGrid({
               {(Object.keys(HELPDESK_ROLE_LABELS) as HelpdeskRoleKey[]).map((role) => (
                 <SelectItem key={role} value={role}>
                   {HELPDESK_ROLE_LABELS[role]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Label htmlFor="perm-task-role" className="text-sm text-muted-foreground">
+            Tasks role
+          </Label>
+          <Select value="" onValueChange={(v) => v && applyTaskRole(v as TaskRoleKey)}>
+            <SelectTrigger id="perm-task-role" className="w-40 sm:w-48">
+              <SelectValue placeholder="Quick-apply..." />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(TASK_ROLE_LABELS) as TaskRoleKey[]).map((role) => (
+                <SelectItem key={role} value={role}>
+                  {TASK_ROLE_LABELS[role]}
                 </SelectItem>
               ))}
             </SelectContent>

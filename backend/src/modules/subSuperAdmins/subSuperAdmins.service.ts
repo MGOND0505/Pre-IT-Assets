@@ -5,6 +5,7 @@ import { env } from "../../config/env";
 import { ApiError } from "../../utils/ApiError";
 import { emptyPermissions, type PermissionsShape } from "../../config/permissions";
 import * as organizationsService from "../organizations/organizations.service";
+import { BASELINE_POLICY, validatePasswordAgainstPolicy, assertPasswordNotReused, pushPasswordHistory } from "../../utils/passwordPolicy";
 
 type OrgAccessInput = { organization: string; permissions: Partial<PermissionsShape> }[];
 
@@ -48,6 +49,9 @@ export async function createSubSuperAdmin(input: CreateInput) {
   const orgAccess = normalizeOrgAccess(input.orgAccess);
   await assertOrganizationsExist(orgAccess.map((g) => g.organization));
 
+  const violations = validatePasswordAgainstPolicy(input.password, BASELINE_POLICY);
+  if (violations.length > 0) throw new ApiError(400, violations.join(" "));
+
   const passwordHash = await bcrypt.hash(input.password, env.BCRYPT_SALT_ROUNDS);
 
   return User.create({
@@ -59,6 +63,7 @@ export async function createSubSuperAdmin(input: CreateInput) {
     orgAccess,
     createdBy: input.createdBy,
     mustChangePassword: true,
+    passwordChangedAt: new Date(),
   });
 }
 
@@ -109,8 +114,17 @@ export async function setSubSuperAdminStatus(id: string, status: "Active" | "Ina
 }
 
 export async function resetSubSuperAdminPassword(id: string, newPassword: string) {
-  const user = await getSubSuperAdminById(id);
+  const user = await User.findOne({ _id: id, role: "subSuperAdmin" }).select("+passwordHash +passwordHistory");
+  if (!user) throw new ApiError(404, "Sub-Super Admin not found");
+
+  const violations = validatePasswordAgainstPolicy(newPassword, BASELINE_POLICY);
+  if (violations.length > 0) throw new ApiError(400, violations.join(" "));
+  await assertPasswordNotReused(newPassword, user, BASELINE_POLICY.historyLimit);
+
+  const oldHash = user.passwordHash;
   user.passwordHash = await bcrypt.hash(newPassword, env.BCRYPT_SALT_ROUNDS);
+  pushPasswordHistory(user, oldHash, BASELINE_POLICY.historyLimit);
+  user.passwordChangedAt = new Date();
   user.mustChangePassword = true;
   user.failedLoginAttempts = 0;
   user.lockedUntil = null;

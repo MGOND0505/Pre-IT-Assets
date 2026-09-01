@@ -3,10 +3,15 @@ import { AssetCategory } from "../../models/AssetCategory";
 import { Department } from "../../models/Department";
 import { Location } from "../../models/Location";
 import { User } from "../../models/User";
+import { Ticket, type TicketStatus } from "../../models/Ticket";
+import { HelpdeskCategory } from "../../models/HelpdeskCategory";
+import { Task, TASK_STATUSES, TASK_PRIORITIES, type TaskStatus, type TaskPriority } from "../../models/Task";
 import { hasPermission } from "../../middleware/authorize";
-import type { PermissionsShape } from "../../config/permissions";
+import type { PermissionModule, PermissionAction, PermissionsShape } from "../../config/permissions";
 import { listAssets, getAssetById, updateAsset, createAsset } from "../assets/assets.service";
 import { recordAssetHistory, listAssetHistory } from "../assets/assetHistory.service";
+import { listTickets } from "../helpdesk/helpdesk.service";
+import { listTasks } from "../tasks/tasks.service";
 import { createPendingChange, type PendingAiChange } from "./pending-changes.store";
 import type { OllamaTool } from "./ollama.client";
 
@@ -21,7 +26,7 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function canOrgUser(ctx: ToolContext, moduleKey: "assets", action: "view" | "create" | "update"): boolean {
+function canOrgUser(ctx: ToolContext, moduleKey: PermissionModule, action: PermissionAction): boolean {
   return hasPermission({ isAdmin: ctx.isAdmin, permissions: ctx.permissions }, moduleKey, action);
 }
 
@@ -57,6 +62,13 @@ async function resolveCategoryByName(name: string, organizationId: string) {
   });
 }
 
+async function resolveHelpdeskCategoryByName(name: string, organizationId: string) {
+  return findByNameRegex(organizationId, name, async (filter) => {
+    const doc = await HelpdeskCategory.findOne(filter).select("name");
+    return doc ? { id: doc.id, name: doc.name } : null;
+  });
+}
+
 type UserMatch = { id: string; name: string; email: string; employeeId?: string };
 
 /** Never guesses among multiple people with similar names - returns every match so the caller
@@ -88,6 +100,33 @@ async function findAssetByHumanId(assetId: string, organizationId: string) {
   ]);
 }
 
+async function findTicketByHumanId(ticketId: string, organizationId: string) {
+  return Ticket.findOne({
+    organization: organizationId,
+    ticketId: { $regex: `^${escapeRegex(ticketId.trim())}$`, $options: "i" },
+    isDeleted: false,
+  }).populate([
+    { path: "category", select: "name" },
+    { path: "priority", select: "name" },
+    { path: "requester", select: "name email" },
+    { path: "department", select: "name" },
+    { path: "location", select: "name" },
+    { path: "assignedAgent", select: "name email" },
+  ]);
+}
+
+async function findTaskByHumanId(taskId: string, organizationId: string) {
+  return Task.findOne({
+    organization: organizationId,
+    taskId: { $regex: `^${escapeRegex(taskId.trim())}$`, $options: "i" },
+    isDeleted: false,
+  }).populate([
+    { path: "assignedTo", select: "name email" },
+    { path: "assignedBy", select: "name email" },
+    { path: "ticket", select: "ticketId subject" },
+  ]);
+}
+
 /** Accepts a plain object - either a Mongoose document already converted via .toObject(), or
  * the recycle-bin-metadata-augmented plain objects listAssets() itself returns (which are never
  * real documents, so they'd have no .toObject() to call). */
@@ -113,6 +152,35 @@ function assetSummary(obj: Record<string, unknown>) {
     amcEnd: obj.amcEnd,
     condition: obj.condition,
     notes: obj.notes,
+  };
+}
+
+function ticketSummary(obj: Record<string, unknown>) {
+  return {
+    ticketId: obj.ticketId,
+    subject: obj.subject,
+    status: obj.status,
+    category: (obj.category as { name?: string } | null)?.name ?? null,
+    priority: (obj.priority as { name?: string } | null)?.name ?? null,
+    requester: (obj.requester as { name?: string; email?: string } | null)?.name ?? null,
+    department: (obj.department as { name?: string } | null)?.name ?? null,
+    location: (obj.location as { name?: string } | null)?.name ?? null,
+    assignedAgent: (obj.assignedAgent as { name?: string; email?: string } | null)?.name ?? null,
+    createdDate: obj.createdDate,
+  };
+}
+
+function taskSummary(obj: Record<string, unknown>) {
+  return {
+    taskId: obj.taskId,
+    title: obj.title,
+    status: obj.status,
+    priority: obj.priority,
+    assignedTo: (obj.assignedTo as { name?: string; email?: string } | null)?.name ?? null,
+    assignedBy: (obj.assignedBy as { name?: string; email?: string } | null)?.name ?? null,
+    dueDate: obj.dueDate,
+    ticket: (obj.ticket as { ticketId?: string } | null)?.ticketId ?? null,
+    createdDate: obj.createdDate,
   };
 }
 
@@ -180,7 +248,8 @@ export async function toolSearchAssets(
       page: args.page,
       limit: Math.min(args.limit ?? 20, 50),
     },
-    ctx.organizationId
+    ctx.organizationId,
+    { id: ctx.userId, isAdmin: ctx.isAdmin, permissions: ctx.permissions }
   );
 
   return {
@@ -220,6 +289,103 @@ export async function toolGetAssetHistory(args: { assetId: string }, ctx: ToolCo
       date: h.get("createdAt"),
     })),
   };
+}
+
+export async function toolSearchTickets(
+  args: { search?: string; status?: string; categoryName?: string; page?: number; limit?: number },
+  ctx: ToolContext
+) {
+  if (!canOrgUser(ctx, "helpdesk", "view")) {
+    return { ok: false, message: "You don't have permission to view helpdesk tickets." };
+  }
+
+  const category = args.categoryName ? await resolveHelpdeskCategoryByName(args.categoryName, ctx.organizationId) : null;
+  if (args.categoryName && !category) {
+    return { ok: false, message: `No ticket category matching "${args.categoryName}" was found.` };
+  }
+
+  const result = await listTickets(
+    {
+      search: args.search,
+      status: args.status as TicketStatus | undefined,
+      category: category?.id,
+      page: args.page,
+      limit: Math.min(args.limit ?? 20, 50),
+    },
+    ctx.organizationId,
+    { id: ctx.userId, isAdmin: ctx.isAdmin, permissions: ctx.permissions }
+  );
+
+  return {
+    ok: true,
+    total: result.total,
+    page: result.page,
+    totalPages: result.totalPages,
+    tickets: result.items.map((t) => ticketSummary(t)),
+  };
+}
+
+export async function toolGetTicketDetails(args: { ticketId: string }, ctx: ToolContext) {
+  if (!canOrgUser(ctx, "helpdesk", "view")) {
+    return { ok: false, message: "You don't have permission to view helpdesk tickets." };
+  }
+  const ticket = await findTicketByHumanId(args.ticketId, ctx.organizationId);
+  if (!ticket) return { ok: false, message: `No ticket found with ID "${args.ticketId}".` };
+  return { ok: true, ticket: ticketSummary(ticket.toObject() as unknown as Record<string, unknown>) };
+}
+
+export async function toolSearchTasks(
+  args: { search?: string; status?: string; priority?: string; assignedToName?: string; page?: number; limit?: number },
+  ctx: ToolContext
+) {
+  if (!canOrgUser(ctx, "tasks", "view")) {
+    return { ok: false, message: "You don't have permission to view tasks." };
+  }
+
+  let assignedTo: string | undefined;
+  if (args.assignedToName) {
+    const matches = await resolveUsersByName(args.assignedToName, ctx.organizationId);
+    if (matches.length === 0) return { ok: false, message: `No person matching "${args.assignedToName}" was found.` };
+    if (matches.length > 1) {
+      return {
+        ok: false,
+        message: `Multiple people match "${args.assignedToName}" - please specify which one: ${matches
+          .map((m) => `${m.name} (${m.email})`)
+          .join(", ")}`,
+      };
+    }
+    assignedTo = matches[0].id;
+  }
+
+  const result = await listTasks(
+    {
+      search: args.search,
+      status: args.status as TaskStatus | undefined,
+      priority: args.priority as TaskPriority | undefined,
+      assignedTo,
+      page: args.page,
+      limit: Math.min(args.limit ?? 20, 50),
+    },
+    ctx.organizationId,
+    { id: ctx.userId, isAdmin: ctx.isAdmin, permissions: ctx.permissions }
+  );
+
+  return {
+    ok: true,
+    total: result.total,
+    page: result.page,
+    totalPages: result.totalPages,
+    tasks: result.items.map((t) => taskSummary(t)),
+  };
+}
+
+export async function toolGetTaskDetails(args: { taskId: string }, ctx: ToolContext) {
+  if (!canOrgUser(ctx, "tasks", "view")) {
+    return { ok: false, message: "You don't have permission to view tasks." };
+  }
+  const task = await findTaskByHumanId(args.taskId, ctx.organizationId);
+  if (!task) return { ok: false, message: `No task found with ID "${args.taskId}".` };
+  return { ok: true, task: taskSummary(task.toObject() as unknown as Record<string, unknown>) };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -531,6 +697,59 @@ export const TOOL_DEFINITIONS: OllamaTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "search_tickets",
+      description:
+        "Search/filter helpdesk tickets by status, category, or free text. Use this for any question about a group of tickets (e.g. 'open tickets', 'tickets in Hardware category').",
+      parameters: {
+        type: "object",
+        properties: {
+          search: { type: "string", description: "Free-text search across ticket ID and subject" },
+          status: { type: "string", description: "e.g. New, Open, In Progress, Pending, Resolved, Closed, Reopened" },
+          categoryName: { type: "string" },
+          page: { type: "number" },
+          limit: { type: "number" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_ticket_details",
+      description: "Get complete details of one specific helpdesk ticket by its Ticket ID (e.g. 'TCK-000017').",
+      parameters: { type: "object", properties: { ticketId: { type: "string" } }, required: ["ticketId"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_tasks",
+      description:
+        "Search/filter tasks by status, priority, assigned person, or free text. Use this for any question about a group of tasks (e.g. 'tasks assigned to John', 'overdue tasks').",
+      parameters: {
+        type: "object",
+        properties: {
+          search: { type: "string", description: "Free-text search across task title" },
+          status: { type: "string", enum: [...TASK_STATUSES] },
+          priority: { type: "string", enum: [...TASK_PRIORITIES] },
+          assignedToName: { type: "string" },
+          page: { type: "number" },
+          limit: { type: "number" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_task_details",
+      description: "Get complete details of one specific task by its Task ID.",
+      parameters: { type: "object", properties: { taskId: { type: "string" } }, required: ["taskId"] },
+    },
+  },
 ];
 
 export async function executeTool(name: string, args: Record<string, unknown>, ctx: ToolContext): Promise<unknown> {
@@ -555,6 +774,14 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       return toolRetireAsset(args as never, ctx);
     case "create_asset":
       return toolCreateAssetProposal(args as never, ctx);
+    case "search_tickets":
+      return toolSearchTickets(args as never, ctx);
+    case "get_ticket_details":
+      return toolGetTicketDetails(args as never, ctx);
+    case "search_tasks":
+      return toolSearchTasks(args as never, ctx);
+    case "get_task_details":
+      return toolGetTaskDetails(args as never, ctx);
     default:
       return { ok: false, message: `Unknown tool "${name}".` };
   }

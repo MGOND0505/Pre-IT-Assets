@@ -8,6 +8,9 @@ export interface ILoginHistory {
   reason: string | null;
   ipAddress: string | null;
   userAgent: string | null;
+  // null = CAPTCHA wasn't required for this attempt (disabled for the org, or the org-agnostic
+  // superAdmin login). true/false = required, and whether it was actually solved.
+  captchaVerified: boolean | null;
 }
 
 const loginHistorySchema = new Schema<ILoginHistory>(
@@ -20,6 +23,7 @@ const loginHistorySchema = new Schema<ILoginHistory>(
     reason: { type: String, default: null },
     ipAddress: { type: String, default: null },
     userAgent: { type: String, default: null },
+    captchaVerified: { type: Boolean, default: null },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

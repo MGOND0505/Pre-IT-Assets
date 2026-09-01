@@ -9,6 +9,7 @@ import { env } from "./config/env";
 import { swaggerSpec } from "./config/swagger";
 import { orgScopedRouter } from "./routes/index";
 import { authRouter } from "./modules/auth/auth.routes";
+import { publicCaptchaRouter } from "./modules/auth/publicCaptcha.routes";
 import { healthRouter } from "./modules/health/health.routes";
 import { organizationsRouter } from "./modules/organizations/organizations.routes";
 import { subSuperAdminsRouter, myOrganizationsRouter } from "./modules/subSuperAdmins/subSuperAdmins.routes";
@@ -40,6 +41,7 @@ app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Org-agnostic mounts - identify a user (auth) or need no org context at all (health).
 app.use("/api/health", healthRouter);
 app.use("/api/auth", apiLimiter, authRouter);
+app.use("/api/public", apiLimiter, publicCaptchaRouter);
 
 // The Super Admin panel itself - system-level, spans all organizations, so it must be
 // registered here (flat, above the /api/:orgSlug catch-all below) rather than under

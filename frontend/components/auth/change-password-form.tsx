@@ -10,30 +10,39 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PasswordRequirementsHint } from "@/components/auth/password-requirements-hint"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-
-const schema = z
-  .object({
-    currentPassword: z.string().min(1, "Current password is required"),
-    newPassword: z.string().min(8, "Password must be at least 8 characters"),
-    confirmPassword: z.string().min(1, "Please confirm your password"),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  })
-
-type Values = z.infer<typeof schema>
+import { isPasswordValid, BASELINE_POLICY } from "@/lib/password-policy"
 
 export function ChangePasswordForm() {
   const router = useRouter()
   const { user } = useAuth()
   const [submitting, setSubmitting] = React.useState(false)
+  const policy = user?.passwordPolicy ?? BASELINE_POLICY
+
+  const schema = React.useMemo(
+    () =>
+      z
+        .object({
+          currentPassword: z.string().min(1, "Current password is required"),
+          newPassword: z.string().refine((value) => isPasswordValid(value, policy), {
+            message: "Password does not meet the requirements below",
+          }),
+          confirmPassword: z.string().min(1, "Please confirm your password"),
+        })
+        .refine((data) => data.newPassword === data.confirmPassword, {
+          message: "Passwords do not match",
+          path: ["confirmPassword"],
+        }),
+    [policy]
+  )
+  type Values = z.infer<typeof schema>
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<Values>({ resolver: zodResolver(schema) })
 
@@ -71,6 +80,7 @@ export function ChangePasswordForm() {
         <Label htmlFor="newPassword">New password</Label>
         <Input id="newPassword" type="password" {...register("newPassword")} />
         {errors.newPassword && <p className="text-sm text-destructive">{errors.newPassword.message}</p>}
+        <PasswordRequirementsHint password={watch("newPassword") ?? ""} policy={policy} />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="confirmPassword">Confirm new password</Label>

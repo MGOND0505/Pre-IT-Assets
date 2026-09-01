@@ -4,6 +4,8 @@ import { env } from "../../config/env";
 import { ApiError } from "../../utils/ApiError";
 import { emptyPermissions, type PermissionsShape } from "../../config/permissions";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
+import { getPasswordPolicy } from "../settings/settings.service";
+import { validatePasswordAgainstPolicy, assertPasswordNotReused, pushPasswordHistory } from "../../utils/passwordPolicy";
 
 type CreateUserInput = {
   name: string;
@@ -40,6 +42,10 @@ export async function createUser(input: CreateUserInput, organizationId: string)
     }
   }
 
+  const policy = await getPasswordPolicy(organizationId);
+  const violations = validatePasswordAgainstPolicy(input.password, policy);
+  if (violations.length > 0) throw new ApiError(400, violations.join(" "));
+
   const passwordHash = await bcrypt.hash(input.password, env.BCRYPT_SALT_ROUNDS);
 
   return User.create({
@@ -56,6 +62,7 @@ export async function createUser(input: CreateUserInput, organizationId: string)
     permissions: { ...emptyPermissions(), ...input.permissions },
     createdBy: input.createdBy,
     mustChangePassword: true,
+    passwordChangedAt: new Date(),
   });
 }
 
@@ -171,9 +178,52 @@ export async function setUserStatus(id: string, status: "Active" | "Inactive", o
   return user;
 }
 
-export async function adminResetPassword(id: string, newPassword: string, organizationId: string) {
+export async function setLeaveStatus(
+  id: string,
+  input: { isOnLeave: boolean; backupAgentId?: string },
+  organizationId: string
+) {
   const user = await getUserById(id, organizationId);
+
+  if (input.isOnLeave) {
+    const backupId = input.backupAgentId ?? (user.backupAgent ? String(user.backupAgent) : null);
+    if (!backupId) throw new ApiError(400, "Select a backup agent before marking this user on leave");
+    if (backupId === id) throw new ApiError(400, "A user cannot be their own backup agent");
+
+    const backup = await User.findOne({
+      _id: backupId,
+      organization: organizationId,
+      status: "Active",
+      isDeleted: false,
+      isOnLeave: { $ne: true },
+    });
+    if (!backup) throw new ApiError(400, "The selected backup agent is not available");
+
+    user.backupAgent = backup._id as never;
+    user.isOnLeave = true;
+  } else {
+    user.isOnLeave = false;
+  }
+
+  await user.save();
+  return user;
+}
+
+export async function adminResetPassword(id: string, newPassword: string, organizationId: string) {
+  const user = await User.findOne({ _id: id, organization: organizationId, isDeleted: false }).select(
+    "+passwordHash +passwordHistory"
+  );
+  if (!user) throw new ApiError(404, "User not found");
+
+  const policy = await getPasswordPolicy(organizationId);
+  const violations = validatePasswordAgainstPolicy(newPassword, policy);
+  if (violations.length > 0) throw new ApiError(400, violations.join(" "));
+  await assertPasswordNotReused(newPassword, user, policy.historyLimit);
+
+  const oldHash = user.passwordHash;
   user.passwordHash = await bcrypt.hash(newPassword, env.BCRYPT_SALT_ROUNDS);
+  pushPasswordHistory(user, oldHash, policy.historyLimit);
+  user.passwordChangedAt = new Date();
   user.mustChangePassword = true;
   user.failedLoginAttempts = 0;
   user.lockedUntil = null;

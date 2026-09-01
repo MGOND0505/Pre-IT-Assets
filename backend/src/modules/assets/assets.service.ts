@@ -26,6 +26,16 @@ const POPULATE_FIELDS = [
   { path: "assignedUser", select: "name email employeeId" },
 ];
 
+type RequestingUser = { id: string; isAdmin: boolean; permissions: { assets: { update: boolean } } };
+
+/** Same shape as helpdesk's canViewAllTickets / tasks' canViewAllTasks: one flag decides
+ * org-wide visibility vs. only-what's-assigned-to-me. Assets has no "assign" action like
+ * tasks/helpdesk do, so `update` (the closest existing "manages assets beyond their own" signal)
+ * is the bypass here. */
+function canViewAllAssets(user: RequestingUser): boolean {
+  return user.isAdmin || user.permissions.assets.update;
+}
+
 /** Atomically claims the next sequence number for a category and formats the full asset ID. */
 async function generateAssetId(categoryId: string, organizationId: string): Promise<string> {
   const category = await AssetCategory.findOneAndUpdate(
@@ -62,7 +72,7 @@ type ListInput = {
   includeDeleted?: boolean;
 };
 
-export async function listAssets(input: ListInput, organizationId: string) {
+export async function listAssets(input: ListInput, organizationId: string, requestingUser: RequestingUser) {
   const page = input.page ?? 1;
   const limit = input.limit ?? 20;
 
@@ -70,12 +80,19 @@ export async function listAssets(input: ListInput, organizationId: string) {
     organization: organizationId,
     isDeleted: input.includeDeleted ? true : false,
   };
+  // A caller who can't manage assets beyond their own is hard-restricted to what's assigned to
+  // them, regardless of the assignedUser query param - matches helpdesk/tasks' own list-visibility
+  // pattern (canViewAllTickets/canViewAllTasks).
+  if (!canViewAllAssets(requestingUser)) {
+    filter.assignedUser = requestingUser.id;
+  } else if (input.assignedUser) {
+    filter.assignedUser = input.assignedUser;
+  }
   if (input.status) filter.status = input.status;
   if (input.category) filter.category = input.category;
   if (input.location) filter.location = input.location;
   if (input.department) filter.department = input.department;
   if (input.vendor) filter.vendor = input.vendor;
-  if (input.assignedUser) filter.assignedUser = input.assignedUser;
   if (input.purchaseDateFrom || input.purchaseDateTo) {
     filter.purchaseDate = {
       ...(input.purchaseDateFrom ? { $gte: input.purchaseDateFrom } : {}),
@@ -138,6 +155,23 @@ export async function listAssets(input: ListInput, organizationId: string) {
 export async function getAssetById(id: string, organizationId: string) {
   const asset = await Asset.findOne({ _id: id, organization: organizationId }).populate(POPULATE_FIELDS);
   if (!asset) throw new ApiError(404, "Asset not found");
+  return asset;
+}
+
+/** The view-facing variant of getAssetById - used by every read route that operates on a specific
+ * asset id (detail, documents, history). A caller who can't see the whole fleet gets a 404 for an
+ * asset that isn't assigned to them, same as `listAssets`' filter - never a 403, so an
+ * unauthorized caller can't tell a real id from a made-up one. Internal write-flow lookups
+ * (update/delete/restore) intentionally keep using the plain getAssetById above - their own
+ * route-level permission (assets:update/delete) is the real authorization for those, not this
+ * "am I allowed to look at this" check. */
+export async function getAssetByIdForRequester(id: string, organizationId: string, requestingUser: RequestingUser) {
+  const asset = await getAssetById(id, organizationId);
+  if (!canViewAllAssets(requestingUser)) {
+    const assignedUser = asset.assignedUser as unknown as { _id?: unknown } | null;
+    const assignedUserId = assignedUser ? String(assignedUser._id ?? assignedUser) : null;
+    if (assignedUserId !== requestingUser.id) throw new ApiError(404, "Asset not found");
+  }
   return asset;
 }
 
