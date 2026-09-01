@@ -1,4 +1,4 @@
-import { MongoClient } from "mongodb";
+import mongoose from "mongoose";
 import { env } from "../config/env";
 
 /**
@@ -11,16 +11,19 @@ import { env } from "../config/env";
  * actually stored - so every pre-existing user would silently see the AI Assistant/Knowledge Base
  * as unavailable, contradicting the "on for all users by default" requirement.
  *
- * Deliberately uses the raw MongoDB driver, not the Mongoose User model - Mongoose would apply
- * the `false` default the moment a matching document is read, making an already-migrated (or
- * never-migrated) user indistinguishable from one an admin has since deliberately toggled off.
- * Safe to re-run: only touches documents where the raw stored field is still absent, so an
- * admin's later explicit "off" choice (which leaves the field present, just `false`) is never
- * overwritten by a second run.
+ * Deliberately bypasses the Mongoose User model's schema/hydration - reading a document through
+ * it would apply the `false` default the moment a matching document is loaded, making an
+ * already-migrated (or never-migrated) user indistinguishable from one an admin has since
+ * deliberately toggled off. `mongoose.connection.db` is the same underlying native driver
+ * Mongoose itself uses internally, so this needs no separate `mongodb` package dependency (the
+ * standalone driver isn't hoisted into the production image's node_modules - only `mongoose` is
+ * a listed dependency). Safe to re-run: only touches documents where the raw stored field is
+ * still absent, so an admin's later explicit "off" choice (which leaves the field present, just
+ * `false`) is never overwritten by a second run.
  */
 async function run() {
-  const client = await MongoClient.connect(env.MONGODB_URI);
-  const db = client.db();
+  await mongoose.connect(env.MONGODB_URI);
+  const db = mongoose.connection.db!;
   const users = db.collection("users");
 
   const topLevelResult = await users.updateMany(
@@ -44,7 +47,7 @@ async function run() {
     `Done. Backfilled ${topLevelResult.modifiedCount} user(s)' top-level permissions and ` +
       `${orgAccessResult.modifiedCount} user(s)' orgAccess grants.`
   );
-  await client.close();
+  await mongoose.disconnect();
 }
 
 run().catch((err) => {
