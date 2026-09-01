@@ -7,7 +7,7 @@ const envSchema = z.object({
 
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
 
-  JWT_SECRET: z.string().min(16, "JWT_SECRET must be set to a long random value"),
+  JWT_SECRET: z.string().min(32, "JWT_SECRET must be set to a long random value (at least 32 characters)"),
   JWT_EXPIRES_IN: z.string().default("8h"),
   JWT_COOKIE_NAME: z.string().default("itam_token"),
   // z.coerce.boolean() is the wrong tool here: it just runs JS's Boolean(value), and

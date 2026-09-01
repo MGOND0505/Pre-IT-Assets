@@ -5,6 +5,7 @@ import { uploadSpreadsheet } from "../../utils/upload";
 import * as licensesController from "./licenses.controller";
 import { previewLicenseImport, confirmLicenseImport, downloadLicenseTemplate } from "./licenses.import";
 import {
+  confirmLicenseImportSchema,
   createLicenseSchema,
   licenseIdParamsSchema,
   listLicensesQuerySchema,
@@ -21,7 +22,12 @@ licensesRouter.post(
   uploadSpreadsheet.single("file"),
   previewLicenseImport
 );
-licensesRouter.post("/import/confirm", authorize("licenses", "import"), confirmLicenseImport);
+licensesRouter.post(
+  "/import/confirm",
+  authorize("licenses", "import"),
+  validate({ body: confirmLicenseImportSchema }),
+  confirmLicenseImport
+);
 licensesRouter.get("/import/template", authorize("licenses", "import"), downloadLicenseTemplate);
 
 licensesRouter.get(

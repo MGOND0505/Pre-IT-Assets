@@ -5,6 +5,7 @@ export type AssetDocumentType = (typeof ASSET_DOCUMENT_TYPES)[number];
 
 export interface IAssetDocument {
   asset: Types.ObjectId;
+  organization: Types.ObjectId;
   type: AssetDocumentType;
   originalName: string;
   storedFileName: string;
@@ -16,6 +17,7 @@ export interface IAssetDocument {
 const assetDocumentSchema = new Schema<IAssetDocument>(
   {
     asset: { type: Schema.Types.ObjectId, ref: "Asset", required: true, index: true },
+    organization: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     type: { type: String, enum: ASSET_DOCUMENT_TYPES, default: "Other" },
     originalName: { type: String, required: true },
     storedFileName: { type: String, required: true },

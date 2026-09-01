@@ -13,6 +13,7 @@ import {
   assetDocumentParamsSchema,
   assetIdParamsSchema,
   bulkDeleteAssetsSchema,
+  confirmAssetImportSchema,
   createAssetSchema,
   listAssetsQuerySchema,
   updateAssetSchema,
@@ -29,7 +30,12 @@ assetsRouter.post(
   uploadSpreadsheet.single("file"),
   previewAssetImport
 );
-assetsRouter.post("/import/confirm", authorize("assets", "import"), confirmAssetImport);
+assetsRouter.post(
+  "/import/confirm",
+  authorize("assets", "import"),
+  validate({ body: confirmAssetImportSchema }),
+  confirmAssetImport
+);
 assetsRouter.get("/import/template", authorize("assets", "import"), downloadAssetTemplate);
 
 assetsRouter.get(

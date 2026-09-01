@@ -1,5 +1,6 @@
 import { AssetCategory } from "../../models/AssetCategory";
 import { ApiError } from "../../utils/ApiError";
+import { escapeRegex } from "../../utils/regex";
 
 type ListInput = { page?: number; limit?: number; search?: string; status?: "Active" | "Inactive" };
 
@@ -10,9 +11,10 @@ export async function listAssetCategories(input: ListInput, organizationId: stri
   const filter: Record<string, unknown> = { organization: organizationId };
   if (input.status) filter.status = input.status;
   if (input.search) {
+    const search = escapeRegex(input.search);
     filter.$or = [
-      { name: { $regex: input.search, $options: "i" } },
-      { prefix: { $regex: input.search, $options: "i" } },
+      { name: { $regex: search, $options: "i" } },
+      { prefix: { $regex: search, $options: "i" } },
     ];
   }
 

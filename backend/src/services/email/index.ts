@@ -6,6 +6,7 @@ import { GoogleWorkspaceProvider } from "./GoogleWorkspaceProvider";
 import { getSettings } from "../../modules/settings/settings.service";
 import { logNotification } from "../notifications/logNotification";
 import { logger } from "../../utils/logger";
+import { env } from "../../config/env";
 import type { ISystemSettings } from "../../models/SystemSettings";
 
 const consoleProvider = new ConsoleEmailProvider();
@@ -48,6 +49,18 @@ export const emailProvider = {
 
     const settings = await getSettings(organizationId);
     const { provider, channel } = resolveProvider(settings);
+
+    // The console fallback is intentional, documented local-dev behavior (it's how a reset link
+    // reaches a developer with no mail provider configured) - but the same silent fallback in a
+    // real deployment means reset tokens/links are being written to server logs in plaintext for
+    // any org that never finished configuring email. Never redact the log itself here (that would
+    // break the org's actual ability to reset passwords via the console fallback) - just make sure
+    // this is loud in production log monitoring instead of indistinguishable from normal traffic.
+    if (channel === "console" && env.NODE_ENV === "production") {
+      logger.warn(
+        `Organization ${organizationId} has no email channel configured - password reset links and other notification emails are being logged in plaintext to the console/server logs.`
+      );
+    }
 
     try {
       await provider.send(message);

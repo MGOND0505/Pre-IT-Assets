@@ -17,6 +17,10 @@ helpdeskCategoriesRouter.get(
   validate({ query: listHelpdeskCategoriesQuerySchema }),
   helpdeskCategoriesController.listDeletedHelpdeskCategories
 );
+// Deliberately not authorize()-gated: this is cross-module dropdown data (e.g. a user with
+// tasks:create but not helpdeskCategories:view still needs category names in a ticket picker), and
+// every route below is still org-scoped via req.organization - a real permission gate here would
+// break legitimate cross-module dropdowns for users who have no helpdeskCategories permission.
 helpdeskCategoriesRouter.get(
   "/",
   validate({ query: listHelpdeskCategoriesQuerySchema }),

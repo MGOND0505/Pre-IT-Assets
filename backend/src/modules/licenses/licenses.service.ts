@@ -2,6 +2,7 @@ import { License, type ILicense } from "../../models/License";
 import { ApiError } from "../../utils/ApiError";
 import { claimNextLicenseSequence } from "../settings/settings.service";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
+import { escapeRegex } from "../../utils/regex";
 
 const POPULATE_FIELDS = [
   { path: "category", select: "name" },
@@ -37,11 +38,12 @@ export async function listLicenses(organizationId: string, input: ListInput) {
   if (input.category) filter.category = input.category;
   if (input.vendor) filter.vendor = input.vendor;
   if (input.search) {
+    const search = escapeRegex(input.search);
     filter.$or = [
-      { licenseId: { $regex: input.search, $options: "i" } },
-      { softwareName: { $regex: input.search, $options: "i" } },
-      { productName: { $regex: input.search, $options: "i" } },
-      { publisher: { $regex: input.search, $options: "i" } },
+      { licenseId: { $regex: search, $options: "i" } },
+      { softwareName: { $regex: search, $options: "i" } },
+      { productName: { $regex: search, $options: "i" } },
+      { publisher: { $regex: search, $options: "i" } },
     ];
   }
 

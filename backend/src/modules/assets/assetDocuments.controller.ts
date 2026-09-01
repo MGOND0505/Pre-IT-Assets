@@ -14,7 +14,7 @@ function requestingUserFrom(req: Request) {
 
 export const listDocuments = asyncHandler(async (req: Request, res: Response) => {
   await assetsService.getAssetByIdForRequester(req.params.id, req.organization!._id, requestingUserFrom(req));
-  const documents = await assetDocumentsService.listAssetDocuments(req.params.id);
+  const documents = await assetDocumentsService.listAssetDocuments(req.params.id, req.organization!._id);
   ok(res, documents, "Documents");
 });
 
@@ -26,6 +26,7 @@ export const uploadDocument = asyncHandler(async (req: Request, res: Response) =
 
   const doc = await assetDocumentsService.createAssetDocument({
     asset: req.params.id,
+    organization: req.organization!._id,
     type: req.body.type ?? "Other",
     originalName: req.file.originalname,
     storedFileName: req.file.filename,
@@ -47,7 +48,7 @@ export const uploadDocument = asyncHandler(async (req: Request, res: Response) =
 
 export const downloadDocument = asyncHandler(async (req: Request, res: Response) => {
   await assetsService.getAssetByIdForRequester(req.params.id, req.organization!._id, requestingUserFrom(req));
-  const doc = await assetDocumentsService.getAssetDocument(req.params.id, req.params.docId);
+  const doc = await assetDocumentsService.getAssetDocument(req.params.id, req.params.docId, req.organization!._id);
   const filePath = path.join(ASSET_DOCUMENTS_DIR, doc.storedFileName);
   res.download(filePath, doc.originalName, (err) => {
     if (err) fail(res, "Could not download file", 404);
@@ -56,7 +57,7 @@ export const downloadDocument = asyncHandler(async (req: Request, res: Response)
 
 export const deleteDocument = asyncHandler(async (req: Request, res: Response) => {
   await assetsService.getAssetByIdForRequester(req.params.id, req.organization!._id, requestingUserFrom(req));
-  const doc = await assetDocumentsService.deleteAssetDocument(req.params.id, req.params.docId);
+  const doc = await assetDocumentsService.deleteAssetDocument(req.params.id, req.params.docId, req.organization!._id);
 
   await logAction({
     req,

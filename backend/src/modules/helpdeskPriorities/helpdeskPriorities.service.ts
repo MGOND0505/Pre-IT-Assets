@@ -1,6 +1,7 @@
 import { HelpdeskPriority, type IHelpdeskPriority } from "../../models/HelpdeskPriority";
 import { ApiError } from "../../utils/ApiError";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
+import { escapeRegex } from "../../utils/regex";
 
 type ListInput = {
   page?: number;
@@ -16,7 +17,7 @@ export async function listHelpdeskPriorities(input: ListInput, organizationId: s
 
   const filter: Record<string, unknown> = { organization: organizationId, isDeleted: input.includeDeleted ? true : false };
   if (input.status) filter.status = input.status;
-  if (input.search) filter.name = { $regex: input.search, $options: "i" };
+  if (input.search) filter.name = { $regex: escapeRegex(input.search), $options: "i" };
 
   const [items, total] = await Promise.all([
     HelpdeskPriority.find(filter)

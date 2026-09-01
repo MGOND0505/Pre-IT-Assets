@@ -8,6 +8,7 @@ import { Vendor } from "../../models/Vendor";
 import { Department } from "../../models/Department";
 import { User } from "../../models/User";
 import { logAction } from "../audit/audit.service";
+import { escapeRegex } from "../../utils/regex";
 import * as licensesService from "./licenses.service";
 
 type ImportMode = "catalog" | "per-user";
@@ -69,10 +70,6 @@ function isBlank(value: string | null | undefined): boolean {
 
 function normalize(value: string | null | undefined): string {
   return isBlank(value) ? "" : value!.trim().toLowerCase();
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function parseDateOrUndefined(value: string): Date | undefined {
@@ -357,7 +354,7 @@ async function findOrCreateVendor(organizationId: string, name: string) {
   if (isBlank(name)) return null;
   const existing = await Vendor.findOne({
     organization: organizationId,
-    name: new RegExp(`^${escapeRegExp(name.trim())}$`, "i"),
+    name: new RegExp(`^${escapeRegex(name.trim())}$`, "i"),
   });
   if (existing) return existing;
   return Vendor.create({ organization: organizationId, name: name.trim() });
@@ -367,7 +364,7 @@ async function findOrCreateDepartment(organizationId: string, name: string) {
   if (isBlank(name)) return null;
   const existing = await Department.findOne({
     organization: organizationId,
-    name: new RegExp(`^${escapeRegExp(name.trim())}$`, "i"),
+    name: new RegExp(`^${escapeRegex(name.trim())}$`, "i"),
   });
   if (existing) return existing;
   return Department.create({ organization: organizationId, name: name.trim() });

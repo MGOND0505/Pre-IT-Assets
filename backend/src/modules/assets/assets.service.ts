@@ -11,6 +11,7 @@ import { getSettings } from "../settings/settings.service";
 import { ASSET_DOCUMENTS_DIR } from "../../utils/upload";
 import { recordAssetHistory } from "./assetHistory.service";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
+import { escapeRegex } from "../../utils/regex";
 import {
   notifyAssetCreated,
   notifyAssetUpdated,
@@ -110,28 +111,29 @@ export async function listAssets(input: ListInput, organizationId: string, reque
     }
   }
   if (input.search) {
+    const search = escapeRegex(input.search);
     const matchingUsers = await User.find({
       organization: organizationId,
       $or: [
-        { name: { $regex: input.search, $options: "i" } },
-        { employeeId: { $regex: input.search, $options: "i" } },
+        { name: { $regex: search, $options: "i" } },
+        { employeeId: { $regex: search, $options: "i" } },
       ],
     }).select("_id");
 
     filter.$or = [
-      { assetId: { $regex: input.search, $options: "i" } },
-      { name: { $regex: input.search, $options: "i" } },
-      { serialNumber: { $regex: input.search, $options: "i" } },
-      { serviceTag: { $regex: input.search, $options: "i" } },
-      { imei: { $regex: input.search, $options: "i" } },
-      { hostname: { $regex: input.search, $options: "i" } },
-      { manufacturer: { $regex: input.search, $options: "i" } },
-      { model: { $regex: input.search, $options: "i" } },
-      { ipAddress: { $regex: input.search, $options: "i" } },
-      { macAddress: { $regex: input.search, $options: "i" } },
-      { employeeName: { $regex: input.search, $options: "i" } },
-      { employeeId: { $regex: input.search, $options: "i" } },
-      { email: { $regex: input.search, $options: "i" } },
+      { assetId: { $regex: search, $options: "i" } },
+      { name: { $regex: search, $options: "i" } },
+      { serialNumber: { $regex: search, $options: "i" } },
+      { serviceTag: { $regex: search, $options: "i" } },
+      { imei: { $regex: search, $options: "i" } },
+      { hostname: { $regex: search, $options: "i" } },
+      { manufacturer: { $regex: search, $options: "i" } },
+      { model: { $regex: search, $options: "i" } },
+      { ipAddress: { $regex: search, $options: "i" } },
+      { macAddress: { $regex: search, $options: "i" } },
+      { employeeName: { $regex: search, $options: "i" } },
+      { employeeId: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
       ...(matchingUsers.length > 0 ? [{ assignedUser: { $in: matchingUsers.map((u) => u.id) } }] : []),
     ];
   }

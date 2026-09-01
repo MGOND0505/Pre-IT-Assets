@@ -11,6 +11,10 @@ import {
 
 export const licenseCategoriesRouter = Router();
 
+// Deliberately not authorize()-gated: this is cross-module dropdown data (e.g. a user with
+// licenses:create but not licenseCategories:view still needs category names in a license picker),
+// and every route below is still org-scoped via req.organization - a real permission gate here
+// would break legitimate cross-module dropdowns for users who have no licenseCategories permission.
 licenseCategoriesRouter.get(
   "/",
   validate({ query: listLicenseCategoriesQuerySchema }),

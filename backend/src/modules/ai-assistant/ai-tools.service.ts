@@ -14,6 +14,7 @@ import { listTickets } from "../helpdesk/helpdesk.service";
 import { listTasks } from "../tasks/tasks.service";
 import { createPendingChange, type PendingAiChange } from "./pending-changes.store";
 import type { OllamaTool } from "./ollama.client";
+import { escapeRegex } from "../../utils/regex";
 
 export type ToolContext = {
   organizationId: string;
@@ -21,10 +22,6 @@ export type ToolContext = {
   isAdmin: boolean;
   permissions: PermissionsShape;
 };
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 function canOrgUser(ctx: ToolContext, moduleKey: PermissionModule, action: PermissionAction): boolean {
   return hasPermission({ isAdmin: ctx.isAdmin, permissions: ctx.permissions }, moduleKey, action);

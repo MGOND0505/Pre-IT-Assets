@@ -28,7 +28,7 @@ export const assignTaskSchema = z.object({
 export const listTasksQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().max(100).optional(),
-  search: z.string().optional(),
+  search: z.string().max(100).optional(),
   status: z.enum(TASK_STATUSES).optional(),
   priority: z.enum(TASK_PRIORITIES).optional(),
   assignedTo: z.string().optional(),

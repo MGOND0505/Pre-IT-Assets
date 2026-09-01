@@ -8,6 +8,14 @@ export type ApiEnvelope<T> = {
   error: unknown
 }
 
+// A production build with no API base URL configured would otherwise silently fall back to
+// localhost - the app would then try to reach a dead address from the end user's own browser
+// instead of failing loudly at build/boot time. Local dev is unaffected: NODE_ENV is only
+// "production" for a real production build/start, never `next dev`.
+if (process.env.NODE_ENV === "production" && !process.env.NEXT_PUBLIC_API_BASE_URL) {
+  throw new Error("NEXT_PUBLIC_API_BASE_URL must be set in production")
+}
+
 const API_ROOT = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5001/api"
 
 export const apiClient = axios.create({

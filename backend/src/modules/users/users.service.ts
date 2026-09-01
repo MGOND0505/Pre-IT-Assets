@@ -6,6 +6,7 @@ import { emptyPermissions, type PermissionsShape } from "../../config/permission
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
 import { getPasswordPolicy } from "../settings/settings.service";
 import { validatePasswordAgainstPolicy, assertPasswordNotReused, pushPasswordHistory } from "../../utils/passwordPolicy";
+import { escapeRegex } from "../../utils/regex";
 
 type CreateUserInput = {
   name: string;
@@ -83,10 +84,11 @@ export async function listUsers(input: ListUsersInput, organizationId: string) {
   if (input.status) filter.status = input.status;
   if (input.role) filter.role = input.role;
   if (input.search) {
+    const search = escapeRegex(input.search);
     filter.$or = [
-      { name: { $regex: input.search, $options: "i" } },
-      { email: { $regex: input.search, $options: "i" } },
-      { employeeId: { $regex: input.search, $options: "i" } },
+      { name: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+      { employeeId: { $regex: search, $options: "i" } },
     ];
   }
 

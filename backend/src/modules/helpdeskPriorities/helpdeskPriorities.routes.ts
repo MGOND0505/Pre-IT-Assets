@@ -17,6 +17,10 @@ helpdeskPrioritiesRouter.get(
   validate({ query: listHelpdeskPrioritiesQuerySchema }),
   helpdeskPrioritiesController.listDeletedHelpdeskPriorities
 );
+// Deliberately not authorize()-gated: this is cross-module dropdown data (e.g. a user with
+// tasks:create but not helpdeskPriorities:view still needs priority names in a ticket picker), and
+// every route below is still org-scoped via req.organization - a real permission gate here would
+// break legitimate cross-module dropdowns for users who have no helpdeskPriorities permission.
 helpdeskPrioritiesRouter.get(
   "/",
   validate({ query: listHelpdeskPrioritiesQuerySchema }),

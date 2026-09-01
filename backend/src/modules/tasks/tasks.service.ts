@@ -4,6 +4,7 @@ import { User } from "../../models/User";
 import { ApiError } from "../../utils/ApiError";
 import { claimNextTaskSequence } from "../settings/settings.service";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
+import { escapeRegex } from "../../utils/regex";
 
 const POPULATE_FIELDS = [
   { path: "assignedTo", select: "name email" },
@@ -56,7 +57,7 @@ export async function listTasks(
   if (input.status) filter.status = input.status;
   if (input.priority) filter.priority = input.priority;
   if (input.assignedTo) filter.assignedTo = input.assignedTo;
-  if (input.search) filter.title = { $regex: input.search, $options: "i" };
+  if (input.search) filter.title = { $regex: escapeRegex(input.search), $options: "i" };
 
   const [items, total] = await Promise.all([
     Task.find(filter)

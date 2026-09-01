@@ -140,6 +140,7 @@ authRouter.post(
  */
 authRouter.patch(
   "/change-password",
+  authLimiter,
   authenticate,
   validate({ body: changePasswordSchema }),
   authController.changePassword

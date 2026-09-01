@@ -20,7 +20,7 @@ export const updateLocationSchema = z.object({
 export const listLocationsQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().max(100).optional(),
-  search: z.string().optional(),
+  search: z.string().max(100).optional(),
   status: z.enum(["Active", "Inactive"]).optional(),
 });
 

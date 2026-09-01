@@ -4,6 +4,7 @@ import { ASSET_DOCUMENT_TYPES } from "../../models/AssetDocument";
 
 const objectId = z.string().min(1);
 const str = () => z.string().optional().default("");
+const importStr = () => z.string().max(500).optional().default("");
 
 export const createAssetSchema = z.object({
   // Only ever honored when the caller has assets:editAssetId (enforced in the controller, which
@@ -87,7 +88,7 @@ export const updateAssetSchema = createAssetSchema.partial();
 export const listAssetsQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().max(100).optional(),
-  search: z.string().optional(),
+  search: z.string().max(100).optional(),
   status: z.enum(ASSET_STATUSES).optional(),
   category: objectId.optional(),
   location: objectId.optional(),
@@ -114,4 +115,86 @@ export const assetDocumentParamsSchema = z.object({
 
 export const uploadAssetDocumentBodySchema = z.object({
   type: z.enum(ASSET_DOCUMENT_TYPES).optional().default("Other"),
+});
+
+const mappedAssetImportRowSchema = z.object({
+  assetIdRaw: importStr(),
+  name: importStr(),
+  assetType: importStr(),
+  deviceType: importStr(),
+  manufacturer: importStr(),
+  model: importStr(),
+  serialNumber: importStr(),
+  imei: importStr(),
+  color: importStr(),
+  processor: importStr(),
+  laptopGeneration: importStr(),
+  graphicsCard: importStr(),
+  ram: importStr(),
+  storage: importStr(),
+  macAddress: importStr(),
+  adapterSerialNumber: importStr(),
+  miscAccessories: importStr(),
+  operatingSystem: importStr(),
+  operatingSystemLicense: importStr(),
+  canvaLicense: importStr(),
+  hostname: importStr(),
+  adMember: importStr(),
+  antivirusInstalled: importStr(),
+  remoteSoftware: importStr(),
+  emailLicense: importStr(),
+  microsoftOffice: importStr(),
+  microsoftProject: importStr(),
+  powerBi: importStr(),
+  autoCad: importStr(),
+  zwCad: importStr(),
+  photoshop: importStr(),
+  creativeCloudPro: importStr(),
+  illustrator: importStr(),
+  acrobatPro: importStr(),
+  sketchUpPro: importStr(),
+  rocketReachPro: importStr(),
+  d5Render: importStr(),
+  zoomLicense: importStr(),
+  sharedFolderAccess: importStr(),
+  status: importStr(),
+  condition: importStr(),
+  conditionNotes: importStr(),
+  approvalStatus: importStr(),
+  repairHistory: importStr(),
+  purchaseDate: importStr(),
+  purchaseCost: importStr(),
+  quantity: importStr(),
+  warrantyEnd: importStr(),
+  invoiceNumber: importStr(),
+  companyName: importStr(),
+  notes: importStr(),
+  categoryName: importStr(),
+  locationName: importStr(),
+  subLocation: importStr(),
+  departmentName: importStr(),
+  vendorName: importStr(),
+  employeeName: importStr(),
+  employeeId: importStr(),
+  designation: importStr(),
+  email: importStr(),
+  userAccessLevel: importStr(),
+  currentOwner: importStr(),
+  previousOwner: importStr(),
+});
+
+export const confirmAssetImportSchema = z.object({
+  rows: z
+    .array(
+      z.object({
+        rowIndex: z.number().int(),
+        mapped: mappedAssetImportRowSchema,
+        classification: z.enum(["new", "updated", "duplicate", "invalid"]),
+        reason: z.string().max(500).optional(),
+        existingId: z.string().optional(),
+        existingAssetId: z.string().optional(),
+        changedFields: z.array(z.string()).optional(),
+      })
+    )
+    .max(2000),
 });

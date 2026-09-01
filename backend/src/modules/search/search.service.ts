@@ -8,6 +8,7 @@ import { Location } from "../../models/Location";
 import { User } from "../../models/User";
 import type { EntitlementModule, PermissionModule, PermissionsShape } from "../../config/permissions";
 import type { UserRole } from "../../models/User";
+import { escapeRegex } from "../../utils/regex";
 
 export type SearchResultType =
   | "asset"
@@ -38,12 +39,6 @@ export type SearchContext = {
 // Caps how many rows come back per entity type - this is a quick-navigation aid, not a full
 // search results page, so a handful of the best matches per type is the right shape.
 const RESULTS_PER_TYPE = 5;
-
-// User input goes straight into a Mongo $regex - escape regex metacharacters so a query like
-// "a+" or "(" can't throw or turn into an unintended pattern.
-function escapeRegex(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 /** Mirrors authorize()/requireModuleEnabled()'s exact bypass rules (superAdmin skips the
  * entitlement gate, isAdmin skips the per-action permission check) so search never surfaces a

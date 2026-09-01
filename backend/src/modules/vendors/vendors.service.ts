@@ -1,6 +1,7 @@
 import { Vendor, type IVendor } from "../../models/Vendor";
 import { ApiError } from "../../utils/ApiError";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
+import { escapeRegex } from "../../utils/regex";
 
 type ListInput = { page?: number; limit?: number; search?: string; status?: "Active" | "Inactive"; includeDeleted?: boolean };
 
@@ -11,10 +12,11 @@ export async function listVendors(input: ListInput, organizationId: string) {
   const filter: Record<string, unknown> = { organization: organizationId, isDeleted: input.includeDeleted ? true : false };
   if (input.status) filter.status = input.status;
   if (input.search) {
+    const search = escapeRegex(input.search);
     filter.$or = [
-      { name: { $regex: input.search, $options: "i" } },
-      { contactPerson: { $regex: input.search, $options: "i" } },
-      { email: { $regex: input.search, $options: "i" } },
+      { name: { $regex: search, $options: "i" } },
+      { contactPerson: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
     ];
   }
 

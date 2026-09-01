@@ -7,6 +7,7 @@ import { AuditLog } from "../../models/AuditLog";
 import { LoginHistory } from "../../models/LoginHistory";
 import { AccessRequest } from "../../models/AccessRequest";
 import { ApiError } from "../../utils/ApiError";
+import { escapeRegex } from "../../utils/regex";
 import { getAssetStats } from "../assets/assets.service";
 import { getLicenseStats } from "../licenses/licenses.service";
 import { createUser } from "../users/users.service";
@@ -118,10 +119,11 @@ export async function listOrganizationsWithStats(input: ListInput) {
   const filter: Record<string, unknown> = { isDeleted: input.includeDeleted ? true : false };
   if (input.status) filter.status = input.status;
   if (input.search) {
+    const search = escapeRegex(input.search);
     filter.$or = [
-      { name: { $regex: input.search, $options: "i" } },
-      { code: { $regex: input.search, $options: "i" } },
-      { slug: { $regex: input.search, $options: "i" } },
+      { name: { $regex: search, $options: "i" } },
+      { code: { $regex: search, $options: "i" } },
+      { slug: { $regex: search, $options: "i" } },
     ];
   }
 
@@ -719,12 +721,6 @@ export type GlobalSearchResult = {
 };
 
 const GLOBAL_SEARCH_RESULTS_PER_TYPE = 5;
-
-// Same escaping as search.service.ts's org-scoped search - duplicated rather than imported
-// since this lives in a different module and the function is a one-line pure utility.
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 /**
  * Super Admin only, cross-organization: the platform-wide counterpart to the org-scoped

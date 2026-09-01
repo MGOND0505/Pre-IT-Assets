@@ -5,6 +5,7 @@ import { User } from "../../models/User";
 import { ApiError } from "../../utils/ApiError";
 import { claimNextTicketSequence } from "../settings/settings.service";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
+import { escapeRegex } from "../../utils/regex";
 
 const AVAILABLE_AGENT_FILTER = { status: "Active" as const, isDeleted: false, isOnLeave: { $ne: true } };
 
@@ -84,9 +85,10 @@ export async function listTickets(
   if (input.category) filter.category = input.category;
   if (input.assignedAgent) filter.assignedAgent = input.assignedAgent;
   if (input.search) {
+    const search = escapeRegex(input.search);
     filter.$or = [
-      { ticketId: { $regex: input.search, $options: "i" } },
-      { subject: { $regex: input.search, $options: "i" } },
+      { ticketId: { $regex: search, $options: "i" } },
+      { subject: { $regex: search, $options: "i" } },
     ];
   }
 

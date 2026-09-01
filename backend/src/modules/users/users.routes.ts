@@ -7,10 +7,13 @@ import { previewUserImport, confirmUserImport, downloadUserTemplate } from "./us
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
 import { User } from "../../models/User";
+import { escapeRegex } from "../../utils/regex";
 import {
   adminResetPasswordSchema,
+  confirmUserImportSchema,
   createUserSchema,
   listUsersQuerySchema,
+  lookupUsersQuerySchema,
   setLeaveStatusSchema,
   updateUserPermissionsSchema,
   updateUserSchema,
@@ -26,14 +29,16 @@ export const usersRouter = Router();
 // assignee just by guessing/brute-forcing an id.
 usersRouter.get(
   "/lookup",
+  validate({ query: lookupUsersQuerySchema }),
   asyncHandler(async (req, res) => {
     const search = typeof req.query.search === "string" ? req.query.search : undefined;
     const filter: Record<string, unknown> = { status: "Active", isDeleted: false, organization: req.organization!._id };
     if (search) {
+      const escaped = escapeRegex(search);
       filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-        { employeeId: { $regex: search, $options: "i" } },
+        { name: { $regex: escaped, $options: "i" } },
+        { email: { $regex: escaped, $options: "i" } },
+        { employeeId: { $regex: escaped, $options: "i" } },
       ];
     }
     const users = await User.find(filter).select("name email employeeId").limit(50).sort({ name: 1 });
@@ -59,7 +64,7 @@ usersRouter.post("/", requireAdmin, validate({ body: createUserSchema }), usersC
 // ordering assets.routes.ts uses for its own "/import/*" routes, so Express never mistakes
 // "import" for an :id value.
 usersRouter.post("/import/preview", requireAdmin, uploadSpreadsheet.single("file"), previewUserImport);
-usersRouter.post("/import/confirm", requireAdmin, confirmUserImport);
+usersRouter.post("/import/confirm", requireAdmin, validate({ body: confirmUserImportSchema }), confirmUserImport);
 usersRouter.get("/import/template", requireAdmin, downloadUserTemplate);
 
 usersRouter.get(
