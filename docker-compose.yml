@@ -21,8 +21,14 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "2"
-          memory: 4G
+          # Deliberately modest - this must fit the smallest box this stack is ever deployed to,
+          # not an assumed-generous one. Docker's daemon hard-rejects a `cpus` limit above the
+          # host's actual core count (a real deploy failure this stack hit on a genuinely 1-CPU
+          # host), so this can never exceed what `nproc` reports on the target machine. Raise both
+          # values if the deploy target has more headroom - see the model-size note in env.ts's
+          # OLLAMA_MODEL comment for the RAM a given model needs.
+          cpus: "0.75"
+          memory: 768M
 
   mongo:
     image: mongo:7
