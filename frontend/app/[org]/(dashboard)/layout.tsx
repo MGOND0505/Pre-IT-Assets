@@ -10,6 +10,7 @@ import { Topbar } from "@/components/layout/topbar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CommandPalette } from "@/components/ai/command-palette"
 import { CursorGlow } from "@/components/ai/cursor-glow"
+import { AiAssistantWidget } from "@/components/ai-assistant/ai-assistant-widget"
 import { FullPageLoader } from "@/components/layout/full-page-loader"
 import { useAuth } from "@/lib/auth-context"
 import { useBranding } from "@/lib/branding-context"
@@ -85,6 +86,7 @@ export default function DashboardLayout({ children }: LayoutProps<"/[org]">) {
 
       <CommandPalette />
       <CursorGlow />
+      <AiAssistantWidget />
     </div>
   )
 }
