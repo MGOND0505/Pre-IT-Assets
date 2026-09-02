@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
 import { ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -65,12 +64,12 @@ function CategoryRow({
   category,
   active,
   onSelect,
-  addHref,
+  onAdd,
 }: {
   category: AssetCategoryOption
   active: boolean
   onSelect: () => void
-  addHref: string | null
+  onAdd: (() => void) | null
 }) {
   return (
     <div className="flex items-center gap-0.5 pl-7">
@@ -84,7 +83,7 @@ function CategoryRow({
       >
         {category.name}
       </button>
-      {addHref && (
+      {onAdd && (
         <Tooltip>
           <TooltipTrigger
             render={
@@ -93,7 +92,7 @@ function CategoryRow({
                 size="icon"
                 className="size-6 shrink-0"
                 aria-label={`Add asset in ${category.name}`}
-                render={<Link href={addHref} />}
+                onClick={onAdd}
               >
                 <Plus className="size-3.5" />
               </Button>
@@ -115,14 +114,14 @@ export function AssetCategoryTree({
   categories,
   selection,
   onChange,
-  buildAddAssetHref,
+  onAddAsset,
 }: {
   categories: AssetCategoryOption[]
   selection: AssetCategorySelection
   onChange: (next: AssetCategorySelection) => void
-  // Returns the org-scoped "add asset preset to this category" URL, or null when the current user
-  // can't create assets at all - omitting it entirely hides every category row's quick-add button.
-  buildAddAssetHref?: (categoryId: string) => string
+  // Opens the Add Asset dialog preset to this category, or omitted entirely when the current user
+  // can't create assets at all - hides every category row's quick-add button in that case.
+  onAddAsset?: (categoryId: string) => void
 }) {
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>(() =>
     Object.fromEntries(ASSET_CATEGORY_GROUPS.map((g) => [g, true]))
@@ -224,7 +223,7 @@ export function AssetCategoryTree({
                   category={c}
                   active={selection.category === c._id}
                   onSelect={() => onChange({ group: null, category: c._id })}
-                  addHref={buildAddAssetHref ? buildAddAssetHref(c._id) : null}
+                  onAdd={onAddAsset ? () => onAddAsset(c._id) : null}
                 />
               ))}
           </div>

@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import { type ColumnDef } from "@tanstack/react-table"
 import { toast } from "sonner"
 
@@ -9,9 +10,11 @@ import { Button } from "@/components/ui/button"
 import { MagneticButton } from "@/components/ui/magnetic-button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DataTable } from "@/components/common/data-table"
 import { Pagination } from "@/components/common/pagination"
 import { LicenseStatusBadge, LicenseExpiryBadge, LICENSE_STATUSES } from "@/components/licenses/license-status-badge"
+import { LicenseForm, EMPTY_LICENSE_FORM } from "@/components/licenses/license-form"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
@@ -33,16 +36,31 @@ type Paginated = { items: License[]; total: number; page: number; totalPages: nu
 const ALL = "__all__"
 
 export default function LicensesPage() {
+  const router = useRouter()
   const toOrgHref = useOrgHref()
+  const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
   const [data, setData] = React.useState<Paginated | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState("")
   const [status, setStatus] = React.useState<string>(ALL)
+  const [adding, setAdding] = React.useState(false)
 
   const canView = can(user, "licenses", "view")
   const canCreate = can(user, "licenses", "create")
+
+  // The sidebar's "Add License" link navigates here (via /licenses/add's redirect shim) rather
+  // than opening the dialog directly, since it can't reach this page's own React state.
+  React.useEffect(() => {
+    if (searchParams.get("add") !== "1") return
+    setAdding(true)
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("add")
+    const query = params.toString()
+    router.replace(query ? `${toOrgHref("/licenses")}?${query}` : toOrgHref("/licenses"), { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -158,7 +176,7 @@ export default function LicensesPage() {
         </div>
         {canCreate && (
           <MagneticButton>
-            <Button render={<Link href={toOrgHref("/licenses/add")} />}>Add License</Button>
+            <Button onClick={() => setAdding(true)}>Add License</Button>
           </MagneticButton>
         )}
       </div>
@@ -196,6 +214,22 @@ export default function LicensesPage() {
 
       <DataTable columns={columns} data={data?.items ?? []} isLoading={loading} emptyMessage="No licenses yet." />
       {data && <Pagination page={data.page} totalPages={data.totalPages} onPageChange={setPage} />}
+
+      <Dialog open={adding} onOpenChange={setAdding}>
+        <DialogContent size="full">
+          <DialogHeader>
+            <DialogTitle>Add License</DialogTitle>
+          </DialogHeader>
+          <LicenseForm
+            initial={EMPTY_LICENSE_FORM}
+            onCancel={() => setAdding(false)}
+            onSaved={(licenseId) => {
+              setAdding(false)
+              router.push(toOrgHref(`/licenses/${licenseId}`))
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

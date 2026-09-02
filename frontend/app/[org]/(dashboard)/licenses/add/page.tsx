@@ -1,43 +1,22 @@
 "use client"
 
+import * as React from "react"
 import { useRouter } from "next/navigation"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { LicenseForm, EMPTY_LICENSE_FORM } from "@/components/licenses/license-form"
-import { useAuth } from "@/lib/auth-context"
-import { can } from "@/lib/permissions"
 import { useOrgHref } from "@/lib/use-org-href"
 
-export default function AddLicensePage() {
+// Add License is now a dialog hosted on the list page (matching Edit, and every other module's
+// own add/edit dialog convention) rather than its own page - this route only exists so the
+// sidebar's "Add License" link keeps working unchanged, handing off to /licenses?add=1, which the
+// list page reads once on mount to open the dialog.
+export default function AddLicenseRedirect() {
   const router = useRouter()
   const toOrgHref = useOrgHref()
-  const { user, loading: authLoading } = useAuth()
 
-  const canCreate = can(user, "licenses", "create")
+  React.useEffect(() => {
+    router.replace(`${toOrgHref("/licenses")}?add=1`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  if (authLoading) return null
-  if (!canCreate) {
-    return <p className="text-sm text-muted-foreground">You do not have permission to view this page.</p>
-  }
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Add License</h1>
-        <p className="text-sm text-muted-foreground">The License ID is generated automatically.</p>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>New license</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <LicenseForm
-            initial={EMPTY_LICENSE_FORM}
-            onSaved={(id) => router.push(toOrgHref(`/licenses/${id}`))}
-            onCancel={() => router.push(toOrgHref("/licenses"))}
-          />
-        </CardContent>
-      </Card>
-    </div>
-  )
+  return null
 }

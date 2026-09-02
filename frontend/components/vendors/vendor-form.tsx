@@ -58,9 +58,10 @@ function Field({
   )
 }
 
-// Field-only, Dialog-agnostic - used directly by /vendors/add and /vendors/[id]/edit (full pages,
-// mirroring how asset-form.tsx/license-form.tsx are used directly by their own /add pages), never
-// wrapped in a Dialog itself. There is no separate dialog-based vendor form anymore.
+// Field-only, Dialog-agnostic - vendors/page.tsx hosts both the Add and Edit `<Dialog size="full">`
+// instances directly (no dedicated /vendors/add or /vendors/[id]/edit page - Vendor has no detail
+// page to host an Edit dialog on, so both live on the list page itself), mirroring how every other
+// module's own add/edit dialogs work.
 export function VendorForm({
   initial,
   onSaved,
