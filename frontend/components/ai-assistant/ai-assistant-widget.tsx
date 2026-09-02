@@ -12,7 +12,7 @@ import { can } from "@/lib/permissions"
 import { useOrgHref } from "@/lib/use-org-href"
 
 /**
- * A persistent, bottom-left floating launcher for the AI Assistant, mounted once in the
+ * A persistent, bottom-right floating launcher for the AI Assistant, mounted once in the
  * dashboard shell (`app/[org]/(dashboard)/layout.tsx`) so it's reachable from every page in the
  * app, not just its own `/ai-assistant` page - matching the "AI Assistant available everywhere"
  * requirement. Gated the same way the nav entry and the full page are: hidden entirely if this
@@ -30,7 +30,7 @@ export function AiAssistantWidget() {
   if (!can(user, "aiAssistant", "view")) return null
 
   return (
-    <div className="fixed bottom-6 left-6 z-40 flex flex-col items-start gap-3">
+    <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
       {open && (
         <div className="flex w-[440px] max-w-[calc(100vw-3rem)] flex-col gap-2 rounded-xl bg-popover p-3 text-popover-foreground shadow-soft-lg ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95">
           <div className="flex items-center justify-between px-1">
