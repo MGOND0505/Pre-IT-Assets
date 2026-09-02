@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { type ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal } from "lucide-react"
 import { toast } from "sonner"
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button"
 import { MagneticButton } from "@/components/ui/magnetic-button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +20,6 @@ import {
 import { DataTable } from "@/components/common/data-table"
 import { Pagination } from "@/components/common/pagination"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
-import { VendorForm, EMPTY_VENDOR_FORM, type VendorFormValues } from "@/components/vendors/vendor-form"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
@@ -35,39 +33,13 @@ type Vendor = {
   phone: string
   service: string
   address: string
-  contractStart: string | null
-  contractEnd: string | null
   status: "Active" | "Inactive"
-  notes: string
-  customFields: Record<string, unknown>
 }
 
 type Paginated = { items: Vendor[]; total: number; page: number; totalPages: number }
 
-function toDateInputValue(value: string | null) {
-  return value ? value.slice(0, 10) : ""
-}
-
-function toFormValues(vendor: Vendor): VendorFormValues {
-  return {
-    _id: vendor._id,
-    name: vendor.name,
-    contactPerson: vendor.contactPerson,
-    email: vendor.email,
-    phone: vendor.phone,
-    service: vendor.service,
-    address: vendor.address,
-    contractStart: toDateInputValue(vendor.contractStart),
-    contractEnd: toDateInputValue(vendor.contractEnd),
-    notes: vendor.notes,
-    customFields: vendor.customFields ?? {},
-  }
-}
-
 export default function VendorsPage() {
-  const router = useRouter()
   const toOrgHref = useOrgHref()
-  const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
   const [data, setData] = React.useState<Paginated | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -75,20 +47,6 @@ export default function VendorsPage() {
   const [search, setSearch] = React.useState("")
   const [status, setStatus] = React.useState<"Active" | "Inactive" | "">("")
   const [pendingDelete, setPendingDelete] = React.useState<Vendor | null>(null)
-  const [adding, setAdding] = React.useState(false)
-  const [editing, setEditing] = React.useState<Vendor | null>(null)
-
-  // The sidebar's "Add Vendor" link navigates here (via /vendors/add's redirect shim) rather than
-  // opening the dialog directly, since it can't reach this page's own React state.
-  React.useEffect(() => {
-    if (searchParams.get("add") !== "1") return
-    setAdding(true)
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete("add")
-    const query = params.toString()
-    router.replace(query ? `${toOrgHref("/vendors")}?${query}` : toOrgHref("/vendors"), { scroll: false })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const canView = can(user, "vendors", "view")
   const canCreate = can(user, "vendors", "create")
@@ -185,7 +143,9 @@ export default function VendorsPage() {
             }
           />
           <DropdownMenuContent align="end">
-            {canWrite && <DropdownMenuItem onClick={() => setEditing(row.original)}>Edit</DropdownMenuItem>}
+            {canWrite && (
+              <DropdownMenuItem render={<Link href={toOrgHref(`/vendors/${row.original._id}/edit`)} />}>Edit</DropdownMenuItem>
+            )}
             {canDelete && (
               <DropdownMenuItem variant="destructive" onClick={() => setPendingDelete(row.original)}>
                 Delete
@@ -211,7 +171,7 @@ export default function VendorsPage() {
         </div>
         {canCreate && (
           <MagneticButton>
-            <Button onClick={() => setAdding(true)}>Add Vendor</Button>
+            <Button render={<Link href={toOrgHref("/vendors/add")} />}>Add Vendor</Button>
           </MagneticButton>
         )}
       </div>
@@ -258,40 +218,6 @@ export default function VendorsPage() {
           onConfirm={() => handleDelete(pendingDelete)}
         />
       )}
-
-      <Dialog open={adding} onOpenChange={setAdding}>
-        <DialogContent size="full">
-          <DialogHeader>
-            <DialogTitle>Add Vendor</DialogTitle>
-          </DialogHeader>
-          <VendorForm
-            initial={EMPTY_VENDOR_FORM}
-            onCancel={() => setAdding(false)}
-            onSaved={() => {
-              setAdding(false)
-              load()
-            }}
-          />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
-        <DialogContent size="full">
-          <DialogHeader>
-            <DialogTitle>Edit Vendor</DialogTitle>
-          </DialogHeader>
-          {editing && (
-            <VendorForm
-              initial={toFormValues(editing)}
-              onCancel={() => setEditing(null)}
-              onSaved={() => {
-                setEditing(null)
-                load()
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

@@ -1,17 +1,16 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AssetStatusBadge, type AssetStatus } from "@/components/assets/asset-status-badge"
 import { AssetOwnershipBadge, type AssetOwnershipType } from "@/components/assets/asset-ownership-badge"
 import { AssetCriticalityBadge, type AssetCriticality } from "@/components/assets/asset-criticality-badge"
-import { AssetForm, type AssetFormValues } from "@/components/assets/asset-form"
 import { AssetDocumentsTab } from "@/components/assets/asset-documents-tab"
 import { AssetHistoryTab } from "@/components/assets/asset-history-tab"
 import { AssetSoftwareTab } from "@/components/assets/asset-software-tab"
@@ -137,61 +136,6 @@ function hasCustomFieldValues(customFields: Record<string, unknown> | null | und
   return Object.values(customFields ?? {}).some((v) => v !== undefined && v !== null && v !== "")
 }
 
-function toFormValues(asset: Asset): AssetFormValues {
-  return {
-    _id: asset._id,
-    assetId: asset.assetId,
-    assetTag: asset.assetTag,
-    name: asset.name,
-    category: asset.category?._id ?? "",
-    assetType: asset.assetType,
-    assetSubType: asset.assetSubType,
-    ownershipType: asset.ownershipType,
-    criticality: asset.criticality,
-    companyEntity: asset.companyEntity,
-    description: asset.description,
-    status: asset.status,
-    condition: asset.condition,
-    repairHistory: asset.repairHistory,
-    manufacturer: asset.manufacturer,
-    model: asset.model,
-    serialNumber: asset.serialNumber,
-    CPU: asset.CPU,
-    ram: asset.ram,
-    storage: asset.storage,
-    display: asset.display,
-    hostname: asset.hostname,
-    macAddress: asset.macAddress,
-    adapterSerialNumber: asset.adapterSerialNumber,
-    operatingSystem: asset.operatingSystem,
-    osVersion: asset.osVersion,
-    domainName: asset.domainName,
-    antivirusStatus: asset.antivirusStatus,
-    remarks: asset.remarks,
-    purchaseDate: asset.purchaseDate?.slice(0, 10) ?? "",
-    purchaseCost: asset.purchaseCost?.toString() ?? "",
-    vendor: asset.vendor?._id ?? "",
-    invoiceNumber: asset.invoiceNumber,
-    contractNumber: asset.contractNumber,
-    depreciationMethod: asset.depreciationMethod,
-    warrantyStartDate: asset.warrantyStartDate?.slice(0, 10) ?? "",
-    warrantyEndDate: asset.warrantyEndDate?.slice(0, 10) ?? "",
-    warrantyProvider: asset.warrantyProvider,
-    supportContract: asset.supportContract,
-    contractStartDate: asset.contractStartDate?.slice(0, 10) ?? "",
-    contractEndDate: asset.contractEndDate?.slice(0, 10) ?? "",
-    location: asset.location?._id ?? "",
-    floor: asset.floor,
-    subLocation: asset.subLocation,
-    department: asset.department?._id ?? "",
-    assignedUser: asset.assignedUser?._id ?? "",
-    assignmentDate: asset.assignmentDate?.slice(0, 10) ?? "",
-    returnDate: asset.returnDate?.slice(0, 10) ?? "",
-    assignmentStatus: asset.assignmentStatus,
-    customFields: asset.customFields ?? {},
-  }
-}
-
 export default function AssetDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
@@ -200,7 +144,6 @@ export default function AssetDetailPage() {
   const { user, loading: authLoading } = useAuth()
   const [asset, setAsset] = React.useState<Asset | null>(null)
   const [loading, setLoading] = React.useState(true)
-  const [editing, setEditing] = React.useState(false)
   const [activeTab, setActiveTab] = React.useState<TabValue | null>(null)
 
   const canView = can(user, "assets", "view")
@@ -275,7 +218,7 @@ export default function AssetDetailPage() {
           <Button variant="outline" onClick={() => router.push(toOrgHref("/assets"))}>
             Back to list
           </Button>
-          {canWrite && <Button onClick={() => setEditing(true)}>Edit</Button>}
+          {canWrite && <Button render={<Link href={toOrgHref(`/assets/${asset._id}/edit`)} />}>Edit</Button>}
         </div>
       </div>
 
@@ -418,22 +361,6 @@ export default function AssetDetailPage() {
           </Tabs>
         </CardContent>
       </Card>
-
-      <Dialog open={editing} onOpenChange={setEditing}>
-        <DialogContent size="full">
-          <DialogHeader>
-            <DialogTitle>Edit {asset.assetId}</DialogTitle>
-          </DialogHeader>
-          <AssetForm
-            initial={toFormValues(asset)}
-            onCancel={() => setEditing(false)}
-            onSaved={() => {
-              setEditing(false)
-              load()
-            }}
-          />
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

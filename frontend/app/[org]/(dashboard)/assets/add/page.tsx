@@ -1,26 +1,48 @@
 "use client"
 
-import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AssetForm, EMPTY_ASSET_FORM } from "@/components/assets/asset-form"
+import { useAuth } from "@/lib/auth-context"
+import { can } from "@/lib/permissions"
 import { useOrgHref } from "@/lib/use-org-href"
 
-// Add Asset is now a dialog hosted on the list page (matching Edit, and every other module's own
-// add/edit dialog convention) rather than its own page - this route only exists so the sidebar's
-// "Add Asset" link and the category tree's ?category= preset keep working unchanged. It hands off
-// to /assets?add=1[&category=...], which the list page reads once on mount to open the dialog.
-export default function AddAssetRedirect() {
+export default function AddAssetPage() {
   const router = useRouter()
   const toOrgHref = useOrgHref()
   const searchParams = useSearchParams()
+  const { user, loading: authLoading } = useAuth()
 
-  React.useEffect(() => {
-    const params = new URLSearchParams({ add: "1" })
-    const category = searchParams.get("category")
-    if (category) params.set("category", category)
-    router.replace(`${toOrgHref("/assets")}?${params.toString()}`)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const canCreate = can(user, "assets", "create")
+  // Lets the category tree's per-category "+" quick-add jump straight here with the category
+  // already chosen - a plain "/assets/add" visit (the page's normal top-level entry) still opens
+  // with nothing preset, exactly as before.
+  const presetCategory = searchParams.get("category") ?? ""
 
-  return null
+  if (authLoading) return null
+  if (!canCreate) {
+    return <p className="text-sm text-muted-foreground">You do not have permission to view this page.</p>
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Add Asset</h1>
+        <p className="text-sm text-muted-foreground">The Asset ID is generated automatically from the category.</p>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>New asset</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AssetForm
+            initial={presetCategory ? { ...EMPTY_ASSET_FORM, category: presetCategory } : EMPTY_ASSET_FORM}
+            onSaved={(assetId) => router.push(toOrgHref(`/assets/${assetId}`))}
+            onCancel={() => router.push(toOrgHref("/assets"))}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  )
 }

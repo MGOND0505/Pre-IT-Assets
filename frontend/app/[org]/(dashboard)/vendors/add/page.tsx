@@ -1,22 +1,43 @@
 "use client"
 
-import * as React from "react"
 import { useRouter } from "next/navigation"
 
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { VendorForm, EMPTY_VENDOR_FORM } from "@/components/vendors/vendor-form"
+import { useAuth } from "@/lib/auth-context"
+import { can } from "@/lib/permissions"
 import { useOrgHref } from "@/lib/use-org-href"
 
-// Add Vendor is now a dialog hosted on the list page (matching every other module's own add/edit
-// dialog convention) rather than its own page - this route only exists so the sidebar's
-// "Add Vendor" link keeps working unchanged, handing off to /vendors?add=1, which the list page
-// reads once on mount to open the dialog.
-export default function AddVendorRedirect() {
+export default function AddVendorPage() {
   const router = useRouter()
   const toOrgHref = useOrgHref()
+  const { user, loading: authLoading } = useAuth()
 
-  React.useEffect(() => {
-    router.replace(`${toOrgHref("/vendors")}?add=1`)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const canCreate = can(user, "vendors", "create")
 
-  return null
+  if (authLoading) return null
+  if (!canCreate) {
+    return <p className="text-sm text-muted-foreground">You do not have permission to view this page.</p>
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Add Vendor</h1>
+        <p className="text-sm text-muted-foreground">Register a new vendor used across assets and licenses.</p>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>New vendor</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <VendorForm
+            initial={EMPTY_VENDOR_FORM}
+            onSaved={() => router.push(toOrgHref("/vendors"))}
+            onCancel={() => router.push(toOrgHref("/vendors"))}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  )
 }

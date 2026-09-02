@@ -11,7 +11,6 @@ import { MagneticButton } from "@/components/ui/magnetic-button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DataTable } from "@/components/common/data-table"
 import { Pagination } from "@/components/common/pagination"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
@@ -19,7 +18,6 @@ import { AssetStatusBadge, ASSET_STATUSES, type AssetStatus } from "@/components
 import { AssetOwnershipBadge, type AssetOwnershipType } from "@/components/assets/asset-ownership-badge"
 import { AssetCriticalityBadge, ASSET_CRITICALITY_LEVELS, type AssetCriticality } from "@/components/assets/asset-criticality-badge"
 import { AssetCategoryTree, type AssetCategorySelection } from "@/components/assets/asset-category-tree"
-import { AssetForm, EMPTY_ASSET_FORM } from "@/components/assets/asset-form"
 import { apiClient, apiErrorMessage, orgScopedApiUrl, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
@@ -233,22 +231,6 @@ export default function AssetsPage() {
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [confirmingBulkDelete, setConfirmingBulkDelete] = React.useState(false)
   const [bulkDeleting, setBulkDeleting] = React.useState(false)
-  const [addDialog, setAddDialog] = React.useState<{ open: boolean; category: string }>({ open: false, category: "" })
-
-  // The sidebar's "Add Asset" link and the category tree's per-category "+" both navigate here
-  // (via /assets/add's redirect shim) rather than opening the dialog directly, since neither can
-  // reach this page's own React state - this consumes that handoff once, then scrubs the query
-  // params so a refresh/back doesn't reopen the dialog.
-  React.useEffect(() => {
-    if (searchParams.get("add") !== "1") return
-    setAddDialog({ open: true, category: searchParams.get("category") ?? "" })
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete("add")
-    params.delete("category")
-    const query = params.toString()
-    router.replace(query ? `${toOrgHref("/assets")}?${query}` : toOrgHref("/assets"), { scroll: false })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const canView = can(user, "assets", "view")
   const canCreate = can(user, "assets", "create")
@@ -410,7 +392,7 @@ export default function AssetsPage() {
           </Button>
           {canCreate && (
             <MagneticButton>
-              <Button onClick={() => setAddDialog({ open: true, category: "" })}>Add Asset</Button>
+              <Button render={<Link href={toOrgHref("/assets/add")} />}>Add Asset</Button>
             </MagneticButton>
           )}
         </div>
@@ -424,7 +406,7 @@ export default function AssetsPage() {
             setPage(1)
             setCategorySelection(next)
           }}
-          onAddAsset={canCreate ? (categoryId) => setAddDialog({ open: true, category: categoryId }) : undefined}
+          buildAddAssetHref={canCreate ? (categoryId) => toOrgHref(`/assets/add?category=${categoryId}`) : undefined}
         />
 
         <div className="flex min-w-0 flex-1 flex-col gap-6">
@@ -511,22 +493,6 @@ export default function AssetsPage() {
           onConfirm={handleBulkDelete}
         />
       )}
-
-      <Dialog open={addDialog.open} onOpenChange={(open) => setAddDialog((d) => ({ ...d, open }))}>
-        <DialogContent size="full">
-          <DialogHeader>
-            <DialogTitle>Add Asset</DialogTitle>
-          </DialogHeader>
-          <AssetForm
-            initial={{ ...EMPTY_ASSET_FORM, category: addDialog.category }}
-            onCancel={() => setAddDialog((d) => ({ ...d, open: false }))}
-            onSaved={(assetId) => {
-              setAddDialog((d) => ({ ...d, open: false }))
-              router.push(toOrgHref(`/assets/${assetId}`))
-            }}
-          />
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

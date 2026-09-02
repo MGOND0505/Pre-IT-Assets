@@ -8,10 +8,8 @@ import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { LicenseStatusBadge, LicenseExpiryBadge } from "@/components/licenses/license-status-badge"
-import { LicenseForm, type LicenseFormValues } from "@/components/licenses/license-form"
 import { CustomFieldValuesList } from "@/components/custom-fields/custom-fields-section"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
@@ -55,28 +53,6 @@ function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleDateString() : "-"
 }
 
-function toFormValues(license: License): LicenseFormValues {
-  return {
-    _id: license._id,
-    softwareName: license.softwareName,
-    productName: license.productName,
-    publisher: license.publisher,
-    category: license.category?._id ?? "",
-    licenseType: license.licenseType,
-    vendor: license.vendor?._id ?? "",
-    purchaseDate: license.purchaseDate?.slice(0, 10) ?? "",
-    startDate: license.startDate?.slice(0, 10) ?? "",
-    expiryDate: license.expiryDate?.slice(0, 10) ?? "",
-    renewalDate: license.renewalDate?.slice(0, 10) ?? "",
-    totalLicenses: String(license.totalLicenses),
-    assignedUsers: license.assignedUsers.map((u) => u._id),
-    department: license.department?._id ?? "",
-    status: license.status,
-    notes: license.notes,
-    customFields: license.customFields ?? {},
-  }
-}
-
 export default function LicenseDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
@@ -84,7 +60,6 @@ export default function LicenseDetailPage() {
   const { user, loading: authLoading } = useAuth()
   const [license, setLicense] = React.useState<License | null>(null)
   const [loading, setLoading] = React.useState(true)
-  const [editing, setEditing] = React.useState(false)
   const [pendingDelete, setPendingDelete] = React.useState(false)
 
   const canView = can(user, "licenses", "view")
@@ -140,7 +115,7 @@ export default function LicenseDetailPage() {
           <Button variant="outline" onClick={() => router.push(toOrgHref("/licenses"))}>
             Back to list
           </Button>
-          {canWrite && <Button onClick={() => setEditing(true)}>Edit</Button>}
+          {canWrite && <Button render={<Link href={toOrgHref(`/licenses/${license._id}/edit`)} />}>Edit</Button>}
           {canDelete && (
             <Button variant="destructive" onClick={() => setPendingDelete(true)}>
               Delete
@@ -213,22 +188,6 @@ export default function LicenseDetailPage() {
           )}
         </CardContent>
       </Card>
-
-      <Dialog open={editing} onOpenChange={setEditing}>
-        <DialogContent size="full">
-          <DialogHeader>
-            <DialogTitle>Edit {license.licenseId}</DialogTitle>
-          </DialogHeader>
-          <LicenseForm
-            initial={toFormValues(license)}
-            onCancel={() => setEditing(false)}
-            onSaved={() => {
-              setEditing(false)
-              load()
-            }}
-          />
-        </DialogContent>
-      </Dialog>
 
       {pendingDelete && (
         <ConfirmDialog
