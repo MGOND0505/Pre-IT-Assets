@@ -7,6 +7,7 @@ import {
   resetSubSuperAdminPasswordSchema,
   setSubSuperAdminStatusSchema,
   subSuperAdminIdParamsSchema,
+  updateGrantedOrganizationDetailsSchema,
   updateGrantedOrganizationRetentionSchema,
   updateSubSuperAdminAccessSchema,
   updateSubSuperAdminSchema,
@@ -65,4 +66,9 @@ myOrganizationsRouter.patch(
   "/:id/recycle-bin-retention",
   validate({ params: grantedOrganizationIdParamsSchema, body: updateGrantedOrganizationRetentionSchema }),
   subSuperAdminsController.updateMyGrantedOrganizationRetention
+);
+myOrganizationsRouter.patch(
+  "/:id/details",
+  validate({ params: grantedOrganizationIdParamsSchema, body: updateGrantedOrganizationDetailsSchema }),
+  subSuperAdminsController.updateMyGrantedOrganizationDetails
 );

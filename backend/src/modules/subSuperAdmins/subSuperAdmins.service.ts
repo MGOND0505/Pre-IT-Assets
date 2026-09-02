@@ -164,7 +164,8 @@ export async function upsertOrgAccessGrant(userId: string, organizationId: strin
 export async function listMyGrantedOrganizations(userId: string) {
   const user = await User.findOne({ _id: userId, role: "subSuperAdmin" }).populate({
     path: "orgAccess.organization",
-    select: "name slug status recycleBinRetentionDays",
+    select:
+      "name slug status recycleBinRetentionDays code email phone addressLine1 addressLine2 city state country postalCode",
   });
   if (!user) return [];
   // A purged (permanently deleted) organization leaves a dangling grant behind - populate
@@ -184,4 +185,24 @@ export async function updateGrantedOrganizationRetention(userId: string, organiz
   if (!hasGrant) throw new ApiError(403, "You do not have access to this organization");
 
   return organizationsService.updateRecycleBinRetention(organizationId, days);
+}
+
+/** Lets a Sub-Super Admin edit an organization's core identity/contact details (name, code,
+ * email, phone, address) for an organization they hold a grant for - mirrors
+ * updateGrantedOrganizationRetention's grant check exactly. Governance fields (module access,
+ * subscription validity, grace period, recycle-bin retention) stay out of reach here - retention
+ * has its own separate narrow endpoint above, and the rest stay Super-Admin-only via the full
+ * /api/organizations update route. */
+export async function updateGrantedOrganizationDetails(
+  userId: string,
+  organizationId: string,
+  input: Parameters<typeof organizationsService.updateOrganizationDetails>[1]
+) {
+  const user = await User.findOne({ _id: userId, role: "subSuperAdmin" });
+  if (!user) throw new ApiError(403, "Not a Sub-Super Admin");
+
+  const hasGrant = user.orgAccess.some((grant) => String(grant.organization) === organizationId);
+  if (!hasGrant) throw new ApiError(403, "You do not have access to this organization");
+
+  return organizationsService.updateOrganizationDetails(organizationId, input);
 }

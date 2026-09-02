@@ -348,6 +348,32 @@ export async function updateRecycleBinRetention(idOrSlug: string, days: number) 
   return org;
 }
 
+type UpdateOrgDetailsInput = Partial<
+  Pick<
+    IOrganization,
+    "name" | "code" | "email" | "phone" | "addressLine1" | "addressLine2" | "city" | "state" | "country" | "postalCode"
+  >
+>;
+
+/** Narrow, core-identity/contact-fields-only update used by the Sub-Super Admin "my
+ * organizations" surface (see subSuperAdmins.service.ts#updateGrantedOrganizationDetails) -
+ * deliberately excludes enabledModules/validFrom/validUntil/gracePeriodDays/
+ * recycleBinRetentionDays, which stay Super-Admin-only governance fields reachable only through
+ * the full `updateOrganization` above, same reasoning as `updateRecycleBinRetention`. */
+export async function updateOrganizationDetails(idOrSlug: string, input: UpdateOrgDetailsInput) {
+  const org = await findByIdOrSlug(idOrSlug);
+  if (!org) throw new ApiError(404, "Organization not found");
+
+  if (input.code && input.code !== org.code) {
+    const existing = await Organization.findOne({ code: input.code, isDeleted: false, _id: { $ne: org._id } });
+    if (existing) throw new ApiError(409, "An organization with this code already exists");
+  }
+
+  Object.assign(org, input);
+  await org.save();
+  return org;
+}
+
 export async function setOrganizationStatus(idOrSlug: string, status: "Active" | "Inactive") {
   const org = await findByIdOrSlug(idOrSlug);
   if (!org) throw new ApiError(404, "Organization not found");

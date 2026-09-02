@@ -89,6 +89,15 @@ type GrantedOrganization = {
   slug: string
   status: "Active" | "Inactive"
   recycleBinRetentionDays: number
+  code: string | null
+  email: string
+  phone: string
+  addressLine1: string
+  addressLine2: string
+  city: string
+  state: string
+  country: string
+  postalCode: string
 }
 
 type BrowsableOrganization = { _id: string; name: string; slug: string }
@@ -127,6 +136,7 @@ export default function RootPage() {
   const [deletedPage, setDeletedPage] = React.useState(1)
   const [pendingRestore, setPendingRestore] = React.useState<OrganizationRow | null>(null)
   const [editingRetention, setEditingRetention] = React.useState<GrantedOrganization | null>(null)
+  const [editingDetails, setEditingDetails] = React.useState<GrantedOrganization | null>(null)
   const [editingOrgRetention, setEditingOrgRetention] = React.useState<OrganizationRow | null>(null)
   const [moduleAccessTarget, setModuleAccessTarget] = React.useState<OrganizationRow | null>(null)
   const [limit, setLimit] = React.useState(20)
@@ -434,6 +444,9 @@ export default function RootPage() {
           <Button variant="outline" size="sm" onClick={() => router.push(`/${row.original.slug}`)}>
             Open
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setEditingDetails(row.original)}>
+            Edit Details
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setEditingRetention(row.original)}>
             Edit Retention
           </Button>
@@ -675,6 +688,18 @@ export default function RootPage() {
         />
       )}
 
+      {editingDetails && (
+        <EditGrantedOrgDetailsDialog
+          open
+          onOpenChange={(open) => !open && setEditingDetails(null)}
+          organization={editingDetails}
+          onSaved={() => {
+            loadGranted()
+            setEditingDetails(null)
+          }}
+        />
+      )}
+
       {editingOrgRetention && (
         <EditOrgRetentionDialog
           open
@@ -805,6 +830,89 @@ function EditRetentionDialog({
           <p className="text-xs text-muted-foreground">
             How long deleted data inside this organization stays restorable before it&apos;s permanently removed.
           </p>
+        </div>
+        <DialogFooter>
+          <Button onClick={handleSave} disabled={submitting}>
+            {submitting ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** A Sub-Super Admin's own narrow edit surface for an organization they hold a grant for - core
+ * identity/contact fields only (name/code/email/phone/address), mirroring EditRetentionDialog's
+ * shape. Governance fields (module access, subscription validity, grace period) stay reachable
+ * only through the Super Admin's own EditOrganizationDialog ([org]/organization/page.tsx). */
+function EditGrantedOrgDetailsDialog({
+  open,
+  onOpenChange,
+  organization,
+  onSaved,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  organization: GrantedOrganization
+  onSaved: () => void
+}) {
+  const [name, setName] = React.useState(organization.name)
+  const [code, setCode] = React.useState(organization.code ?? "")
+  const [email, setEmail] = React.useState(organization.email)
+  const [phone, setPhone] = React.useState(organization.phone)
+  const [address, setAddress] = React.useState(organization.addressLine1)
+  const [submitting, setSubmitting] = React.useState(false)
+
+  async function handleSave() {
+    if (!name.trim()) {
+      toast.error("Organization name is required")
+      return
+    }
+    setSubmitting(true)
+    try {
+      await apiClient.patch(`/my-organizations/${organization._id}/details`, {
+        name,
+        code: code || undefined,
+        email,
+        phone,
+        addressLine1: address,
+      })
+      toast.success("Organization details updated")
+      onSaved()
+    } catch (err) {
+      toast.error(apiErrorMessage(err, "Could not update organization details"))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Organization details - {organization.name}</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="granted-org-name">Name</Label>
+            <Input id="granted-org-name" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="granted-org-code">Code</Label>
+            <Input id="granted-org-code" value={code} onChange={(e) => setCode(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="granted-org-email">Email</Label>
+            <Input id="granted-org-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="granted-org-phone">Phone</Label>
+            <Input id="granted-org-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="granted-org-address">Address</Label>
+            <Input id="granted-org-address" value={address} onChange={(e) => setAddress(e.target.value)} />
+          </div>
         </div>
         <DialogFooter>
           <Button onClick={handleSave} disabled={submitting}>

@@ -126,3 +126,19 @@ export const updateMyGrantedOrganizationRetention = asyncHandler(async (req: Req
 
   ok(res, org, "Recycle Bin retention updated");
 });
+
+export const updateMyGrantedOrganizationDetails = asyncHandler(async (req: Request, res: Response) => {
+  const org = await subSuperAdminsService.updateGrantedOrganizationDetails(req.user!.id, req.params.id, req.body);
+
+  await logAction({
+    req,
+    action: "UPDATE",
+    module: "Organization",
+    recordId: org.id,
+    recordLabel: org.name,
+    newValue: req.body,
+    organizationId: org.id,
+  });
+
+  ok(res, org, "Organization details updated");
+});

@@ -53,3 +53,16 @@ export const updateGrantedOrganizationRetentionSchema = z.object({
 export const grantedOrganizationIdParamsSchema = z.object({
   id: z.string().min(1),
 });
+
+export const updateGrantedOrganizationDetailsSchema = z.object({
+  name: z.string().min(1).optional(),
+  code: z.string().min(1).optional(),
+  email: z.string().email().or(z.literal("")).optional(),
+  phone: z.string().optional(),
+  addressLine1: z.string().optional(),
+  addressLine2: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  country: z.string().optional(),
+  postalCode: z.string().optional(),
+});
