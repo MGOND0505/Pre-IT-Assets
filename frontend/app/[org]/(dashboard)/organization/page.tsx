@@ -135,6 +135,7 @@ export default function OrganizationDetailsPage() {
     { label: "Users", href: "/users" },
     { label: "Admins", href: "/users?role=orgAdmin" },
     { label: "Vendors", href: "/vendors" },
+    { label: "Custom Fields", href: "/custom-fields" },
     { label: "Departments", href: "/departments" },
     { label: "Locations", href: "/locations" },
     { label: "Reports", href: "/reports" },

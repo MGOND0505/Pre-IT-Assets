@@ -11,16 +11,20 @@ import { escapeRegex } from "../../utils/regex";
 
 type RequestingUser = { role: UserRole };
 
-/** Licenses/Helpdesk custom fields are unaffected by the IT Asset Type & Custom Field Management
- * spec - this only restricts module "assets" definitions (org-wide or category-scoped alike) to
- * Super Admin/Sub-Super Admin, even though Org Admin's isAdmin bypass and a Team Member's granted
- * `customFields` permission already got them past the route-level authorize() check above this.
- * A Sub-Super Admin reaching this point already had their real per-org grant checked by that same
- * authorize() call, so only the role itself needs re-checking here. */
-function assertCanConfigureIfAssetsModule(module: CustomFieldModule, requestingUser: RequestingUser) {
-  if (module !== "assets") return;
+/** Assets/Licenses/Vendors custom fields are Super Admin/Sub-Super Admin-only, per the
+ * Organization-Wise Custom Field Management spec - Helpdesk is deliberately excluded (never
+ * mentioned by either this or the earlier Asset-only spec), so it keeps today's normal
+ * isAdmin/Team-Member-grant behavior. Even though Org Admin's isAdmin bypass and a Team Member's
+ * granted `customFields` permission already got them past the route-level authorize() check above
+ * this, that check must not be sufficient for a restricted module. A Sub-Super Admin reaching this
+ * point already had their real per-org grant checked by that same authorize() call, so only the
+ * role itself needs re-checking here. */
+const RESTRICTED_CUSTOM_FIELD_MODULES: readonly CustomFieldModule[] = ["assets", "licenses", "vendors"];
+
+function assertCanConfigureIfRestrictedModule(module: CustomFieldModule, requestingUser: RequestingUser) {
+  if (!RESTRICTED_CUSTOM_FIELD_MODULES.includes(module)) return;
   if (requestingUser.role === "superAdmin" || requestingUser.role === "subSuperAdmin") return;
-  throw new ApiError(403, "Only a Super Admin or Sub-Super Admin can configure Asset custom fields");
+  throw new ApiError(403, "Only a Super Admin or Sub-Super Admin can configure this module's custom fields");
 }
 
 type ListInput = {
@@ -129,7 +133,7 @@ type CreateInput = {
 };
 
 export async function createCustomFieldDefinition(input: CreateInput, organizationId: string, requestingUser: RequestingUser) {
-  assertCanConfigureIfAssetsModule(input.module, requestingUser);
+  assertCanConfigureIfRestrictedModule(input.module, requestingUser);
   const category = input.category ?? null;
   await assertLabelAvailable(organizationId, input.module, category, input.label);
 
@@ -167,7 +171,7 @@ export async function updateCustomFieldDefinition(
   requestingUser: RequestingUser
 ) {
   const definition = await getCustomFieldDefinitionById(id, organizationId);
-  assertCanConfigureIfAssetsModule(definition.module, requestingUser);
+  assertCanConfigureIfRestrictedModule(definition.module, requestingUser);
   const nextCategory = "category" in input ? (input.category ?? null) : String(definition.category ?? "") || null;
   await assertLabelAvailable(organizationId, definition.module, nextCategory, input.label, id);
   // A category move (not just a label edit) can collide with an existing definition of the same
@@ -192,7 +196,7 @@ export async function deleteCustomFieldDefinition(
   requestingUser: RequestingUser
 ) {
   const definition = await getCustomFieldDefinitionById(id, organizationId);
-  assertCanConfigureIfAssetsModule(definition.module, requestingUser);
+  assertCanConfigureIfRestrictedModule(definition.module, requestingUser);
   definition.isDeleted = true;
   definition.deletedAt = new Date();
   definition.deletedBy = deletedBy as unknown as ICustomFieldDefinition["deletedBy"];
@@ -203,7 +207,7 @@ export async function deleteCustomFieldDefinition(
 export async function restoreCustomFieldDefinition(id: string, organizationId: string, requestingUser: RequestingUser) {
   const definition = await CustomFieldDefinition.findOne({ organization: organizationId, _id: id, isDeleted: true });
   if (!definition) throw new ApiError(404, "Deleted custom field not found");
-  assertCanConfigureIfAssetsModule(definition.module, requestingUser);
+  assertCanConfigureIfRestrictedModule(definition.module, requestingUser);
   const category = String(definition.category ?? "") || null;
   await assertLabelAvailable(organizationId, definition.module, category, definition.label, id);
   await assertKeyAvailable(organizationId, definition.module, category, definition.key, id);

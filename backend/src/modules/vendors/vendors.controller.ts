@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
 import { logAction } from "../audit/audit.service";
+import { validateCustomFieldValues } from "../customFieldDefinitions/customFieldValues.service";
 import * as vendorsService from "./vendors.service";
 
 export const listVendors = asyncHandler(async (req: Request, res: Response) => {
@@ -15,6 +16,7 @@ export const getVendor = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const createVendor = asyncHandler(async (req: Request, res: Response) => {
+  req.body.customFields = await validateCustomFieldValues(req.body.customFields, "vendors", req.organization!._id);
   const vendor = await vendorsService.createVendor(req.body, req.organization!._id);
 
   await logAction({
@@ -33,6 +35,7 @@ export const updateVendor = asyncHandler(async (req: Request, res: Response) => 
   const before = await vendorsService.getVendorById(req.params.id, req.organization!._id);
   const oldValue = before.toObject();
 
+  req.body.customFields = await validateCustomFieldValues(req.body.customFields, "vendors", req.organization!._id);
   const vendor = await vendorsService.updateVendor(req.params.id, req.body, req.organization!._id);
 
   await logAction({

@@ -32,7 +32,12 @@ const MODULES: { value: CustomFieldModule; label: string }[] = [
   { value: "assets", label: "Assets" },
   { value: "licenses", label: "Licenses" },
   { value: "helpdesk", label: "Helpdesk" },
+  { value: "vendors", label: "Vendors" },
 ]
+
+// Mirrors the backend's RESTRICTED_CUSTOM_FIELD_MODULES (customFieldDefinitions.service.ts) -
+// Helpdesk is deliberately excluded, keeps today's normal isAdmin/Team-Member-grant behavior.
+const RESTRICTED_MODULES: CustomFieldModule[] = ["assets", "licenses", "vendors"]
 
 const TYPE_LABELS: Record<CustomFieldType, string> = {
   text: "Text",
@@ -54,12 +59,13 @@ export default function CustomFieldsPage() {
   const [pendingDelete, setPendingDelete] = React.useState<CustomFieldDefinition | null>(null)
 
   const canView = can(user, "customFields", "view")
-  // Only module "assets" is restricted to Super Admin/Sub-Super Admin - Licenses/Helpdesk custom
+  // Assets/Licenses/Vendors are restricted to Super Admin/Sub-Super Admin - Helpdesk custom
   // fields keep the normal isAdmin/Team-Member-grant behavior, matching the backend's own
-  // per-module check in customFieldDefinitions.service.ts#assertCanConfigureIfAssetsModule.
-  const canCreate = module === "assets" ? canConfigureAssetStructure(user, "customFields", "create") : can(user, "customFields", "create")
-  const canWrite = module === "assets" ? canConfigureAssetStructure(user, "customFields", "update") : can(user, "customFields", "update")
-  const canDelete = module === "assets" ? canConfigureAssetStructure(user, "customFields", "delete") : can(user, "customFields", "delete")
+  // per-module check in customFieldDefinitions.service.ts#assertCanConfigureIfRestrictedModule.
+  const isRestricted = RESTRICTED_MODULES.includes(module)
+  const canCreate = isRestricted ? canConfigureAssetStructure(user, "customFields", "create") : can(user, "customFields", "create")
+  const canWrite = isRestricted ? canConfigureAssetStructure(user, "customFields", "update") : can(user, "customFields", "update")
+  const canDelete = isRestricted ? canConfigureAssetStructure(user, "customFields", "delete") : can(user, "customFields", "delete")
 
   const load = React.useCallback(async () => {
     setLoading(true)

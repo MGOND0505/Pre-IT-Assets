@@ -1,6 +1,6 @@
 import { Schema, model, type Types } from "mongoose";
 
-export const CUSTOM_FIELD_MODULES = ["assets", "licenses", "helpdesk"] as const;
+export const CUSTOM_FIELD_MODULES = ["assets", "licenses", "helpdesk", "vendors"] as const;
 export type CustomFieldModule = (typeof CUSTOM_FIELD_MODULES)[number];
 
 export const CUSTOM_FIELD_TYPES = ["text", "number", "date", "select", "checkbox"] as const;

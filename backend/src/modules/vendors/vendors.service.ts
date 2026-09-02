@@ -49,6 +49,7 @@ type VendorInput = Partial<{
   contractEnd: Date;
   status: "Active" | "Inactive";
   notes: string;
+  customFields: Record<string, unknown>;
 }>;
 
 async function assertNameAvailable(organizationId: string, name?: string, excludeId?: string) {
@@ -66,7 +67,12 @@ export async function updateVendor(id: string, input: VendorInput, organizationI
   const vendor = await getVendorById(id, organizationId);
   await assertNameAvailable(organizationId, input.name, id);
 
+  // Merge, not replace - a request that doesn't mention a given custom field key (or one
+  // belonging to a now-Inactive definition) must leave its previously-stored value untouched.
+  // See customFieldValues.service.ts#validateCustomFieldValues and assets.service.ts#updateAsset.
+  const customFields = input.customFields ? { ...vendor.customFields, ...input.customFields } : undefined;
   Object.assign(vendor, input);
+  if (customFields) vendor.customFields = customFields;
   await vendor.save();
   return vendor;
 }

@@ -14,7 +14,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { CustomFieldsSection } from "@/components/custom-fields/custom-fields-section"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
+import { useCustomFieldDefinitionOptions } from "@/lib/use-lookup-options"
 
 export type Vendor = {
   _id: string
@@ -28,6 +30,7 @@ export type Vendor = {
   contractEnd: string | null
   status: "Active" | "Inactive"
   notes: string
+  customFields: Record<string, unknown>
 }
 
 function toDateInputValue(value: string | null | undefined) {
@@ -65,7 +68,10 @@ export function VendorFormDialog({
     notes: "",
   }
   const [form, setForm] = React.useState(emptyForm)
+  const [customFields, setCustomFields] = React.useState<Record<string, unknown>>({})
   const [submitting, setSubmitting] = React.useState(false)
+  const { items: customFieldDefinitions } = useCustomFieldDefinitionOptions("vendors")
+  const hasCustomFields = customFieldDefinitions.length > 0
 
   React.useEffect(() => {
     if (open) {
@@ -80,6 +86,7 @@ export function VendorFormDialog({
         contractEnd: toDateInputValue(vendor?.contractEnd),
         notes: vendor?.notes ?? "",
       })
+      setCustomFields(vendor?.customFields ?? {})
     }
   }, [open, vendor])
 
@@ -98,6 +105,7 @@ export function VendorFormDialog({
         ...form,
         contractStart: form.contractStart || undefined,
         contractEnd: form.contractEnd || undefined,
+        customFields,
       }
       if (isEdit && vendor) {
         await apiClient.put(`/vendors/${vendor._id}`, payload)
@@ -160,6 +168,12 @@ export function VendorFormDialog({
             <Input id="vendor-notes" value={form.notes} onChange={set("notes")} />
           </div>
         </div>
+        {hasCustomFields && (
+          <div className="flex flex-col gap-3 border-t pt-4">
+            <p className="text-sm font-medium">Custom fields</p>
+            <CustomFieldsSection module="vendors" value={customFields} onChange={setCustomFields} />
+          </div>
+        )}
         <DialogFooter>
           <Button onClick={handleSave} disabled={submitting}>
             {submitting ? "Saving..." : isEdit ? "Save changes" : "Create vendor"}

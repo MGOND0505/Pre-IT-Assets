@@ -10,6 +10,9 @@ export const createVendorSchema = z.object({
   contractStart: z.coerce.date().optional(),
   contractEnd: z.coerce.date().optional(),
   notes: z.string().optional().default(""),
+  // Real per-field validation (required-ness, type, select options) happens server-side in
+  // validateCustomFieldValues, not here - this just needs to not strip or reject the field.
+  customFields: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const updateVendorSchema = z.object({
@@ -23,6 +26,7 @@ export const updateVendorSchema = z.object({
   contractEnd: z.coerce.date().optional(),
   status: z.enum(["Active", "Inactive"]).optional(),
   notes: z.string().optional(),
+  customFields: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const listVendorsQuerySchema = z.object({

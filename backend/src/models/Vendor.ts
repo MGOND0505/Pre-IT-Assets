@@ -12,6 +12,10 @@ export interface IVendor {
   contractEnd: Date | null;
   status: "Active" | "Inactive";
   notes: string;
+  /** Org-defined extra fields (see CustomFieldDefinition, module "vendors") keyed by each
+   * definition's `key`. Additive/optional - absent or missing keys just means no value was ever
+   * set for that field. */
+  customFields: Record<string, unknown>;
   isDeleted: boolean;
   deletedAt: Date | null;
   deletedBy: Types.ObjectId | null;
@@ -30,6 +34,7 @@ const vendorSchema = new Schema<IVendor>(
     contractEnd: { type: Date, default: null },
     status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
     notes: { type: String, default: "" },
+    customFields: { type: Schema.Types.Mixed, default: {} },
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date, default: null },
     deletedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },

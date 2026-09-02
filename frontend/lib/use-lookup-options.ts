@@ -43,7 +43,7 @@ export type HelpdeskPriorityOption = {
   slaResponseMinutes: number
   slaResolutionMinutes: number
 }
-export type CustomFieldModule = "assets" | "licenses" | "helpdesk"
+export type CustomFieldModule = "assets" | "licenses" | "helpdesk" | "vendors"
 export type CustomFieldType = "text" | "number" | "date" | "select" | "checkbox"
 export type CustomFieldDefinitionOption = {
   _id: string
