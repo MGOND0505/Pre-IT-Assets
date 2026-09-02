@@ -1,12 +1,14 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { type ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { MagneticButton } from "@/components/ui/magnetic-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,22 +18,27 @@ import {
 import { DataTable } from "@/components/common/data-table"
 import { Pagination } from "@/components/common/pagination"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
-import {
-  HelpdeskCategoryFormDialog,
-  type HelpdeskCategory,
-} from "@/components/helpdesk-categories/helpdesk-category-form-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
+import { useOrgHref } from "@/lib/use-org-href"
+
+type HelpdeskCategory = {
+  _id: string
+  name: string
+  description: string
+  defaultAgent: { _id: string; name: string } | null
+  status: "Active" | "Inactive"
+}
 
 type Paginated = { items: HelpdeskCategory[]; total: number; page: number; totalPages: number }
 
 export default function HelpdeskCategoriesPage() {
+  const toOrgHref = useOrgHref()
   const { user, loading: authLoading } = useAuth()
   const [data, setData] = React.useState<Paginated | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [page, setPage] = React.useState(1)
-  const [editing, setEditing] = React.useState<HelpdeskCategory | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<HelpdeskCategory | null>(null)
 
   const canView = can(user, "helpdesk", "view")
@@ -93,7 +100,11 @@ export default function HelpdeskCategoriesPage() {
             }
           />
           <DropdownMenuContent align="end">
-            {canWrite && <DropdownMenuItem onClick={() => setEditing(row.original)}>Edit</DropdownMenuItem>}
+            {canWrite && (
+              <DropdownMenuItem render={<Link href={toOrgHref(`/helpdesk/categories/${row.original._id}/edit`)} />}>
+                Edit
+              </DropdownMenuItem>
+            )}
             {canWrite && (
               <DropdownMenuItem variant="destructive" onClick={() => setPendingDelete(row.original)}>
                 Delete
@@ -117,23 +128,15 @@ export default function HelpdeskCategoriesPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Ticket Categories</h1>
           <p className="text-sm text-muted-foreground">Group tickets by category, each with its own default agent for auto-assignment.</p>
         </div>
-        {canWrite && <HelpdeskCategoryFormDialog onSaved={load} />}
+        {canWrite && (
+          <MagneticButton>
+            <Button render={<Link href={toOrgHref("/helpdesk/categories/add")} />}>Add category</Button>
+          </MagneticButton>
+        )}
       </div>
 
       <DataTable columns={columns} data={data?.items ?? []} isLoading={loading} emptyMessage="No categories yet." />
       {data && <Pagination page={data.page} totalPages={data.totalPages} onPageChange={setPage} />}
-
-      {editing && (
-        <HelpdeskCategoryFormDialog
-          category={editing}
-          open
-          onOpenChange={(open) => !open && setEditing(null)}
-          onSaved={() => {
-            load()
-            setEditing(null)
-          }}
-        />
-      )}
 
       {pendingDelete && (
         <ConfirmDialog

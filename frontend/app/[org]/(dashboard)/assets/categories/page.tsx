@@ -1,12 +1,14 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { type ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { MagneticButton } from "@/components/ui/magnetic-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,19 +18,20 @@ import {
 import { DataTable } from "@/components/common/data-table"
 import { Pagination } from "@/components/common/pagination"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
-import { AssetCategoryFormDialog, type AssetCategory } from "@/components/asset-categories/asset-category-form-dialog"
+import { type AssetCategory } from "@/components/asset-categories/asset-category-form"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can, canConfigureAssetStructure } from "@/lib/permissions"
+import { useOrgHref } from "@/lib/use-org-href"
 
 type Paginated = { items: AssetCategory[]; total: number; page: number; totalPages: number }
 
 export default function AssetCategoriesPage() {
+  const toOrgHref = useOrgHref()
   const { user, loading: authLoading } = useAuth()
   const [data, setData] = React.useState<Paginated | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [page, setPage] = React.useState(1)
-  const [editing, setEditing] = React.useState<AssetCategory | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<AssetCategory | null>(null)
 
   const canView = can(user, "assets", "view")
@@ -94,7 +97,11 @@ export default function AssetCategoriesPage() {
             }
           />
           <DropdownMenuContent align="end">
-            {canWrite && <DropdownMenuItem onClick={() => setEditing(row.original)}>Edit</DropdownMenuItem>}
+            {canWrite && (
+              <DropdownMenuItem render={<Link href={toOrgHref(`/assets/categories/${row.original._id}/edit`)} />}>
+                Edit
+              </DropdownMenuItem>
+            )}
             {canDelete && (
               <DropdownMenuItem variant="destructive" onClick={() => setPendingDelete(row.original)}>
                 Delete
@@ -120,23 +127,15 @@ export default function AssetCategoriesPage() {
             Each category has its own ID prefix, e.g. VNR-LAP-000001.
           </p>
         </div>
-        {canCreate && <AssetCategoryFormDialog onSaved={load} />}
+        {canCreate && (
+          <MagneticButton>
+            <Button render={<Link href={toOrgHref("/assets/categories/add")} />}>Add category</Button>
+          </MagneticButton>
+        )}
       </div>
 
       <DataTable columns={columns} data={data?.items ?? []} isLoading={loading} emptyMessage="No categories yet." />
       {data && <Pagination page={data.page} totalPages={data.totalPages} onPageChange={setPage} />}
-
-      {editing && (
-        <AssetCategoryFormDialog
-          category={editing}
-          open
-          onOpenChange={(open) => !open && setEditing(null)}
-          onSaved={() => {
-            load()
-            setEditing(null)
-          }}
-        />
-      )}
 
       {pendingDelete && (
         <ConfirmDialog

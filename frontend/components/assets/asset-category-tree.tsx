@@ -7,7 +7,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { ASSET_CATEGORY_GROUPS } from "@/components/asset-categories/asset-category-form-dialog"
+import { ASSET_CATEGORY_GROUPS } from "@/components/asset-categories/asset-category-form"
 import type { AssetCategoryOption } from "@/lib/use-lookup-options"
 
 type AssetCategoryGroup = (typeof ASSET_CATEGORY_GROUPS)[number]

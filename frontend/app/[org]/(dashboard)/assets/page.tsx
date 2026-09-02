@@ -99,8 +99,8 @@ function refColumn(key: "location" | "department" | "vendor", header: string, hi
 }
 
 // Every key an AssetCategory.listColumns entry can name - mirrors ASSET_LIST_COLUMN_OPTIONS in
-// asset-category-form-dialog.tsx (the config UI's field catalog). Keys not in this map are
-// silently dropped, so a category curated before a column type existed never crashes the list.
+// asset-category-form.tsx (the config UI's field catalog). Keys not in this map are silently
+// dropped, so a category curated before a column type existed never crashes the list.
 const ASSET_COLUMN_BUILDERS: Record<string, () => ColumnDef<Asset, unknown>> = {
   category: () => ({
     id: "category",
