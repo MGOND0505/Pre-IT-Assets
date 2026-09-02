@@ -2,9 +2,10 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Search, CornerDownLeft, ArrowUp, ArrowDown, Sparkles, Loader2 } from "lucide-react"
+import { Search, CornerDownLeft, ArrowUp, ArrowDown, Loader2 } from "lucide-react"
 
 import { Dialog, DialogPortal, DialogOverlay } from "@/components/ui/dialog"
+import { AiAssistantIcon } from "@/components/ai-assistant/ai-assistant-logo"
 import { isNavGroup, navConfig, type NavLeaf } from "@/lib/nav-config"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
@@ -225,7 +226,7 @@ export function CommandPalette() {
           {canUseAi && looksLikeNaturalLanguage(query) && (
             <div className="border-b bg-muted/30 px-4 py-3">
               <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-primary">
-                <Sparkles className="size-3.5" /> AI Assistant
+                <AiAssistantIcon className="size-4" /> AI Assistant
               </div>
               {aiLoading ? (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

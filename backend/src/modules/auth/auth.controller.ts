@@ -33,9 +33,19 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 
 export const logout = asyncHandler(async (req: Request, res: Response) => {
   if (req.user) {
-    const user = await User.findById(req.user.id).select("email organization");
+    const user = await User.findById(req.user.id).select("email organization tokenVersion");
     if (user) {
       await authService.recordLogout(req, user.id, user.email, user.organization ? String(user.organization) : null);
+      // Without this, clearing the cookie only stops THIS browser from sending the token again -
+      // a copy of it (XSS, a shared/compromised device, a proxy log) would keep working for the
+      // rest of its JWT_EXPIRES_IN lifetime even after the user clicks Logout. Bumping
+      // tokenVersion (the same mechanism every other "invalidate now" action in this app already
+      // uses - password change, permission change, deactivation) makes Logout actually mean
+      // something for a compromised session, at the cost of also signing the user out of any
+      // other device they're logged into elsewhere - an accepted tradeoff given this app has no
+      // per-device/per-session token concept to invalidate more narrowly.
+      user.tokenVersion += 1;
+      await user.save();
     }
   }
 
@@ -54,7 +64,7 @@ export const forgotPassword = asyncHandler(async (req: Request, res: Response) =
 });
 
 export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
-  await authService.resetPassword(req.params.token, req.body.newPassword, req.body.captchaToken, req.ip);
+  await authService.resetPassword(req.body.token, req.body.newPassword, req.body.captchaToken, req.ip);
   ok(res, null, "Password has been reset, please log in");
 });
 

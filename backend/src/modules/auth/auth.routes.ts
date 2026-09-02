@@ -7,7 +7,6 @@ import {
   changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
-  resetPasswordParamsSchema,
   resetPasswordSchema,
 } from "./auth.validation";
 
@@ -88,32 +87,28 @@ authRouter.post(
 
 /**
  * @openapi
- * /auth/reset-password/{token}:
+ * /auth/reset-password:
  *   post:
  *     summary: Reset password using a token from the forgot-password email
  *     tags: [Auth]
- *     parameters:
- *       - in: path
- *         name: token
- *         required: true
- *         schema: { type: string }
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [newPassword]
+ *             required: [token, newPassword]
  *             properties:
+ *               token: { type: string }
  *               newPassword: { type: string, minLength: 8 }
  *     responses:
  *       200: { description: Password reset }
  *       400: { description: Token invalid or expired }
  */
 authRouter.post(
-  "/reset-password/:token",
+  "/reset-password",
   authLimiter,
-  validate({ params: resetPasswordParamsSchema, body: resetPasswordSchema }),
+  validate({ body: resetPasswordSchema }),
   authController.resetPassword
 );
 

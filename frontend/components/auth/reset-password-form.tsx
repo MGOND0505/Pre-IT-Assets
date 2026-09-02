@@ -48,7 +48,10 @@ export function ResetPasswordForm({ token }: { token: string }) {
   async function onSubmit(values: Values) {
     setSubmitting(true)
     try {
-      await apiClient.post(`/auth/reset-password/${token}`, { newPassword: values.newPassword })
+      // token goes in the body, not the URL - the URL still carries it (this page's own route,
+      // the email link), but the API call itself shouldn't, so it never lands in the server's
+      // own HTTP access log for the rest of the token's validity window.
+      await apiClient.post("/auth/reset-password", { token, newPassword: values.newPassword })
       toast.success("Password reset. Please log in.")
       router.replace("/login")
     } catch (err) {

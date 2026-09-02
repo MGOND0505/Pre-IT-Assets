@@ -1,18 +1,18 @@
 import { z } from "zod";
 
 export const createKnowledgeBaseArticleSchema = z.object({
-  title: z.string().min(1),
-  content: z.string().min(1),
+  title: z.string().min(1).max(200),
+  content: z.string().min(1).max(50_000),
   category: z.string().optional(),
-  tags: z.array(z.string()).optional().default([]),
+  tags: z.array(z.string().max(50)).max(20).optional().default([]),
   status: z.enum(["Published", "Draft"]).optional(),
 });
 
 export const updateKnowledgeBaseArticleSchema = z.object({
-  title: z.string().min(1).optional(),
-  content: z.string().min(1).optional(),
+  title: z.string().min(1).max(200).optional(),
+  content: z.string().min(1).max(50_000).optional(),
   category: z.string().nullable().optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string().max(50)).max(20).optional(),
   status: z.enum(["Published", "Draft"]).optional(),
 });
 

@@ -2,11 +2,12 @@
 
 import * as React from "react"
 import { toast } from "sonner"
-import { Loader2, Send, Sparkles } from "lucide-react"
+import { Loader2, Send } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
+import { AiAssistantIcon } from "@/components/ai-assistant/ai-assistant-logo"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { can } from "@/lib/permissions"
 import { useAuth } from "@/lib/auth-context"
@@ -162,7 +163,7 @@ export function AiAssistantChat({ panelHeightClassName = "h-[65vh]" }: { panelHe
                   <Card className="w-full max-w-[80%] ring-1 ring-primary/30">
                     <CardContent className="flex flex-col gap-2 pt-4 text-sm">
                       <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
-                        <Sparkles className="size-3.5" /> Draft ticket
+                        <AiAssistantIcon className="size-4" /> Draft ticket
                       </div>
                       <div>
                         <div className="text-xs text-muted-foreground">Subject</div>

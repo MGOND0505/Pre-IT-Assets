@@ -21,13 +21,15 @@ export const forgotPasswordSchema = z.object({
   captchaToken: z.string().optional(),
 });
 
+// token lives in the body, not a URL path/:param - a token in the URL ends up in the server's
+// own HTTP access log (Morgan's "combined" format logs the full request line) for the whole
+// PASSWORD_RESET_TOKEN_EXPIRY_MINUTES validity window, letting anyone with log read access
+// replay a still-valid reset token. The email link itself still embeds the token in its URL
+// (unavoidable for a clickable link), but the actual API call that spends it no longer does.
 export const resetPasswordSchema = z.object({
+  token: z.string().min(1),
   newPassword: z.string().min(8, "Password must be at least 8 characters"),
   captchaToken: z.string().optional(),
-});
-
-export const resetPasswordParamsSchema = z.object({
-  token: z.string().min(1),
 });
 
 export const changePasswordSchema = z.object({

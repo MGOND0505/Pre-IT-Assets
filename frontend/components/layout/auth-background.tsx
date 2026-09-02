@@ -4,6 +4,7 @@ import { useBranding } from "@/lib/branding-context"
 import { isValidHexColor } from "@/lib/color-utils"
 import { cn } from "@/lib/utils"
 import { AppLogo } from "@/components/layout/app-logo"
+import { AiAssistantIcon } from "@/components/ai-assistant/ai-assistant-logo"
 
 export function AuthBackground({ children, className }: { children: React.ReactNode; className?: string }) {
   const { branding } = useBranding()
@@ -44,6 +45,10 @@ export function AuthBackground({ children, className }: { children: React.ReactN
             Assets, licenses, vendors, and access - managed with role-based control across every
             organization you run.
           </p>
+          <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-primary-foreground/90">
+            <AiAssistantIcon className="size-4 shrink-0" />
+            AI Assistant included - ask questions in plain language, right inside the app
+          </div>
         </div>
 
         <p className="relative text-xs text-primary-foreground/60">

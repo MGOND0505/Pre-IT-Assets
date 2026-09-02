@@ -67,7 +67,14 @@ export function LoginForm({ orgSlug, portal }: { orgSlug?: string; portal?: "emp
           `Your password expires in ${warning.daysRemaining} day${warning.daysRemaining === 1 ? "" : "s"} - change it soon.`
         )
       }
-      const redirectTo = searchParams.get("from") ?? (orgSlug ? `/${orgSlug}` : "/")
+      // "from" comes straight from the URL's own query string - never trust it as an absolute
+      // redirect target (open-redirect risk: a phishing link could smuggle in a full external
+      // URL, and it'd fire right after a real, convincing login). Only accept it if it's a
+      // same-origin relative path - "/something", never "//something" (protocol-relative) or an
+      // absolute "http(s)://" URL.
+      const from = searchParams.get("from")
+      const isSafeRelativePath = from ? from.startsWith("/") && !from.startsWith("//") : false
+      const redirectTo = isSafeRelativePath ? from! : orgSlug ? `/${orgSlug}` : "/"
       router.replace(redirectTo)
     } catch (err) {
       toast.error(apiErrorMessage(err, "Login failed"))

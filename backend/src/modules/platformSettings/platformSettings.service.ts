@@ -6,7 +6,10 @@ const CACHE_TTL_MS = 15_000;
 let cache: { value: IPlatformSettings; expiresAt: number } | null = null;
 
 async function loadFresh(): Promise<IPlatformSettings> {
-  let doc = await PlatformSettings.findOne({});
+  // turnstileSecretKey is select:false on the schema (see the model) - explicitly re-selected
+  // here since getEffectiveTurnstileKeys() below (the one legitimate internal reader) needs the
+  // real value to actually verify CAPTCHA against Cloudflare.
+  let doc = await PlatformSettings.findOne({}).select("+turnstileSecretKey");
   if (!doc) doc = await PlatformSettings.create({});
   return doc.toObject();
 }
@@ -26,7 +29,10 @@ export async function getPlatformSettings(): Promise<IPlatformSettings> {
 }
 
 export async function updatePlatformSettings(input: Partial<IPlatformSettings>): Promise<IPlatformSettings> {
-  let doc = await PlatformSettings.findOne({});
+  // Re-selected for the same reason as loadFresh() above - and so a partial update (the
+  // controller strips a blank turnstileSecretKey before this is ever called) merges onto the
+  // real stored value rather than an unselected/undefined in-memory path.
+  let doc = await PlatformSettings.findOne({}).select("+turnstileSecretKey");
   if (!doc) doc = await PlatformSettings.create({});
   Object.assign(doc, input);
   await doc.save();

@@ -21,7 +21,15 @@ export const listAccessRequests = asyncHandler(async (req: Request, res: Respons
   ok(res, requests, "Access requests");
 });
 
-export const listBrowsableOrganizations = asyncHandler(async (_req: Request, res: Response) => {
+export const listBrowsableOrganizations = asyncHandler(async (req: Request, res: Response) => {
+  // Unlike every sibling handler in this file, this one had no role check at all - any
+  // authenticated orgAdmin/teamMember (not just a Sub-Super Admin browsing what to request
+  // access to) could enumerate every other tenant's organization name/slug. Only a Sub-Super
+  // Admin (the intended caller) or a Super Admin (who can already see every org anyway) may use
+  // this - not a regular org-scoped user.
+  if (req.user!.role !== "subSuperAdmin" && req.user!.role !== "superAdmin") {
+    throw new ApiError(403, "Only a Sub-Super Admin or Super Admin can browse organizations");
+  }
   const organizations = await accessRequestsService.listBrowsableOrganizations();
   ok(res, organizations, "Organizations");
 });

@@ -30,12 +30,15 @@ function maskSettings(settings: ISystemSettings & { toObject?: () => Record<stri
   return masked;
 }
 
+// SVG intentionally not accepted - see utils/upload.ts's uploadLogo comment (it's the one image
+// format that can execute script, and this file is served back publicly/unauthenticated below).
+// ".svg" stays in this list so removeExistingLogoFiles() still cleans up a logo an org uploaded
+// before this restriction existed, rather than leaving an orphaned file on disk.
 const LOGO_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".svg"];
 const MIME_TO_EXT: Record<string, string> = {
   "image/png": ".png",
   "image/jpeg": ".jpg",
   "image/webp": ".webp",
-  "image/svg+xml": ".svg",
 };
 
 function removeExistingLogoFiles(organizationId: string) {

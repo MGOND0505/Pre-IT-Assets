@@ -1,3 +1,4 @@
+import type { ComponentType } from "react"
 import {
   LayoutDashboard,
   Bell,
@@ -7,14 +8,18 @@ import {
   LifeBuoy,
   ListChecks,
   BarChart3,
-  Sparkles,
   UploadCloud,
   Settings,
   User,
   Users,
   type LucideIcon,
 } from "lucide-react"
+import { AiAssistantIcon } from "@/components/ai-assistant/ai-assistant-logo"
 import type { EntitlementModule, PermissionAction, PermissionModule } from "@/lib/permissions"
+
+// Nav icons are usually a lucide-react component, but the AI Assistant entry uses its own
+// custom-branded mascot icon instead (see ai-assistant-logo.tsx) - widened to accept either.
+type NavIcon = LucideIcon | ComponentType<{ className?: string }>
 
 export type NavPermission = { area: PermissionModule; action: PermissionAction }
 
@@ -23,7 +28,7 @@ export type NavLeaf = {
   href: string
   /** Shown only for a top-level leaf (no parent group) - a child inside a group stays plain
    * indented text, so the icon carries visual weight at the level where it aids scanning. */
-  icon?: LucideIcon
+  icon?: NavIcon
   /** Set to false once the page behind this link is actually built. */
   disabled?: boolean
   /** If set, the leaf is hidden unless the user satisfies this permission. */
@@ -59,7 +64,7 @@ export type NavLeaf = {
 export type NavGroup = {
   label: string
   href?: string
-  icon?: LucideIcon
+  icon?: NavIcon
   children?: NavLeaf[]
 }
 
@@ -78,7 +83,12 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
 export const navConfig: NavEntry[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Notifications", href: "/notifications", icon: Bell },
-  { label: "AI Assistant", href: "/ai-assistant", permission: { area: "aiAssistant", action: "view" }, icon: Sparkles },
+  {
+    label: "AI Assistant",
+    href: "/ai-assistant",
+    permission: { area: "aiAssistant", action: "view" },
+    icon: AiAssistantIcon,
+  },
   { label: "Organization", href: "/organization", superAdminOnly: true, icon: Building2 },
   {
     label: "Assets",

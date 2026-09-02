@@ -86,7 +86,12 @@ export const uploadSpreadsheet = multer({
   },
 });
 
-const LOGO_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/svg+xml"]);
+// SVG deliberately excluded: it's the one image format that can carry an embedded <script>/event
+// handler, and the logo is served back publicly/unauthenticated (settings.controller.ts's
+// getLogoImage, with Content-Type set from the file extension) - a malicious or compromised org
+// admin could otherwise plant a persistent XSS payload that runs in this app's own origin for
+// anyone who navigates directly to the raw logo URL (not just <img>-embeds it).
+const LOGO_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
 
 /** Branding logo: kept in memory so the controller can pick the on-disk filename (always "logo.<ext>"). */
@@ -95,7 +100,7 @@ export const uploadLogo = multer({
   limits: { fileSize: MAX_LOGO_SIZE_BYTES },
   fileFilter: (_req, file, cb) => {
     if (!LOGO_MIME_TYPES.has(file.mimetype)) {
-      cb(new Error("Unsupported file type - upload a PNG, JPG, WEBP, or SVG image"));
+      cb(new Error("Unsupported file type - upload a PNG, JPG, or WEBP image"));
       return;
     }
     cb(null, true);

@@ -33,7 +33,11 @@ const platformSettingsSchema = new Schema<IPlatformSettings>(
     loginLockoutThreshold: { type: Number, default: null },
     loginLockoutDurationMinutes: { type: Number, default: null },
     turnstileSiteKey: { type: String, default: "" },
-    turnstileSecretKey: { type: String, default: "" },
+    // select: false so an accidental future `.find()`/`.lean()` elsewhere can't leak this - the
+    // one legitimate internal read (platformSettings.service.ts#loadFresh) explicitly re-selects
+    // it. The HTTP-facing controller must never forward this raw value to a client either way -
+    // see platformSettings.controller.ts's masking of both the top-level and `effective` field.
+    turnstileSecretKey: { type: String, default: "", select: false },
   },
   { timestamps: { createdAt: "createdDate", updatedAt: "updatedDate" } }
 );

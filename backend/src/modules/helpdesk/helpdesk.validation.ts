@@ -6,8 +6,8 @@ export const dashboardSummaryQuerySchema = z.object({
 });
 
 export const createTicketSchema = z.object({
-  subject: z.string().min(1),
-  description: z.string().optional().default(""),
+  subject: z.string().min(1).max(200),
+  description: z.string().max(10_000).optional().default(""),
   category: z.string().optional(),
   priority: z.string().min(1),
   department: z.string().optional(),
@@ -18,8 +18,8 @@ export const createTicketSchema = z.object({
 });
 
 export const updateTicketSchema = z.object({
-  subject: z.string().min(1).optional(),
-  description: z.string().optional(),
+  subject: z.string().min(1).max(200).optional(),
+  description: z.string().max(10_000).optional(),
   category: z.string().optional(),
   priority: z.string().optional(),
   department: z.string().optional(),

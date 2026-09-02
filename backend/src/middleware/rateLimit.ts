@@ -63,3 +63,21 @@ export const apiLimiter = rateLimit({
     fail(res, "Too many requests, please slow down", 429);
   },
 });
+
+// The AI Assistant's /chat endpoint shares apiLimiter's generic per-org budget (a few hundred
+// requests/15min) like every other route - nowhere near tight enough for what it actually costs:
+// each call can trigger up to MAX_TOOL_ITERATIONS round-trips to the local Ollama inference
+// engine, which is real CPU/RAM on a single shared box (see docker-compose.yml's ollama resource
+// limits). A single user hammering this endpoint could starve it for the whole organization, so
+// it gets its own, much stricter, PER-USER (not per-IP - several org members can share a NAT/
+// office IP) budget on top of apiLimiter, not instead of it.
+export const aiChatLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id ?? req.ip ?? "unknown",
+  handler: (_req, res) => {
+    fail(res, "Too many AI Assistant requests - please wait a few minutes and try again", 429);
+  },
+});

@@ -11,10 +11,19 @@ export type JwtPayload = {
   lastActivity?: number;
 };
 
+// Only ever signed with a symmetric secret (no RS256 public key exists in this app), so classic
+// alg-confusion isn't directly exploitable today - but pinning the accepted algorithm explicitly,
+// rather than relying on the library's default, means it stays that way even if a future change
+// elsewhere ever introduces an asymmetric key.
+const JWT_ALGORITHM = "HS256" as const;
+
 export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"] });
+  return jwt.sign(payload, env.JWT_SECRET, {
+    expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"],
+    algorithm: JWT_ALGORITHM,
+  });
 }
 
 export function verifyToken(token: string): JwtPayload {
-  return jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+  return jwt.verify(token, env.JWT_SECRET, { algorithms: [JWT_ALGORITHM] }) as JwtPayload;
 }

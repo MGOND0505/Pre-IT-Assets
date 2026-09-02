@@ -2,10 +2,11 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { MessageCircle, X } from "lucide-react"
+import { X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { AiAssistantChat } from "@/components/ai-assistant/ai-assistant-chat"
+import { AiAssistantIcon, AiAssistantLogo } from "@/components/ai-assistant/ai-assistant-logo"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
 import { useOrgHref } from "@/lib/use-org-href"
@@ -33,8 +34,8 @@ export function AiAssistantWidget() {
       {open && (
         <div className="flex w-[380px] max-w-[calc(100vw-3rem)] flex-col gap-2 rounded-xl bg-popover p-3 text-popover-foreground shadow-soft-lg ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95">
           <div className="flex items-center justify-between px-1">
-            <div>
-              <p className="text-sm font-semibold">AI Assistant</p>
+            <div className="flex flex-col gap-0.5">
+              <AiAssistantLogo textClassName="text-sm" />
               <Link
                 href={toOrgHref("/ai-assistant")}
                 className="text-xs text-muted-foreground hover:text-foreground hover:underline"
@@ -57,7 +58,7 @@ export function AiAssistantWidget() {
         aria-label={open ? "Close AI Assistant" : "Open AI Assistant"}
         onClick={() => setOpen((v) => !v)}
       >
-        {open ? <X className="size-5" /> : <MessageCircle className="size-5" />}
+        {open ? <X className="size-5" /> : <AiAssistantIcon className="size-6" />}
       </Button>
     </div>
   )

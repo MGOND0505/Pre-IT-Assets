@@ -21,7 +21,10 @@ const envSchema = z.object({
 
   FRONTEND_URL: z.string().url(),
 
-  BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(4).max(15).default(10),
+  // Floor raised from 4 to 10 - anything below ~10 is well under the modern accepted minimum for
+  // bcrypt and would make offline cracking of a leaked passwordHash/passwordHistory meaningfully
+  // easier; the schema itself should refuse a misconfigured low value, not just default away from it.
+  BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(10).max(15).default(10),
   PASSWORD_RESET_TOKEN_EXPIRY_MINUTES: z.coerce.number().int().positive().default(30),
 
   LOGIN_LOCKOUT_THRESHOLD: z.coerce.number().int().positive().default(5),

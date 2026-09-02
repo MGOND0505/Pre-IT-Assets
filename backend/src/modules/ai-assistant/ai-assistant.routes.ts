@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authorize } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
+import { aiChatLimiter } from "../../middleware/rateLimit";
 import * as aiAssistantController from "./ai-assistant.controller";
 import { chatSchema, confirmTicketSchema, conversationIdParamsSchema } from "./ai-assistant.validation";
 
@@ -9,6 +10,7 @@ export const aiAssistantRouter = Router();
 aiAssistantRouter.post(
   "/chat",
   authorize("aiAssistant", "view"),
+  aiChatLimiter,
   validate({ body: chatSchema }),
   aiAssistantController.chat
 );

@@ -5,6 +5,12 @@ function isEmpty(value: unknown): boolean {
   return value === undefined || value === null || value === "";
 }
 
+// Every route accepting these values defers ALL validation to this function (see the module doc
+// comment below) - without a cap here, a "text" custom field had no length limit at all, unlike
+// every other free-text field in this app, letting a caller store an arbitrarily large string per
+// field on every asset/license/ticket write (storage-exhaustion risk, and oversized documents).
+const MAX_TEXT_FIELD_LENGTH = 2000;
+
 /**
  * The real authorization/correctness boundary for custom field values - runs server-side on every
  * create/update for assets/licenses/helpdesk (never trust the frontend to have enforced this).
@@ -43,7 +49,11 @@ export async function validateCustomFieldValues(
 
     switch (def.type) {
       case "text": {
-        result[def.key] = String(raw);
+        const text = String(raw);
+        if (text.length > MAX_TEXT_FIELD_LENGTH) {
+          throw new ApiError(400, `"${def.label}" must be ${MAX_TEXT_FIELD_LENGTH} characters or fewer`);
+        }
+        result[def.key] = text;
         break;
       }
       case "number": {
