@@ -4,7 +4,7 @@ import { Types } from "mongoose";
 import { Asset, type IAsset } from "../../models/Asset";
 import { AssetCategory } from "../../models/AssetCategory";
 import { AssetDocument } from "../../models/AssetDocument";
-import { AssetHistory } from "../../models/AssetHistory";
+import { AssetHistory, type AssetHistoryAction } from "../../models/AssetHistory";
 import { User } from "../../models/User";
 import { ApiError } from "../../utils/ApiError";
 import { getSettings } from "../settings/settings.service";
@@ -59,14 +59,17 @@ type ListInput = {
   status?: string;
   ownershipType?: string;
   criticality?: string;
+  assignmentStatus?: string;
   category?: string;
   location?: string;
   department?: string;
   vendor?: string;
   assignedUser?: string;
-  /** "active" = warrantyEnd in the future, "expired" = warrantyEnd in the past, "expiringSoon" =
-   * warrantyEnd within the next 30 days. Only assets with a warrantyEnd set ever match any of
-   * these - an asset with no warranty data isn't silently counted as "expired". */
+  /** "active" = warrantyEndDate further out than the org's configured warrantyAlertDays,
+   * "expired" = warrantyEndDate in the past, "expiringSoon" = within the org's real
+   * warrantyAlertDays window (SystemSettings, same threshold the expiry-alert emailer uses -
+   * previously a hardcoded, unrelated 30 days). Only assets with a warrantyEndDate set ever
+   * match any of these - an asset with no warranty data isn't silently counted as "expired". */
   warrantyStatus?: "active" | "expired" | "expiringSoon";
   purchaseDateFrom?: Date;
   purchaseDateTo?: Date;
@@ -104,23 +107,33 @@ export async function listAssets(input: ListInput, organizationId: string, reque
       ...(input.purchaseDateTo ? { $lte: input.purchaseDateTo } : {}),
     };
   }
+  if (input.assignmentStatus) filter.assignmentStatus = input.assignmentStatus;
   if (input.warrantyStatus) {
     const now = new Date();
+    const { warrantyAlertDays } = await getSettings(organizationId);
     if (input.warrantyStatus === "active") {
-      filter.warrantyEnd = { $ne: null, $gte: now };
+      filter.warrantyEndDate = { $ne: null, $gte: new Date(now.getTime() + warrantyAlertDays * 24 * 60 * 60 * 1000) };
     } else if (input.warrantyStatus === "expired") {
-      filter.warrantyEnd = { $ne: null, $lt: now };
+      filter.warrantyEndDate = { $ne: null, $lt: now };
     } else {
-      filter.warrantyEnd = { $ne: null, $gte: now, $lte: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) };
+      filter.warrantyEndDate = {
+        $ne: null,
+        $gte: now,
+        $lte: new Date(now.getTime() + warrantyAlertDays * 24 * 60 * 60 * 1000),
+      };
     }
   }
   if (input.search) {
     const search = escapeRegex(input.search);
+    // employeeName/employeeId/email are no longer stored on Asset (see models/Asset.ts) - a
+    // search by employee identity now resolves entirely through the real assignedUser reference,
+    // so it also picks up email matches which the old Asset-level fields never covered anyway.
     const matchingUsers = await User.find({
       organization: organizationId,
       $or: [
         { name: { $regex: search, $options: "i" } },
         { employeeId: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
       ],
     }).select("_id");
 
@@ -136,9 +149,6 @@ export async function listAssets(input: ListInput, organizationId: string, reque
       { model: { $regex: search, $options: "i" } },
       { ipAddress: { $regex: search, $options: "i" } },
       { macAddress: { $regex: search, $options: "i" } },
-      { employeeName: { $regex: search, $options: "i" } },
-      { employeeId: { $regex: search, $options: "i" } },
-      { email: { $regex: search, $options: "i" } },
       ...(matchingUsers.length > 0 ? [{ assignedUser: { $in: matchingUsers.map((u) => u.id) } }] : []),
     ];
   }
@@ -259,10 +269,81 @@ export async function createAsset(
   return asset;
 }
 
+/** `before`/`after` come from `.toObject()` on a doc populated per POPULATE_FIELDS (assignedUser/
+ * location/department) - a ref field there is a populated sub-document object whenever it wasn't
+ * reassigned by this update (Mongoose only casts a ref back down to a raw ObjectId when the field
+ * is actually written to), so `String(...)` alone would stringify to "[object Object]" instead of
+ * the id. Always extract the id explicitly instead of trusting the field's runtime shape. */
+function refId(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && "_id" in (value as Record<string, unknown>)) {
+    return String((value as { _id: unknown })._id);
+  }
+  return String(value);
+}
+
+/** Fires one AssetHistory row per meaningful category of change (not one per field) - reuses
+ * assetChangeAlerts.ts's SIGNIFICANT_FIELDS list as the trigger set, since those are exactly the
+ * fields worth an audit-trail entry as well as an email alert. */
+async function recordSignificantAssetHistory(
+  assetId: string,
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  updatedBy: string | null
+): Promise<void> {
+  const assignedBefore = refId(before.assignedUser);
+  const assignedAfter = refId(after.assignedUser);
+  if (assignedBefore !== assignedAfter) {
+    const action: AssetHistoryAction = !assignedBefore ? "Assigned" : !assignedAfter ? "Returned" : "Reassigned";
+    await recordAssetHistory({
+      asset: assetId,
+      action,
+      user: updatedBy,
+      previousValue: assignedBefore,
+      newValue: assignedAfter,
+    });
+  }
+
+  const locationBefore = refId(before.location);
+  const locationAfter = refId(after.location);
+  const departmentBefore = refId(before.department);
+  const departmentAfter = refId(after.department);
+  if (locationBefore !== locationAfter || departmentBefore !== departmentAfter) {
+    await recordAssetHistory({
+      asset: assetId,
+      action: "Transferred",
+      user: updatedBy,
+      previousValue: { location: locationBefore, department: departmentBefore },
+      newValue: { location: locationAfter, department: departmentAfter },
+    });
+  }
+
+  const statusChanged = before.status !== after.status;
+  if (statusChanged && after.status === "Retired") {
+    await recordAssetHistory({
+      asset: assetId,
+      action: "Retired",
+      user: updatedBy,
+      previousValue: before.status,
+      newValue: after.status,
+    });
+  } else if (statusChanged || String(before.condition ?? "") !== String(after.condition ?? "")) {
+    await recordAssetHistory({
+      asset: assetId,
+      action: "Updated",
+      user: updatedBy,
+      previousValue: { status: before.status, condition: before.condition },
+      newValue: { status: after.status, condition: after.condition },
+    });
+  }
+}
+
 export async function updateAsset(
   id: string,
   input: AssetInput,
   organizationId: string,
+  updatedBy: string | null = null,
   opts: { notify?: boolean } = {}
 ) {
   const asset = await getAssetById(id, organizationId);
@@ -285,12 +366,19 @@ export async function updateAsset(
   Object.assign(asset, input);
   if (customFields) asset.customFields = customFields;
   await asset.save();
+  const after = asset.toObject();
+  await recordSignificantAssetHistory(
+    asset.id,
+    before as unknown as Record<string, unknown>,
+    after as unknown as Record<string, unknown>,
+    updatedBy
+  );
   if (opts.notify ?? true) {
     notifyAssetUpdated(
       organizationId,
       { assetId: asset.assetId, name: asset.name },
       before as unknown as Record<string, unknown>,
-      asset.toObject() as unknown as Record<string, unknown>
+      after as unknown as Record<string, unknown>
     );
   }
   return asset;
@@ -331,7 +419,8 @@ const ACTIVE_FLEET_STATUSES = ["Available", "In Stock", "Assigned", "Reserved", 
 
 export async function getAssetStats(organizationId: string) {
   const now = new Date();
-  const warrantyExpiringBy = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const { warrantyAlertDays } = await getSettings(organizationId);
+  const warrantyExpiringBy = new Date(now.getTime() + warrantyAlertDays * 24 * 60 * 60 * 1000);
   // .aggregate() pipelines, unlike find()/countDocuments(), never go through Mongoose's
   // automatic string->ObjectId query casting - a raw string here would silently match
   // nothing in every $match stage below (BSON type mismatch against the stored ObjectId),
@@ -378,7 +467,7 @@ export async function getAssetStats(organizationId: string) {
       { $sort: { count: -1 } },
       { $limit: 8 },
     ]),
-    Asset.countDocuments({ ...isDeletedFalse, warrantyEnd: { $ne: null, $gte: now, $lte: warrantyExpiringBy } }),
+    Asset.countDocuments({ ...isDeletedFalse, warrantyEndDate: { $ne: null, $gte: now, $lte: warrantyExpiringBy } }),
   ]);
 
   const statusCounts: Record<string, number> = {};

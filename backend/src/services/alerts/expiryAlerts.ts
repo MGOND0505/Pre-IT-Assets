@@ -39,20 +39,23 @@ async function runExpiryAlertCheckForOrg(organizationId: string): Promise<number
   const warrantyExpiring = await Asset.find({
     organization: organizationId,
     isDeleted: false,
-    warrantyEnd: { $ne: null, $gte: now, $lte: warrantyThreshold },
+    warrantyEndDate: { $ne: null, $gte: now, $lte: warrantyThreshold },
   })
-    .select("assetId name warrantyEnd")
-    .sort({ warrantyEnd: 1 })
+    .select("assetId name warrantyEndDate")
+    .sort({ warrantyEndDate: 1 })
     .lean();
 
+  // "AMC" (annual maintenance contract) is now the more general contractStartDate/contractEndDate
+  // pair (supportContract) rather than its own amcStart/amcEnd fields - same alerting logic,
+  // just reading the renamed/consolidated field.
   const amcThreshold = new Date(now.getTime() + settings.amcAlertDays * 24 * 60 * 60 * 1000);
   const amcExpiring = await Asset.find({
     organization: organizationId,
     isDeleted: false,
-    amcEnd: { $ne: null, $gte: now, $lte: amcThreshold },
+    contractEndDate: { $ne: null, $gte: now, $lte: amcThreshold },
   })
-    .select("assetId name amcEnd")
-    .sort({ amcEnd: 1 })
+    .select("assetId name contractEndDate")
+    .sort({ contractEndDate: 1 })
     .lean();
 
   const activeLicenses = await License.find({
@@ -77,11 +80,11 @@ async function runExpiryAlertCheckForOrg(organizationId: string): Promise<number
       count: total,
       warrantySection: section(
         "Warranties expiring",
-        warrantyExpiring.map((a) => `${a.assetId} - ${a.name} (ends ${formatDate(a.warrantyEnd as Date)})`)
+        warrantyExpiring.map((a) => `${a.assetId} - ${a.name} (ends ${formatDate(a.warrantyEndDate as Date)})`)
       ),
       amcSection: section(
         "AMC contracts expiring",
-        amcExpiring.map((a) => `${a.assetId} - ${a.name} (ends ${formatDate(a.amcEnd as Date)})`)
+        amcExpiring.map((a) => `${a.assetId} - ${a.name} (ends ${formatDate(a.contractEndDate as Date)})`)
       ),
       licenseSection: section(
         "Licenses due for renewal",

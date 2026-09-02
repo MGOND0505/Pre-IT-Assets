@@ -33,16 +33,30 @@ export function notifyAssetCreated(organizationId: string, asset: { assetId: str
  * (e.g. a typo fix in notes doesn't warrant an email). */
 const SIGNIFICANT_FIELDS = ["status", "assignedUser", "location", "department", "condition"] as const;
 
+/** assignedUser/location/department come from a doc populated on those refs (see
+ * assets.service.ts#POPULATE_FIELDS) - a ref that wasn't reassigned by this update is still a
+ * populated sub-document object at this point, not a raw id, so plain String(...) would render as
+ * "[object Object]" in the alert email. Show its display name instead when populated. */
+function displayValue(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "object" && "name" in (value as Record<string, unknown>)) {
+    return String((value as { name: unknown }).name ?? "");
+  }
+  return String(value);
+}
+
 export function notifyAssetUpdated(
   organizationId: string,
   asset: { assetId: string; name: string },
   before: Record<string, unknown>,
   after: Record<string, unknown>
 ): void {
-  const changes = SIGNIFICANT_FIELDS.filter((f) => String(before[f] ?? "") !== String(after[f] ?? ""));
+  const changes = SIGNIFICANT_FIELDS.filter((f) => displayValue(before[f]) !== displayValue(after[f]));
   if (changes.length === 0) return;
 
-  const rows = changes.map((f) => `<li>${f}: "${before[f] ?? ""}" &rarr; "${after[f] ?? ""}"</li>`).join("");
+  const rows = changes
+    .map((f) => `<li>${f}: "${displayValue(before[f])}" &rarr; "${displayValue(after[f])}"</li>`)
+    .join("");
   void notify(organizationId, "assetUpdated", { assetId: asset.assetId, name: asset.name, changes: rows });
 }
 

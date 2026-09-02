@@ -26,6 +26,9 @@ import { ASSET_CRITICALITY_LEVELS } from "@/components/assets/asset-criticality-
 
 const NONE = "__none__"
 
+const ASSET_ASSIGNMENT_STATUSES = ["Unassigned", "Assigned", "Shared", "Pool", "Temporary"] as const
+const ASSET_DEPRECIATION_METHODS = ["Straight-Line", "None"] as const
+
 export type AssetFormValues = {
   _id?: string
   assetId?: string
@@ -41,8 +44,6 @@ export type AssetFormValues = {
   deviceType: string
   status: string
   condition: string
-  conditionNotes: string
-  approvalStatus: string
   repairHistory: string
   color: string
   manufacturer: string
@@ -86,25 +87,30 @@ export type AssetFormValues = {
   purchaseCost: string
   quantity: string
   vendor: string
-  companyName: string
-  poNumber: string
+  purchaseOrderNumber: string
   invoiceNumber: string
-  warrantyStart: string
-  warrantyEnd: string
-  amcStart: string
-  amcEnd: string
+  currency: string
+  contractNumber: string
+  costCenter: string
+  budgetCode: string
+  depreciationMethod: string
+  depreciationStartDate: string
+  warrantyStartDate: string
+  warrantyEndDate: string
+  warrantyProvider: string
+  supportContract: string
+  contractStartDate: string
+  contractEndDate: string
   location: string
+  building: string
+  floor: string
+  room: string
   subLocation: string
   department: string
   assignedUser: string
-  userAccessLevel: string
-  employeeId: string
-  employeeName: string
-  designation: string
-  email: string
-  currentOwner: string
-  previousOwner: string
-  notes: string
+  assignmentDate: string
+  returnDate: string
+  assignmentStatus: string
   customFields: Record<string, unknown>
 }
 
@@ -122,8 +128,6 @@ export const EMPTY_ASSET_FORM: AssetFormValues = {
   deviceType: "",
   status: "In Stock",
   condition: "",
-  conditionNotes: "",
-  approvalStatus: "",
   repairHistory: "",
   color: "",
   manufacturer: "",
@@ -167,25 +171,30 @@ export const EMPTY_ASSET_FORM: AssetFormValues = {
   purchaseCost: "",
   quantity: "",
   vendor: "",
-  companyName: "",
-  poNumber: "",
+  purchaseOrderNumber: "",
   invoiceNumber: "",
-  warrantyStart: "",
-  warrantyEnd: "",
-  amcStart: "",
-  amcEnd: "",
+  currency: "",
+  contractNumber: "",
+  costCenter: "",
+  budgetCode: "",
+  depreciationMethod: "None",
+  depreciationStartDate: "",
+  warrantyStartDate: "",
+  warrantyEndDate: "",
+  warrantyProvider: "",
+  supportContract: "",
+  contractStartDate: "",
+  contractEndDate: "",
   location: "",
+  building: "",
+  floor: "",
+  room: "",
   subLocation: "",
   department: "",
   assignedUser: "",
-  userAccessLevel: "",
-  employeeId: "",
-  employeeName: "",
-  designation: "",
-  email: "",
-  currentOwner: "",
-  previousOwner: "",
-  notes: "",
+  assignmentDate: "",
+  returnDate: "",
+  assignmentStatus: "Unassigned",
   customFields: {},
 }
 
@@ -261,10 +270,13 @@ export function AssetForm({
         purchaseCost: form.purchaseCost ? Number(form.purchaseCost) : undefined,
         quantity: form.quantity ? Number(form.quantity) : undefined,
         purchaseDate: form.purchaseDate || undefined,
-        warrantyStart: form.warrantyStart || undefined,
-        warrantyEnd: form.warrantyEnd || undefined,
-        amcStart: form.amcStart || undefined,
-        amcEnd: form.amcEnd || undefined,
+        depreciationStartDate: form.depreciationStartDate || undefined,
+        warrantyStartDate: form.warrantyStartDate || undefined,
+        warrantyEndDate: form.warrantyEndDate || undefined,
+        contractStartDate: form.contractStartDate || undefined,
+        contractEndDate: form.contractEndDate || undefined,
+        assignmentDate: form.assignmentDate || undefined,
+        returnDate: form.returnDate || undefined,
         vendor: form.vendor || undefined,
         location: form.location || undefined,
         department: form.department || undefined,
@@ -297,11 +309,12 @@ export function AssetForm({
             or clipped - the row overflows and scrolls, it never wraps. */}
         <TabsList className="w-full justify-start gap-2 overflow-x-auto no-scrollbar">
           <TabsTrigger value="basic" className="shrink-0">Basic</TabsTrigger>
-          <TabsTrigger value="assignment" className="shrink-0">Employee &amp; assignment</TabsTrigger>
+          <TabsTrigger value="assignment" className="shrink-0">Assignment</TabsTrigger>
+          <TabsTrigger value="assetLocation" className="shrink-0">Location</TabsTrigger>
           <TabsTrigger value="hardware" className="shrink-0">Hardware</TabsTrigger>
           <TabsTrigger value="software" className="shrink-0">OS &amp; software licenses</TabsTrigger>
           <TabsTrigger value="purchase" className="shrink-0">Purchase &amp; vendor</TabsTrigger>
-          <TabsTrigger value="condition" className="shrink-0">Condition &amp; notes</TabsTrigger>
+          <TabsTrigger value="condition" className="shrink-0">Condition</TabsTrigger>
           {hasCustomFields && <TabsTrigger value="customFields" className="shrink-0">Custom fields</TabsTrigger>}
         </TabsList>
 
@@ -391,6 +404,63 @@ export function AssetForm({
 
         <TabsContent value="assignment">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="col-span-2 flex flex-col gap-2">
+              <Label htmlFor="asset-assigned-user">Assigned to (system user)</Label>
+              <Select value={form.assignedUser || NONE} onValueChange={(v) => setSelect("assignedUser")(v === NONE ? "" : v)}>
+                <SelectTrigger id="asset-assigned-user" className="w-full">
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Unassigned</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u._id} value={u._id}>
+                      {u.name} ({u.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Employee ID, name, email and designation are shown from the selected user&apos;s
+                profile - they are no longer entered separately here.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="asset-department">Department</Label>
+              <Select value={form.department} onValueChange={setSelect("department")}>
+                <SelectTrigger id="asset-department" className="w-full">
+                  <SelectValue placeholder="Select a department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((d) => (
+                    <SelectItem key={d._id} value={d._id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="asset-assignment-status">Assignment status</Label>
+              <Select value={form.assignmentStatus} onValueChange={setSelect("assignmentStatus")}>
+                <SelectTrigger id="asset-assignment-status" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ASSET_ASSIGNMENT_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Field label="Assignment date" id="asset-assignment-date" type="date" value={form.assignmentDate} onChange={set("assignmentDate")} />
+            <Field label="Return date" id="asset-return-date" type="date" value={form.returnDate} onChange={set("returnDate")} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="assetLocation">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="asset-location">Location</Label>
               <Select value={form.location} onValueChange={setSelect("location")}>
@@ -407,44 +477,9 @@ export function AssetForm({
               </Select>
             </div>
             <Field label="Sub-location" id="asset-sub-location" value={form.subLocation} onChange={set("subLocation")} />
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="asset-department">Department</Label>
-              <Select value={form.department} onValueChange={setSelect("department")}>
-                <SelectTrigger id="asset-department" className="w-full">
-                  <SelectValue placeholder="Select a department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((d) => (
-                    <SelectItem key={d._id} value={d._id}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Field label="Designation" id="asset-designation" value={form.designation} onChange={set("designation")} />
-            <div className="col-span-2 flex flex-col gap-2">
-              <Label htmlFor="asset-assigned-user">Assigned to (system user)</Label>
-              <Select value={form.assignedUser || NONE} onValueChange={(v) => setSelect("assignedUser")(v === NONE ? "" : v)}>
-                <SelectTrigger id="asset-assigned-user" className="w-full">
-                  <SelectValue placeholder="Unassigned" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>Unassigned</SelectItem>
-                  {users.map((u) => (
-                    <SelectItem key={u._id} value={u._id}>
-                      {u.name} ({u.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Field label="Employee ID" id="asset-employee-id" value={form.employeeId} onChange={set("employeeId")} />
-            <Field label="Employee name" id="asset-employee-name" value={form.employeeName} onChange={set("employeeName")} />
-            <Field label="Email ID" id="asset-email" value={form.email} onChange={set("email")} />
-            <Field label="User access" id="asset-user-access" value={form.userAccessLevel} onChange={set("userAccessLevel")} />
-            <Field label="Current owner" id="asset-current-owner" value={form.currentOwner} onChange={set("currentOwner")} />
-            <Field label="Previous owner" id="asset-previous-owner" value={form.previousOwner} onChange={set("previousOwner")} />
+            <Field label="Building" id="asset-building" value={form.building} onChange={set("building")} />
+            <Field label="Floor" id="asset-floor" value={form.floor} onChange={set("floor")} />
+            <Field label="Room" id="asset-room" value={form.room} onChange={set("room")} />
           </div>
         </TabsContent>
 
@@ -519,28 +554,42 @@ export function AssetForm({
                 </SelectContent>
               </Select>
             </div>
-            <Field label="Company name" id="asset-company-name" value={form.companyName} onChange={set("companyName")} />
-            <Field label="PO number" id="asset-po" value={form.poNumber} onChange={set("poNumber")} />
+            <Field label="Purchase order number" id="asset-po" value={form.purchaseOrderNumber} onChange={set("purchaseOrderNumber")} />
             <Field label="Invoice number" id="asset-invoice" value={form.invoiceNumber} onChange={set("invoiceNumber")} />
-            <Field label="Warranty start" id="asset-warranty-start" type="date" value={form.warrantyStart} onChange={set("warrantyStart")} />
-            <Field label="Warranty end" id="asset-warranty-end" type="date" value={form.warrantyEnd} onChange={set("warrantyEnd")} />
-            <Field label="AMC start" id="asset-amc-start" type="date" value={form.amcStart} onChange={set("amcStart")} />
-            <Field label="AMC end" id="asset-amc-end" type="date" value={form.amcEnd} onChange={set("amcEnd")} />
+            <Field label="Currency" id="asset-currency" value={form.currency} onChange={set("currency")} />
+            <Field label="Cost center" id="asset-cost-center" value={form.costCenter} onChange={set("costCenter")} />
+            <Field label="Budget code" id="asset-budget-code" value={form.budgetCode} onChange={set("budgetCode")} />
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="asset-depreciation-method">Depreciation method</Label>
+              <Select value={form.depreciationMethod} onValueChange={setSelect("depreciationMethod")}>
+                <SelectTrigger id="asset-depreciation-method" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ASSET_DEPRECIATION_METHODS.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Field label="Depreciation start date" id="asset-depreciation-start" type="date" value={form.depreciationStartDate} onChange={set("depreciationStartDate")} />
+            <Field label="Contract number" id="asset-contract-number" value={form.contractNumber} onChange={set("contractNumber")} />
+            <Field label="Warranty start" id="asset-warranty-start" type="date" value={form.warrantyStartDate} onChange={set("warrantyStartDate")} />
+            <Field label="Warranty end" id="asset-warranty-end" type="date" value={form.warrantyEndDate} onChange={set("warrantyEndDate")} />
+            <Field label="Warranty provider" id="asset-warranty-provider" value={form.warrantyProvider} onChange={set("warrantyProvider")} />
+            <Field label="Support contract" id="asset-support-contract" value={form.supportContract} onChange={set("supportContract")} />
+            <Field label="Contract start" id="asset-contract-start" type="date" value={form.contractStartDate} onChange={set("contractStartDate")} />
+            <Field label="Contract end" id="asset-contract-end" type="date" value={form.contractEndDate} onChange={set("contractEndDate")} />
           </div>
         </TabsContent>
 
         <TabsContent value="condition">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Condition" id="asset-condition" value={form.condition} onChange={set("condition")} />
-            <Field label="Approval status" id="asset-approval-status" value={form.approvalStatus} onChange={set("approvalStatus")} />
-            <div className="col-span-2">
-              <Field label="Condition notes" id="asset-condition-notes" value={form.conditionNotes} onChange={set("conditionNotes")} />
-            </div>
             <div className="col-span-2">
               <Field label="Repair history" id="asset-repair-history" value={form.repairHistory} onChange={set("repairHistory")} />
-            </div>
-            <div className="col-span-2">
-              <Field label="Notes" id="asset-notes" value={form.notes} onChange={set("notes")} />
             </div>
           </div>
         </TabsContent>

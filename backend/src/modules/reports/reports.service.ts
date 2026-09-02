@@ -6,7 +6,11 @@ const ASSET_POPULATE = [
   { path: "vendor", select: "name" },
   { path: "location", select: "name" },
   { path: "department", select: "name" },
-  { path: "assignedUser", select: "name email employeeId" },
+  {
+    path: "assignedUser",
+    select: "name email employeeId designation",
+    populate: { path: "designation", select: "name" },
+  },
 ];
 
 const LICENSE_POPULATE = [
@@ -35,19 +39,32 @@ export async function getAssetReportRows(filters: AssetReportFilters = {}, organ
   const assets = await Asset.find(query).populate(ASSET_POPULATE).sort({ createdDate: -1 });
 
   return assets.map((a) => {
-    const assignedUser = a.assignedUser as unknown as { name?: string; email?: string; employeeId?: string } | null;
+    // assignedToEmployeeId/Name/email/designation are no longer stored on Asset - derived here
+    // from the populated assignedUser reference, per the enterprise-ITAM consolidation (never a
+    // separately-maintained, driftable snapshot - see models/Asset.ts's own comment).
+    const assignedUser = a.assignedUser as unknown as {
+      name?: string;
+      email?: string;
+      employeeId?: string;
+      designation?: { name?: string } | null;
+    } | null;
 
     return {
       assetId: a.assetId,
       location: (a.location as unknown as { name: string } | null)?.name ?? "",
+      building: a.building,
+      floor: a.floor,
+      room: a.room,
       subLocation: a.subLocation,
       status: a.status,
-      userAccessLevel: a.userAccessLevel,
-      employeeId: a.employeeId || assignedUser?.employeeId || "",
-      employeeName: a.employeeName || assignedUser?.name || "",
+      assignedToEmployeeId: assignedUser?.employeeId || "",
+      assignedToEmployeeName: assignedUser?.name || "",
       department: (a.department as unknown as { name: string } | null)?.name ?? "",
-      designation: a.designation,
-      email: a.email || assignedUser?.email || "",
+      designation: assignedUser?.designation?.name || "",
+      email: assignedUser?.email || "",
+      assignmentStatus: a.assignmentStatus,
+      assignmentDate: a.assignmentDate ? a.assignmentDate.toISOString().slice(0, 10) : "",
+      returnDate: a.returnDate ? a.returnDate.toISOString().slice(0, 10) : "",
       emailLicense: a.emailLicense,
       deviceType: a.deviceType,
       assetType: a.assetType,
@@ -86,20 +103,30 @@ export async function getAssetReportRows(filters: AssetReportFilters = {}, organ
       zoomLicense: a.zoomLicense,
       sharedFolderAccess: a.sharedFolderAccess,
       purchaseDate: a.purchaseDate ? a.purchaseDate.toISOString().slice(0, 10) : "",
-      warrantyEnd: a.warrantyEnd ? a.warrantyEnd.toISOString().slice(0, 10) : "",
+      warrantyStartDate: a.warrantyStartDate ? a.warrantyStartDate.toISOString().slice(0, 10) : "",
+      warrantyEndDate: a.warrantyEndDate ? a.warrantyEndDate.toISOString().slice(0, 10) : "",
+      warrantyProvider: a.warrantyProvider,
+      supportContract: a.supportContract,
+      contractStartDate: a.contractStartDate ? a.contractStartDate.toISOString().slice(0, 10) : "",
+      contractEndDate: a.contractEndDate ? a.contractEndDate.toISOString().slice(0, 10) : "",
+      contractNumber: a.contractNumber,
       vendor: (a.vendor as unknown as { name: string } | null)?.name ?? "",
-      companyName: a.companyName,
+      purchaseOrderNumber: a.purchaseOrderNumber,
+      currency: a.currency,
+      costCenter: a.costCenter,
+      budgetCode: a.budgetCode,
+      depreciationMethod: a.depreciationMethod,
+      depreciationStartDate: a.depreciationStartDate ? a.depreciationStartDate.toISOString().slice(0, 10) : "",
       purchaseCost: a.purchaseCost ?? "",
       quantity: a.quantity ?? "",
       invoiceNumber: a.invoiceNumber,
       color: a.color,
       condition: a.condition,
-      currentOwner: a.currentOwner,
-      previousOwner: a.previousOwner,
-      conditionNotes: a.conditionNotes,
-      approvalStatus: a.approvalStatus,
+      // currentOwner/previousOwner are derived, not stored - see models/Asset.ts's own comment.
+      // A flat report row skips the AssetHistory lookup previousOwner needs (real per-row N+1
+      // cost for a bulk export); currentOwner is cheap (already-populated assignedUser).
+      currentOwner: assignedUser?.name || "",
       repairHistory: a.repairHistory,
-      notes: a.notes,
     };
   });
 }

@@ -370,21 +370,34 @@ const STRING_DIFF_FIELDS: (keyof MappedFields & keyof IAsset)[] = [
   "zoomLicense",
   "sharedFolderAccess",
   "condition",
-  "conditionNotes",
-  "approvalStatus",
   "repairHistory",
   "invoiceNumber",
-  "companyName",
-  "notes",
   "subLocation",
-  "userAccessLevel",
-  "employeeId",
-  "employeeName",
-  "designation",
-  "email",
-  "currentOwner",
-  "previousOwner",
 ];
+
+/** Fields that no longer exist as their own Asset column (removed/derived per the enterprise-ITAM
+ * consolidation - see models/Asset.ts) but still arrive as raw import columns for backward-
+ * compatible spreadsheets. Rather than silently dropping a real value a row provides, each
+ * non-blank one gets appended into `description` as a labeled line - never lost, just no longer a
+ * distinct field. `employeeId`/`employeeName`/`email`/`designation` are the one exception: those
+ * are used only to RESOLVE which User to assign (see resolveAssignedUser below), never appended -
+ * the live `assignedUser` reference is the only source of truth for them now. */
+const MERGE_INTO_DESCRIPTION_FIELDS: { field: keyof MappedFields; label: string }[] = [
+  { field: "conditionNotes", label: "Condition notes" },
+  { field: "approvalStatus", label: "Approval status" },
+  { field: "companyName", label: "Company name" },
+  { field: "notes", label: "Notes" },
+  { field: "userAccessLevel", label: "User access level" },
+  { field: "currentOwner", label: "Current owner (imported)" },
+  { field: "previousOwner", label: "Previous owner (imported)" },
+];
+
+/** Builds the extra description text for a row's now-homeless legacy fields - "" if none apply. */
+function buildMergedDescriptionSuffix(mapped: MappedFields): string {
+  return MERGE_INTO_DESCRIPTION_FIELDS.filter(({ field }) => !isBlank(mapped[field] as string))
+    .map(({ field, label }) => `[${label}] ${(mapped[field] as string).trim()}`)
+    .join("\n");
+}
 
 /** Only compares fields the row actually provides - a blank cell means "leave unchanged", not "clear this field". */
 function diffAgainstExisting(mapped: MappedFields, existing: ExistingAsset): string[] {
@@ -410,11 +423,19 @@ function diffAgainstExisting(mapped: MappedFields, existing: ExistingAsset): str
   if (!isBlank(mapped.purchaseDate) && dateToDayString(parseDateOrUndefined(mapped.purchaseDate) ?? null) !== dateToDayString(existing.purchaseDate)) {
     changed.push("purchaseDate");
   }
-  if (!isBlank(mapped.warrantyEnd) && dateToDayString(parseDateOrUndefined(mapped.warrantyEnd) ?? null) !== dateToDayString(existing.warrantyEnd)) {
-    changed.push("warrantyEnd");
+  if (
+    !isBlank(mapped.warrantyEnd) &&
+    dateToDayString(parseDateOrUndefined(mapped.warrantyEnd) ?? null) !== dateToDayString(existing.warrantyEndDate)
+  ) {
+    changed.push("warrantyEndDate");
   }
   if (!isBlank(mapped.purchaseCost) && parseNumberOrNull(mapped.purchaseCost) !== existing.purchaseCost) changed.push("purchaseCost");
   if (!isBlank(mapped.quantity) && parseNumberOrNull(mapped.quantity) !== existing.quantity) changed.push("quantity");
+  // The now-homeless legacy fields (see MERGE_INTO_DESCRIPTION_FIELDS) never directly overwrite
+  // description - they only ever APPEND - so this flags "description" as changed independently of
+  // the plain description-vs-description comparison already done via STRING_DIFF_FIELDS above,
+  // whenever a row still carries one of these old columns with real content.
+  if (buildMergedDescriptionSuffix(mapped) && !changed.includes("description")) changed.push("description");
 
   const employeeMatch =
     (!isBlank(mapped.employeeId) && normalize(mapped.employeeId) === normalize(existing.assignedUser?.employeeId)) ||
@@ -585,13 +606,22 @@ function plainFieldsFromMapped(mapped: MappedFields) {
   return fields;
 }
 
-/** Builds an update payload containing only the fields the row actually provides (blank = leave unchanged). */
-async function buildPartialPayload(mapped: MappedFields, organizationId: string) {
+/** Builds an update payload containing only the fields the row actually provides (blank = leave
+ * unchanged). `existingDescription` is needed to safely APPEND the now-homeless legacy fields
+ * (see MERGE_INTO_DESCRIPTION_FIELDS) rather than overwrite whatever description is already
+ * there - passed in by the caller, which already has the existing asset loaded. */
+async function buildPartialPayload(mapped: MappedFields, organizationId: string, existingDescription: string) {
   const payload: Record<string, unknown> = {};
 
   for (const field of STRING_DIFF_FIELDS) {
     const value = mapped[field] as string;
     if (!isBlank(value)) payload[field] = value;
+  }
+
+  const mergeSuffix = buildMergedDescriptionSuffix(mapped);
+  if (mergeSuffix) {
+    const base = (payload.description as string | undefined) ?? existingDescription;
+    payload.description = [base, mergeSuffix].filter(Boolean).join("\n\n");
   }
 
   if (!isBlank(mapped.status)) payload.status = mapStatus(mapped.status);
@@ -600,7 +630,7 @@ async function buildPartialPayload(mapped: MappedFields, organizationId: string)
   if (!isBlank(mapped.purchaseDate)) payload.purchaseDate = parseDateOrUndefined(mapped.purchaseDate) ?? null;
   if (!isBlank(mapped.purchaseCost)) payload.purchaseCost = parseNumberOrNull(mapped.purchaseCost);
   if (!isBlank(mapped.quantity)) payload.quantity = parseNumberOrNull(mapped.quantity);
-  if (!isBlank(mapped.warrantyEnd)) payload.warrantyEnd = parseDateOrUndefined(mapped.warrantyEnd) ?? null;
+  if (!isBlank(mapped.warrantyEnd)) payload.warrantyEndDate = parseDateOrUndefined(mapped.warrantyEnd) ?? null;
 
   if (!isBlank(mapped.locationName)) {
     const location = await findOrCreateLocation(mapped.locationName, organizationId);
@@ -652,9 +682,15 @@ export const confirmAssetImport = asyncHandler(async (req: Request, res: Respons
         resolveAssignedUser(row.mapped, organizationId),
       ]);
 
+      const plainFields = plainFieldsFromMapped(row.mapped);
+      const mergeSuffix = buildMergedDescriptionSuffix(row.mapped);
+      if (mergeSuffix) {
+        plainFields.description = [plainFields.description, mergeSuffix].filter(Boolean).join("\n\n");
+      }
+
       await assetsService.createAsset(
         {
-          ...plainFieldsFromMapped(row.mapped),
+          ...plainFields,
           category: String(category._id),
           status: mapStatus(row.mapped.status),
           ownershipType: mapOwnershipType(row.mapped.ownershipType),
@@ -662,7 +698,7 @@ export const confirmAssetImport = asyncHandler(async (req: Request, res: Respons
           purchaseDate: parseDateOrUndefined(row.mapped.purchaseDate) ?? null,
           purchaseCost: parseNumberOrNull(row.mapped.purchaseCost),
           quantity: parseNumberOrNull(row.mapped.quantity),
-          warrantyEnd: parseDateOrUndefined(row.mapped.warrantyEnd) ?? null,
+          warrantyEndDate: parseDateOrUndefined(row.mapped.warrantyEnd) ?? null,
           location: location ? String(location._id) : null,
           department: department ? String(department._id) : null,
           vendor: vendor ? String(vendor._id) : null,
@@ -681,8 +717,9 @@ export const confirmAssetImport = asyncHandler(async (req: Request, res: Respons
   for (const row of updatedRows) {
     try {
       if (!row.existingId) throw new Error("missing existing record reference");
-      const payload = await buildPartialPayload(row.mapped, organizationId);
-      await assetsService.updateAsset(row.existingId, payload as never, organizationId, { notify: false });
+      const existing = await assetsService.getAssetById(row.existingId, organizationId);
+      const payload = await buildPartialPayload(row.mapped, organizationId, existing.description);
+      await assetsService.updateAsset(row.existingId, payload as never, organizationId, req.user!.id, { notify: false });
       updated += 1;
     } catch (err) {
       errors.push(`Row ${row.rowIndex + 1}: ${err instanceof Error ? err.message : "unknown error"}`);

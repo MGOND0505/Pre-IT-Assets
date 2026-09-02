@@ -71,7 +71,7 @@ export const updateAsset = asyncHandler(async (req: Request, res: Response) => {
   const oldValue = before.toObject();
 
   req.body.customFields = await validateCustomFieldValues(req.body.customFields, "assets", req.organization!._id);
-  const asset = await assetsService.updateAsset(req.params.id, req.body, req.organization!._id);
+  const asset = await assetsService.updateAsset(req.params.id, req.body, req.organization!._id, req.user!.id);
 
   await logAction({
     req,

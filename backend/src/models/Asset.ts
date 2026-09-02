@@ -28,6 +28,15 @@ export type AssetOwnershipType = (typeof ASSET_OWNERSHIP_TYPES)[number];
 export const ASSET_CRITICALITY_LEVELS = ["Low", "Medium", "High", "Critical"] as const;
 export type AssetCriticality = (typeof ASSET_CRITICALITY_LEVELS)[number];
 
+// How this asset is currently held - consolidates the enterprise-ITAM spec's separate
+// "assignment type" concept (Employee/Shared/Pool/etc.) into the single approved
+// `assignmentStatus` field name rather than adding a second parallel field.
+export const ASSET_ASSIGNMENT_STATUSES = ["Unassigned", "Assigned", "Shared", "Pool", "Temporary"] as const;
+export type AssetAssignmentStatus = (typeof ASSET_ASSIGNMENT_STATUSES)[number];
+
+export const ASSET_DEPRECIATION_METHODS = ["Straight-Line", "None"] as const;
+export type AssetDepreciationMethod = (typeof ASSET_DEPRECIATION_METHODS)[number];
+
 export interface IAsset {
   organization: Types.ObjectId;
   assetId: string;
@@ -93,30 +102,33 @@ export interface IAsset {
   purchaseCost: number | null;
   quantity: number | null;
   vendor: Types.ObjectId | null;
-  companyName: string;
-  poNumber: string;
+  purchaseOrderNumber: string;
   invoiceNumber: string;
-  warrantyStart: Date | null;
-  warrantyEnd: Date | null;
-  amcStart: Date | null;
-  amcEnd: Date | null;
+  currency: string;
+  contractNumber: string;
+  costCenter: string;
+  budgetCode: string;
+  depreciationMethod: AssetDepreciationMethod;
+  depreciationStartDate: Date | null;
+  warrantyStartDate: Date | null;
+  warrantyEndDate: Date | null;
+  warrantyProvider: string;
+  supportContract: string;
+  contractStartDate: Date | null;
+  contractEndDate: Date | null;
   location: Types.ObjectId | null;
+  building: string;
+  floor: string;
+  room: string;
   subLocation: string;
   department: Types.ObjectId | null;
   assignedUser: Types.ObjectId | null;
-  userAccessLevel: string;
-  employeeId: string;
-  employeeName: string;
-  designation: string;
-  email: string;
-  currentOwner: string;
-  previousOwner: string;
+  assignmentDate: Date | null;
+  returnDate: Date | null;
+  assignmentStatus: AssetAssignmentStatus;
   status: AssetStatus;
   condition: string;
-  conditionNotes: string;
-  approvalStatus: string;
   repairHistory: string;
-  notes: string;
   isDeleted: boolean;
   deletedAt: Date | null;
   deletedBy: Types.ObjectId | null;
@@ -182,30 +194,33 @@ const assetSchema = new Schema<IAsset>(
     purchaseCost: { type: Number, default: null },
     quantity: { type: Number, default: null },
     vendor: { type: Schema.Types.ObjectId, ref: "Vendor", default: null },
-    companyName: { type: String, default: "" },
-    poNumber: { type: String, default: "" },
+    purchaseOrderNumber: { type: String, default: "" },
     invoiceNumber: { type: String, default: "" },
-    warrantyStart: { type: Date, default: null },
-    warrantyEnd: { type: Date, default: null },
-    amcStart: { type: Date, default: null },
-    amcEnd: { type: Date, default: null },
+    currency: { type: String, default: "" },
+    contractNumber: { type: String, default: "" },
+    costCenter: { type: String, default: "" },
+    budgetCode: { type: String, default: "" },
+    depreciationMethod: { type: String, enum: ASSET_DEPRECIATION_METHODS, default: "None" },
+    depreciationStartDate: { type: Date, default: null },
+    warrantyStartDate: { type: Date, default: null },
+    warrantyEndDate: { type: Date, default: null },
+    warrantyProvider: { type: String, default: "" },
+    supportContract: { type: String, default: "" },
+    contractStartDate: { type: Date, default: null },
+    contractEndDate: { type: Date, default: null },
     location: { type: Schema.Types.ObjectId, ref: "Location", default: null, index: true },
+    building: { type: String, default: "" },
+    floor: { type: String, default: "" },
+    room: { type: String, default: "" },
     subLocation: { type: String, default: "" },
     department: { type: Schema.Types.ObjectId, ref: "Department", default: null, index: true },
     assignedUser: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
-    userAccessLevel: { type: String, default: "" },
-    employeeId: { type: String, default: "", index: true },
-    employeeName: { type: String, default: "" },
-    designation: { type: String, default: "" },
-    email: { type: String, default: "" },
-    currentOwner: { type: String, default: "" },
-    previousOwner: { type: String, default: "" },
+    assignmentDate: { type: Date, default: null },
+    returnDate: { type: Date, default: null },
+    assignmentStatus: { type: String, enum: ASSET_ASSIGNMENT_STATUSES, default: "Unassigned", index: true },
     status: { type: String, enum: ASSET_STATUSES, default: "In Stock", index: true },
     condition: { type: String, default: "" },
-    conditionNotes: { type: String, default: "" },
-    approvalStatus: { type: String, default: "" },
     repairHistory: { type: String, default: "" },
-    notes: { type: String, default: "" },
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date, default: null },
     deletedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },

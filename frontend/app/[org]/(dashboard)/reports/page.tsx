@@ -22,10 +22,10 @@ type AssetRow = {
   location: string
   department: string
   vendor: string
-  employeeName: string
-  employeeEmail: string
+  assignedToEmployeeName: string
+  email: string
   purchaseDate: string
-  warrantyEnd: string
+  warrantyEndDate: string
 }
 
 type LicenseRow = {
@@ -72,8 +72,8 @@ const ASSET_COLUMNS: { key: keyof AssetRow; label: string }[] = [
   { key: "status", label: "Status" },
   { key: "location", label: "Location" },
   { key: "department", label: "Department" },
-  { key: "employeeName", label: "Employee" },
-  { key: "warrantyEnd", label: "Warranty End" },
+  { key: "assignedToEmployeeName", label: "Employee" },
+  { key: "warrantyEndDate", label: "Warranty End" },
 ]
 
 const LICENSE_COLUMNS: { key: keyof LicenseRow; label: string }[] = [
@@ -90,12 +90,13 @@ const LICENSE_COLUMNS: { key: keyof LicenseRow; label: string }[] = [
 
 function sortAssets(rows: AssetRow[], reportKey: ReportKey): AssetRow[] {
   const copy = [...rows]
-  if (reportKey === "assets-by-employee") return copy.sort((a, b) => a.employeeName.localeCompare(b.employeeName))
+  if (reportKey === "assets-by-employee")
+    return copy.sort((a, b) => a.assignedToEmployeeName.localeCompare(b.assignedToEmployeeName))
   if (reportKey === "assets-by-department") return copy.sort((a, b) => a.department.localeCompare(b.department))
   if (reportKey === "assets-by-location") return copy.sort((a, b) => a.location.localeCompare(b.location))
   if (reportKey === "asset-status") return copy.sort((a, b) => a.status.localeCompare(b.status))
   if (reportKey === "warranty") {
-    return copy.filter((a) => a.warrantyEnd).sort((a, b) => a.warrantyEnd.localeCompare(b.warrantyEnd))
+    return copy.filter((a) => a.warrantyEndDate).sort((a, b) => a.warrantyEndDate.localeCompare(b.warrantyEndDate))
   }
   return copy
 }

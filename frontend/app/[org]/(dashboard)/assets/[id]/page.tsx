@@ -37,8 +37,6 @@ type Asset = {
   deviceType: string
   status: AssetStatus
   condition: string
-  conditionNotes: string
-  approvalStatus: string
   repairHistory: string
   color: string
   manufacturer: string
@@ -82,31 +80,37 @@ type Asset = {
   purchaseCost: number | null
   quantity: number | null
   vendor: RefOption
-  companyName: string
-  poNumber: string
+  purchaseOrderNumber: string
   invoiceNumber: string
-  warrantyStart: string | null
-  warrantyEnd: string | null
-  amcStart: string | null
-  amcEnd: string | null
+  currency: string
+  contractNumber: string
+  costCenter: string
+  budgetCode: string
+  depreciationMethod: string
+  depreciationStartDate: string | null
+  warrantyStartDate: string | null
+  warrantyEndDate: string | null
+  warrantyProvider: string
+  supportContract: string
+  contractStartDate: string | null
+  contractEndDate: string | null
   location: RefOption
+  building: string
+  floor: string
+  room: string
   subLocation: string
   department: RefOption
-  assignedUser: (RefOption & { email?: string }) | null
-  userAccessLevel: string
-  employeeId: string
-  employeeName: string
-  designation: string
-  email: string
-  currentOwner: string
-  previousOwner: string
-  notes: string
+  assignedUser: (RefOption & { email?: string; employeeId?: string }) | null
+  assignmentDate: string | null
+  returnDate: string | null
+  assignmentStatus: string
   customFields: Record<string, unknown>
 }
 
 const TAB_VALUES = [
   "overview",
-  "employee",
+  "assignment",
+  "assetLocation",
   "hardware",
   "software",
   "financial",
@@ -123,14 +127,13 @@ function hasConditionIssue(asset: Asset): boolean {
   return (
     NEEDS_ATTENTION_STATUSES.has(asset.status) ||
     /damag|poor|replace/i.test(asset.condition) ||
-    /pending/i.test(asset.approvalStatus) ||
     Boolean(asset.repairHistory.trim())
   )
 }
 
 function hasWarrantyIssue(asset: Asset): boolean {
-  if (!asset.warrantyEnd) return false
-  const daysRemaining = (new Date(asset.warrantyEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  if (!asset.warrantyEndDate) return false
+  const daysRemaining = (new Date(asset.warrantyEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   return daysRemaining <= 30
 }
 
@@ -180,8 +183,6 @@ function toFormValues(asset: Asset): AssetFormValues {
     deviceType: asset.deviceType,
     status: asset.status,
     condition: asset.condition,
-    conditionNotes: asset.conditionNotes,
-    approvalStatus: asset.approvalStatus,
     repairHistory: asset.repairHistory,
     color: asset.color,
     manufacturer: asset.manufacturer,
@@ -225,25 +226,30 @@ function toFormValues(asset: Asset): AssetFormValues {
     purchaseCost: asset.purchaseCost?.toString() ?? "",
     quantity: asset.quantity?.toString() ?? "",
     vendor: asset.vendor?._id ?? "",
-    companyName: asset.companyName,
-    poNumber: asset.poNumber,
+    purchaseOrderNumber: asset.purchaseOrderNumber,
     invoiceNumber: asset.invoiceNumber,
-    warrantyStart: asset.warrantyStart?.slice(0, 10) ?? "",
-    warrantyEnd: asset.warrantyEnd?.slice(0, 10) ?? "",
-    amcStart: asset.amcStart?.slice(0, 10) ?? "",
-    amcEnd: asset.amcEnd?.slice(0, 10) ?? "",
+    currency: asset.currency,
+    contractNumber: asset.contractNumber,
+    costCenter: asset.costCenter,
+    budgetCode: asset.budgetCode,
+    depreciationMethod: asset.depreciationMethod,
+    depreciationStartDate: asset.depreciationStartDate?.slice(0, 10) ?? "",
+    warrantyStartDate: asset.warrantyStartDate?.slice(0, 10) ?? "",
+    warrantyEndDate: asset.warrantyEndDate?.slice(0, 10) ?? "",
+    warrantyProvider: asset.warrantyProvider,
+    supportContract: asset.supportContract,
+    contractStartDate: asset.contractStartDate?.slice(0, 10) ?? "",
+    contractEndDate: asset.contractEndDate?.slice(0, 10) ?? "",
     location: asset.location?._id ?? "",
+    building: asset.building,
+    floor: asset.floor,
+    room: asset.room,
     subLocation: asset.subLocation,
     department: asset.department?._id ?? "",
     assignedUser: asset.assignedUser?._id ?? "",
-    userAccessLevel: asset.userAccessLevel,
-    employeeId: asset.employeeId,
-    employeeName: asset.employeeName,
-    designation: asset.designation,
-    email: asset.email,
-    currentOwner: asset.currentOwner,
-    previousOwner: asset.previousOwner,
-    notes: asset.notes,
+    assignmentDate: asset.assignmentDate?.slice(0, 10) ?? "",
+    returnDate: asset.returnDate?.slice(0, 10) ?? "",
+    assignmentStatus: asset.assignmentStatus,
     customFields: asset.customFields ?? {},
   }
 }
@@ -330,7 +336,8 @@ export default function AssetDetailPage() {
           <Tabs value={activeTab} onValueChange={handleTabChange}>
             <TabsList className="flex-wrap">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="employee">Employee</TabsTrigger>
+              <TabsTrigger value="assignment">Assignment</TabsTrigger>
+              <TabsTrigger value="assetLocation">Location</TabsTrigger>
               <TabsTrigger value="hardware">Hardware</TabsTrigger>
               <TabsTrigger value="software">Software licenses</TabsTrigger>
               <TabsTrigger value="financial">
@@ -360,28 +367,34 @@ export default function AssetDetailPage() {
                 <Row label="Company entity" value={asset.companyEntity} />
                 <Row label="Status" value={<AssetStatusBadge status={asset.status} />} />
                 <Row label="Color" value={asset.color} />
-                <Row label="Location" value={asset.location?.name} />
-                <Row label="Sub-location" value={asset.subLocation} />
-                <Row label="Department" value={asset.department?.name} />
                 <Row label="Description" value={asset.description} />
               </div>
             </TabsContent>
 
-            <TabsContent value="employee">
+            <TabsContent value="assignment">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Row
                   label="Assigned to (system user)"
                   value={
-                    asset.assignedUser ? `${asset.assignedUser.name}${asset.assignedUser.email ? ` (${asset.assignedUser.email})` : ""}` : "Unassigned"
+                    asset.assignedUser
+                      ? `${asset.assignedUser.name}${asset.assignedUser.employeeId ? ` (${asset.assignedUser.employeeId})` : ""}${asset.assignedUser.email ? ` - ${asset.assignedUser.email}` : ""}`
+                      : "Unassigned"
                   }
                 />
-                <Row label="Employee ID" value={asset.employeeId} />
-                <Row label="Employee name" value={asset.employeeName} />
-                <Row label="Designation" value={asset.designation} />
-                <Row label="Email ID" value={asset.email} />
-                <Row label="User access" value={asset.userAccessLevel} />
-                <Row label="Current owner" value={asset.currentOwner} />
-                <Row label="Previous owner" value={asset.previousOwner} />
+                <Row label="Department" value={asset.department?.name} />
+                <Row label="Assignment status" value={asset.assignmentStatus} />
+                <Row label="Assignment date" value={formatDate(asset.assignmentDate)} />
+                <Row label="Return date" value={formatDate(asset.returnDate)} />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="assetLocation">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Row label="Location" value={asset.location?.name} />
+                <Row label="Sub-location" value={asset.subLocation} />
+                <Row label="Building" value={asset.building} />
+                <Row label="Floor" value={asset.floor} />
+                <Row label="Room" value={asset.room} />
               </div>
             </TabsContent>
 
@@ -438,23 +451,27 @@ export default function AssetDetailPage() {
                 <Row label="Purchase cost" value={asset.purchaseCost != null ? `₹${asset.purchaseCost}` : "-"} />
                 <Row label="Quantity" value={asset.quantity ?? "-"} />
                 <Row label="Vendor" value={asset.vendor?.name} />
-                <Row label="Company name" value={asset.companyName} />
-                <Row label="PO number" value={asset.poNumber} />
+                <Row label="Purchase order number" value={asset.purchaseOrderNumber} />
                 <Row label="Invoice number" value={asset.invoiceNumber} />
-                <Row label="Warranty start" value={formatDate(asset.warrantyStart)} />
-                <Row label="Warranty end" value={formatDate(asset.warrantyEnd)} />
-                <Row label="AMC start" value={formatDate(asset.amcStart)} />
-                <Row label="AMC end" value={formatDate(asset.amcEnd)} />
+                <Row label="Currency" value={asset.currency} />
+                <Row label="Cost center" value={asset.costCenter} />
+                <Row label="Budget code" value={asset.budgetCode} />
+                <Row label="Depreciation method" value={asset.depreciationMethod} />
+                <Row label="Depreciation start date" value={formatDate(asset.depreciationStartDate)} />
+                <Row label="Contract number" value={asset.contractNumber} />
+                <Row label="Warranty start" value={formatDate(asset.warrantyStartDate)} />
+                <Row label="Warranty end" value={formatDate(asset.warrantyEndDate)} />
+                <Row label="Warranty provider" value={asset.warrantyProvider} />
+                <Row label="Support contract" value={asset.supportContract} />
+                <Row label="Contract start" value={formatDate(asset.contractStartDate)} />
+                <Row label="Contract end" value={formatDate(asset.contractEndDate)} />
               </div>
             </TabsContent>
 
             <TabsContent value="condition">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Row label="Condition" value={asset.condition} />
-                <Row label="Approval status" value={asset.approvalStatus} />
-                <Row label="Condition notes" value={asset.conditionNotes} />
                 <Row label="Repair history" value={asset.repairHistory} />
-                <Row label="Notes" value={asset.notes} />
               </div>
             </TabsContent>
 
