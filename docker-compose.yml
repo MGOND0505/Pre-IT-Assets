@@ -50,6 +50,10 @@ services:
       # Internal-network address only - reachable by this container alone, see the ollama
       # service's own comment above for why it has no host-facing port at all.
       OLLAMA_BASE_URL: http://ollama:11434
+      # Must match whatever model is actually `ollama pull`-ed into the ollama container/volume -
+      # this app never auto-pulls a model itself. Override per deployment via .env depending on
+      # that host's real CPU/RAM (see env.ts's own comment on OLLAMA_MODEL).
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
       JWT_COOKIE_NAME: ${JWT_COOKIE_NAME:-itam_token}
