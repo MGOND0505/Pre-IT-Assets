@@ -7,8 +7,10 @@ import {
   Asset,
   ASSET_STATUSES,
   ASSET_OWNERSHIP_TYPES,
+  ASSET_CRITICALITY_LEVELS,
   type AssetStatus,
   type AssetOwnershipType,
+  type AssetCriticality,
   type IAsset,
 } from "../../models/Asset";
 import { AssetCategory } from "../../models/AssetCategory";
@@ -24,6 +26,11 @@ import * as assetsService from "./assets.service";
 /** Canonical column headers - what "Download template" hands back, and what "Download current data" exports. */
 export const ASSET_IMPORT_TEMPLATE_COLUMNS = [
   "Asset ID",
+  "Asset Tag",
+  "Asset Sub-Type",
+  "Criticality (Low / Medium / High / Critical)",
+  "Company Entity",
+  "Description",
   "Location",
   "Sub-Location",
   "Status",
@@ -89,9 +96,14 @@ export const ASSET_IMPORT_TEMPLATE_COLUMNS = [
 
 type MappedFields = {
   assetIdRaw: string;
+  assetTag: string;
   name: string;
   assetType: string;
+  assetSubType: string;
   ownershipType: string;
+  criticality: string;
+  companyEntity: string;
+  description: string;
   deviceType: string;
   manufacturer: string;
   model: string;
@@ -187,8 +199,17 @@ function mapStatus(raw: string): AssetStatus {
 }
 
 function mapOwnershipType(raw: string): AssetOwnershipType {
-  if (/rent|lease/i.test(raw)) return "Rental";
+  if (/lease/i.test(raw)) return "Lease";
+  if (/rent/i.test(raw)) return "Rental";
   return (ASSET_OWNERSHIP_TYPES as readonly string[]).includes(raw) ? (raw as AssetOwnershipType) : "Own";
+}
+
+function mapCriticality(raw: string): AssetCriticality {
+  if (/crit/i.test(raw)) return "Critical";
+  if (/high/i.test(raw)) return "High";
+  if (/low/i.test(raw)) return "Low";
+  if (/med/i.test(raw)) return "Medium";
+  return (ASSET_CRITICALITY_LEVELS as readonly string[]).includes(raw) ? (raw as AssetCriticality) : "Medium";
 }
 
 function mapRow(row: Record<string, string>): MappedFields {
@@ -200,9 +221,14 @@ function mapRow(row: Record<string, string>): MappedFields {
 
   return {
     assetIdRaw: findColumn(row, ["Asset ID", "AssetId"]),
+    assetTag: findColumn(row, ["Asset Tag", "Asset Barcode", "Barcode"]),
     name,
     assetType,
+    assetSubType: findColumn(row, ["Asset Sub-Type", "Asset Sub Type", "Sub-Type"]),
     ownershipType: findColumn(row, ["Ownership Type", "Ownership", "Own/Rental", "Own / Rental"]),
+    criticality: findColumn(row, ["Criticality"]),
+    companyEntity: findColumn(row, ["Company Entity", "Entity", "Legal Entity"]),
+    description: findColumn(row, ["Description"]),
     deviceType,
     manufacturer,
     model,
@@ -302,7 +328,11 @@ type ExistingAsset = IAsset & {
 /** Plain string fields compared 1:1 between the mapped row and the existing document. */
 const STRING_DIFF_FIELDS: (keyof MappedFields & keyof IAsset)[] = [
   "name",
+  "assetTag",
   "assetType",
+  "assetSubType",
+  "companyEntity",
+  "description",
   "deviceType",
   "manufacturer",
   "model",
@@ -371,6 +401,9 @@ function diffAgainstExisting(mapped: MappedFields, existing: ExistingAsset): str
   if (!isBlank(mapped.vendorName) && normalize(mapped.vendorName) !== normalize(existing.vendor?.name)) changed.push("vendor");
 
   if (!isBlank(mapped.status) && mapStatus(mapped.status) !== existing.status) changed.push("status");
+  if (!isBlank(mapped.criticality) && mapCriticality(mapped.criticality) !== existing.criticality) {
+    changed.push("criticality");
+  }
   if (!isBlank(mapped.ownershipType) && mapOwnershipType(mapped.ownershipType) !== existing.ownershipType) {
     changed.push("ownershipType");
   }
@@ -563,6 +596,7 @@ async function buildPartialPayload(mapped: MappedFields, organizationId: string)
 
   if (!isBlank(mapped.status)) payload.status = mapStatus(mapped.status);
   if (!isBlank(mapped.ownershipType)) payload.ownershipType = mapOwnershipType(mapped.ownershipType);
+  if (!isBlank(mapped.criticality)) payload.criticality = mapCriticality(mapped.criticality);
   if (!isBlank(mapped.purchaseDate)) payload.purchaseDate = parseDateOrUndefined(mapped.purchaseDate) ?? null;
   if (!isBlank(mapped.purchaseCost)) payload.purchaseCost = parseNumberOrNull(mapped.purchaseCost);
   if (!isBlank(mapped.quantity)) payload.quantity = parseNumberOrNull(mapped.quantity);
@@ -624,6 +658,7 @@ export const confirmAssetImport = asyncHandler(async (req: Request, res: Respons
           category: String(category._id),
           status: mapStatus(row.mapped.status),
           ownershipType: mapOwnershipType(row.mapped.ownershipType),
+          criticality: mapCriticality(row.mapped.criticality),
           purchaseDate: parseDateOrUndefined(row.mapped.purchaseDate) ?? null,
           purchaseCost: parseNumberOrNull(row.mapped.purchaseCost),
           quantity: parseNumberOrNull(row.mapped.quantity),

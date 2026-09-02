@@ -16,6 +16,7 @@ import { Pagination } from "@/components/common/pagination"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { AssetStatusBadge, ASSET_STATUSES, type AssetStatus } from "@/components/assets/asset-status-badge"
 import { AssetOwnershipBadge, type AssetOwnershipType } from "@/components/assets/asset-ownership-badge"
+import { AssetCriticalityBadge, ASSET_CRITICALITY_LEVELS, type AssetCriticality } from "@/components/assets/asset-criticality-badge"
 import { apiClient, apiErrorMessage, orgScopedApiUrl, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
@@ -25,11 +26,13 @@ import { useOrgHref } from "@/lib/use-org-href"
 type Asset = {
   _id: string
   assetId: string
+  assetTag: string
   name: string
   category: { _id: string; name: string; prefix: string } | null
   manufacturer: string
   model: string
   ownershipType: AssetOwnershipType
+  criticality: AssetCriticality
   status: AssetStatus
   location: { _id: string; name: string } | null
 }
@@ -55,6 +58,10 @@ export default function AssetsPage() {
     return fromUrl && (ASSET_STATUSES as readonly string[]).includes(fromUrl) ? fromUrl : ALL
   })
   const [category, setCategory] = React.useState<string>(ALL)
+  const [criticality, setCriticality] = React.useState<string>(() => {
+    const fromUrl = searchParams.get("criticality")
+    return fromUrl && (ASSET_CRITICALITY_LEVELS as readonly string[]).includes(fromUrl) ? fromUrl : ALL
+  })
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [confirmingBulkDelete, setConfirmingBulkDelete] = React.useState(false)
   const [bulkDeleting, setBulkDeleting] = React.useState(false)
@@ -76,6 +83,7 @@ export default function AssetsPage() {
           search: search || undefined,
           status: status === ALL ? undefined : status,
           category: category === ALL ? undefined : category,
+          criticality: criticality === ALL ? undefined : criticality,
         },
       })
       setData(res.data.data)
@@ -84,7 +92,7 @@ export default function AssetsPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, status, category])
+  }, [page, search, status, category, criticality])
 
   React.useEffect(() => {
     if (canView) load()
@@ -241,6 +249,12 @@ export default function AssetsPage() {
       cell: ({ row }) => <AssetOwnershipBadge ownershipType={row.original.ownershipType} />,
     },
     {
+      accessorKey: "criticality",
+      header: "Criticality",
+      meta: { hideBelow: "lg" },
+      cell: ({ row }) => <AssetCriticalityBadge criticality={row.original.criticality} />,
+    },
+    {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => <AssetStatusBadge status={row.original.status} />,
@@ -315,6 +329,25 @@ export default function AssetsPage() {
             {categories.map((c) => (
               <SelectItem key={c._id} value={c._id}>
                 {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={criticality}
+          onValueChange={(v) => {
+            setPage(1)
+            setCriticality(v ?? ALL)
+          }}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Criticality" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All criticalities</SelectItem>
+            {ASSET_CRITICALITY_LEVELS.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
               </SelectItem>
             ))}
           </SelectContent>

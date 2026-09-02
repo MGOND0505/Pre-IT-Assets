@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AssetStatusBadge, type AssetStatus } from "@/components/assets/asset-status-badge"
 import { AssetOwnershipBadge, type AssetOwnershipType } from "@/components/assets/asset-ownership-badge"
+import { AssetCriticalityBadge, type AssetCriticality } from "@/components/assets/asset-criticality-badge"
 import { AssetForm, type AssetFormValues } from "@/components/assets/asset-form"
 import { AssetDocumentsTab } from "@/components/assets/asset-documents-tab"
 import { AssetHistoryTab } from "@/components/assets/asset-history-tab"
@@ -24,10 +25,15 @@ type RefOption = { _id: string; name: string } | null
 type Asset = {
   _id: string
   assetId: string
+  assetTag: string
   name: string
   category: (RefOption & { prefix?: string }) | null
   assetType: string
+  assetSubType: string
   ownershipType: AssetOwnershipType
+  criticality: AssetCriticality
+  companyEntity: string
+  description: string
   deviceType: string
   status: AssetStatus
   condition: string
@@ -162,10 +168,15 @@ function toFormValues(asset: Asset): AssetFormValues {
   return {
     _id: asset._id,
     assetId: asset.assetId,
+    assetTag: asset.assetTag,
     name: asset.name,
     category: asset.category?._id ?? "",
     assetType: asset.assetType,
+    assetSubType: asset.assetSubType,
     ownershipType: asset.ownershipType,
+    criticality: asset.criticality,
+    companyEntity: asset.companyEntity,
+    description: asset.description,
     deviceType: asset.deviceType,
     status: asset.status,
     condition: asset.condition,
@@ -338,16 +349,21 @@ export default function AssetDetailPage() {
             <TabsContent value="overview">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Row label="Asset ID" value={asset.assetId} />
+                <Row label="Asset tag" value={asset.assetTag} />
                 <Row label="Name" value={asset.name} />
                 <Row label="Category" value={asset.category?.name} />
                 <Row label="Device type" value={asset.deviceType} />
                 <Row label="Asset type" value={asset.assetType} />
+                <Row label="Asset sub-type" value={asset.assetSubType} />
                 <Row label="Ownership type" value={<AssetOwnershipBadge ownershipType={asset.ownershipType} />} />
+                <Row label="Criticality" value={<AssetCriticalityBadge criticality={asset.criticality} />} />
+                <Row label="Company entity" value={asset.companyEntity} />
                 <Row label="Status" value={<AssetStatusBadge status={asset.status} />} />
                 <Row label="Color" value={asset.color} />
                 <Row label="Location" value={asset.location?.name} />
                 <Row label="Sub-location" value={asset.subLocation} />
                 <Row label="Department" value={asset.department?.name} />
+                <Row label="Description" value={asset.description} />
               </div>
             </TabsContent>
 

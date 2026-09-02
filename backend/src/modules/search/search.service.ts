@@ -106,7 +106,7 @@ export async function searchOrganization(ctx: SearchContext, rawQuery: string): 
     // title/id result (they'd 404 clicking into it, but the leak itself is the point of the fix).
     const canViewAllAssets = ctx.isAdmin || Boolean(ctx.permissions.assets?.update);
     lookups.push(
-      matchesAllTokensOrCategory(["name", "assetId", "serialNumber", "serviceTag", "imei"], AssetCategory).then(
+      matchesAllTokensOrCategory(["name", "assetId", "assetTag", "serialNumber", "serviceTag", "imei"], AssetCategory).then(
         (tokenMatch) =>
           Asset.find({
             organization: ctx.organizationId,

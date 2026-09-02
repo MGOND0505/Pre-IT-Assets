@@ -58,6 +58,7 @@ type ListInput = {
   search?: string;
   status?: string;
   ownershipType?: string;
+  criticality?: string;
   category?: string;
   location?: string;
   department?: string;
@@ -92,6 +93,7 @@ export async function listAssets(input: ListInput, organizationId: string, reque
   }
   if (input.status) filter.status = input.status;
   if (input.ownershipType) filter.ownershipType = input.ownershipType;
+  if (input.criticality) filter.criticality = input.criticality;
   if (input.category) filter.category = input.category;
   if (input.location) filter.location = input.location;
   if (input.department) filter.department = input.department;
@@ -124,6 +126,7 @@ export async function listAssets(input: ListInput, organizationId: string, reque
 
     filter.$or = [
       { assetId: { $regex: search, $options: "i" } },
+      { assetTag: { $regex: search, $options: "i" } },
       { name: { $regex: search, $options: "i" } },
       { serialNumber: { $regex: search, $options: "i" } },
       { serviceTag: { $regex: search, $options: "i" } },
@@ -194,6 +197,34 @@ async function assertAssetIdAvailable(assetId: string, organizationId: string, e
   if (existing) throw new ApiError(409, "An asset with this ID already exists");
 }
 
+// Pre-checks mirroring assertAssetIdAvailable's pattern above - the DB's own partial unique index
+// (Asset.ts) is the real, race-condition-safe guarantee, but a raw MongoServerError (E11000)
+// reaching the global error handler unhandled would surface as a generic "Internal server error"
+// (only ApiError instances get a clean message - see errorHandler.ts) rather than an actionable
+// validation message. Blank values are never checked - both indexes are partial (unique only when
+// non-blank), so a blank/blank collision is not actually a conflict.
+async function assertAssetTagAvailable(assetTag: string, organizationId: string, excludeId?: string) {
+  if (!assetTag) return;
+  const existing = await Asset.findOne({
+    organization: organizationId,
+    assetTag,
+    isDeleted: false,
+    ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+  });
+  if (existing) throw new ApiError(409, "An asset with this asset tag already exists");
+}
+
+async function assertSerialNumberAvailable(serialNumber: string, organizationId: string, excludeId?: string) {
+  if (!serialNumber) return;
+  const existing = await Asset.findOne({
+    organization: organizationId,
+    serialNumber,
+    isDeleted: false,
+    ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+  });
+  if (existing) throw new ApiError(409, "An asset with this serial number already exists");
+}
+
 export async function createAsset(
   input: AssetInput & { category: string },
   createdBy: string,
@@ -210,6 +241,8 @@ export async function createAsset(
   } else {
     assetId = await generateAssetId(input.category, organizationId);
   }
+  if (input.assetTag) await assertAssetTagAvailable(input.assetTag, organizationId);
+  if (input.serialNumber) await assertSerialNumberAvailable(input.serialNumber, organizationId);
 
   const asset = await Asset.create({ ...input, assetId, organization: organizationId, createdBy });
 
@@ -237,6 +270,12 @@ export async function updateAsset(
 
   if (input.assetId && input.assetId !== asset.assetId) {
     await assertAssetIdAvailable(input.assetId, organizationId, id);
+  }
+  if (input.assetTag && input.assetTag !== asset.assetTag) {
+    await assertAssetTagAvailable(input.assetTag, organizationId, id);
+  }
+  if (input.serialNumber && input.serialNumber !== asset.serialNumber) {
+    await assertSerialNumberAvailable(input.serialNumber, organizationId, id);
   }
 
   // Merge, not replace - a request that doesn't mention a given custom field key (or one

@@ -20,16 +20,36 @@ export type AssetStatus = (typeof ASSET_STATUSES)[number];
 // doubles as an asset-category-name fallback during bulk import, e.g. "Laptop"/"Desktop" - see
 // assets.import.ts#mapRow) - reusing that field/label for "Own vs Rental" would silently repurpose
 // real existing data for every asset already imported through it.
-export const ASSET_OWNERSHIP_TYPES = ["Own", "Rental"] as const;
+// "Lease" added alongside the original "Own"/"Rental" per the enterprise ITAM spec - a pure
+// enum extension, existing "Own"/"Rental" data and behavior is unaffected.
+export const ASSET_OWNERSHIP_TYPES = ["Own", "Rental", "Lease"] as const;
 export type AssetOwnershipType = (typeof ASSET_OWNERSHIP_TYPES)[number];
+
+export const ASSET_CRITICALITY_LEVELS = ["Low", "Medium", "High", "Critical"] as const;
+export type AssetCriticality = (typeof ASSET_CRITICALITY_LEVELS)[number];
 
 export interface IAsset {
   organization: Types.ObjectId;
   assetId: string;
+  // A unique physical tag/barcode/QR code identifier - distinct from `assetId` (the system-
+  // generated identifier, always present) since a physical tag may be applied later, replaced if
+  // damaged, or never used by orgs that don't physically label assets. "" (default) = not set;
+  // uniqueness is enforced only for non-blank values (see the partial index below) so blank
+  // assets never collide with each other.
+  assetTag: string;
   name: string;
   category: Types.ObjectId;
   assetType: string;
+  // Finer-grained classification within `assetType`/`category` (e.g. category "Laptop", assetType
+  // "Ultrabook", assetSubType "Business" vs "Gaming") - purely descriptive, no enum, since the
+  // valid values are entirely org/category-dependent.
+  assetSubType: string;
   ownershipType: AssetOwnershipType;
+  // How much business impact this asset's unavailability would cause - drives dashboard
+  // prioritization and (later phases) maintenance/audit urgency, not any access-control decision.
+  criticality: AssetCriticality;
+  companyEntity: string;
+  description: string;
   deviceType: string;
   manufacturer: string;
   model: string;
@@ -110,10 +130,15 @@ const assetSchema = new Schema<IAsset>(
   {
     organization: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     assetId: { type: String, required: true },
+    assetTag: { type: String, default: "" },
     name: { type: String, required: true, trim: true },
     category: { type: Schema.Types.ObjectId, ref: "AssetCategory", required: true },
     assetType: { type: String, default: "" },
+    assetSubType: { type: String, default: "" },
     ownershipType: { type: String, enum: ASSET_OWNERSHIP_TYPES, default: "Own", index: true },
+    criticality: { type: String, enum: ASSET_CRITICALITY_LEVELS, default: "Medium", index: true },
+    companyEntity: { type: String, default: "" },
+    description: { type: String, default: "" },
     deviceType: { type: String, default: "" },
     manufacturer: { type: String, default: "" },
     model: { type: String, default: "" },
@@ -191,5 +216,20 @@ const assetSchema = new Schema<IAsset>(
 );
 
 assetSchema.index({ organization: 1, assetId: 1 }, { unique: true });
+
+// Unique only when non-blank ({$gt: ""} - MongoDB partial filter expressions support $gt/$gte/
+// $lt/$lte/$type/$exists/equality, not $ne, so this is the correct way to express "unique when
+// set, no constraint when blank" for a string field whose unset default is "" rather than
+// undefined - see User.ts's employeeId index for the $exists-based equivalent used where the
+// field has no default at all). Confirmed no existing duplicate non-blank values in local dev
+// data before adding this so the index actually builds cleanly on an existing collection.
+assetSchema.index(
+  { organization: 1, assetTag: 1 },
+  { unique: true, partialFilterExpression: { assetTag: { $gt: "" }, isDeleted: false } }
+);
+assetSchema.index(
+  { organization: 1, serialNumber: 1 },
+  { unique: true, partialFilterExpression: { serialNumber: { $gt: "" }, isDeleted: false } }
+);
 
 export const Asset = model<IAsset>("Asset", assetSchema);

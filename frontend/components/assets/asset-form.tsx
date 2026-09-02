@@ -22,16 +22,22 @@ import {
 } from "@/lib/use-lookup-options"
 import { ASSET_STATUSES } from "@/components/assets/asset-status-badge"
 import { ASSET_OWNERSHIP_TYPES } from "@/components/assets/asset-ownership-badge"
+import { ASSET_CRITICALITY_LEVELS } from "@/components/assets/asset-criticality-badge"
 
 const NONE = "__none__"
 
 export type AssetFormValues = {
   _id?: string
   assetId?: string
+  assetTag: string
   name: string
   category: string
   assetType: string
+  assetSubType: string
   ownershipType: string
+  criticality: string
+  companyEntity: string
+  description: string
   deviceType: string
   status: string
   condition: string
@@ -104,10 +110,15 @@ export type AssetFormValues = {
 
 export const EMPTY_ASSET_FORM: AssetFormValues = {
   assetId: "",
+  assetTag: "",
   name: "",
   category: "",
   assetType: "",
+  assetSubType: "",
   ownershipType: "Own",
+  criticality: "Medium",
+  companyEntity: "",
+  description: "",
   deviceType: "",
   status: "In Stock",
   condition: "",
@@ -308,6 +319,7 @@ export function AssetForm({
               </div>
             )}
             <Field label="Asset name" id="asset-name" value={form.name} onChange={set("name")} />
+            <Field label="Asset tag" id="asset-tag" value={form.assetTag} onChange={set("assetTag")} />
             <div className="flex flex-col gap-2">
               <Label htmlFor="asset-category">Category</Label>
               <Select value={form.category} onValueChange={setSelect("category")}>
@@ -325,6 +337,7 @@ export function AssetForm({
             </div>
             <Field label="Device type" id="asset-device-type" value={form.deviceType} onChange={set("deviceType")} />
             <Field label="Asset type" id="asset-type" value={form.assetType} onChange={set("assetType")} />
+            <Field label="Asset sub-type" id="asset-sub-type" value={form.assetSubType} onChange={set("assetSubType")} />
             <div className="flex flex-col gap-2">
               <Label htmlFor="asset-ownership-type">Ownership type</Label>
               <Select value={form.ownershipType} onValueChange={setSelect("ownershipType")}>
@@ -340,6 +353,23 @@ export function AssetForm({
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="asset-criticality">Criticality</Label>
+              <Select value={form.criticality} onValueChange={setSelect("criticality")}>
+                <SelectTrigger id="asset-criticality" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ASSET_CRITICALITY_LEVELS.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Field label="Company entity" id="asset-company-entity" value={form.companyEntity} onChange={set("companyEntity")} />
+            <Field label="Description" id="asset-description" value={form.description} onChange={set("description")} />
             <div className="flex flex-col gap-2">
               <Label htmlFor="asset-status">Status</Label>
               <Select value={form.status} onValueChange={setSelect("status")}>

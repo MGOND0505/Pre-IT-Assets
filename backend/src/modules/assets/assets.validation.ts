@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ASSET_STATUSES, ASSET_OWNERSHIP_TYPES } from "../../models/Asset";
+import { ASSET_STATUSES, ASSET_OWNERSHIP_TYPES, ASSET_CRITICALITY_LEVELS } from "../../models/Asset";
 import { ASSET_DOCUMENT_TYPES } from "../../models/AssetDocument";
 
 const objectId = z.string().min(1);
@@ -11,10 +11,15 @@ export const createAssetSchema = z.object({
   // strips this field before it reaches the service otherwise) - omitted, it falls back to the
   // existing auto-generated VNR-<category>-000001 sequence.
   assetId: z.string().trim().min(1).optional(),
+  assetTag: z.string().trim().max(100).optional().default(""),
   name: z.string().min(1),
   category: objectId,
   assetType: str(),
+  assetSubType: str(),
   ownershipType: z.enum(ASSET_OWNERSHIP_TYPES).optional(),
+  criticality: z.enum(ASSET_CRITICALITY_LEVELS).optional(),
+  companyEntity: str(),
+  description: z.string().max(2000).optional().default(""),
   deviceType: str(),
   manufacturer: str(),
   model: str(),
@@ -95,6 +100,7 @@ export const listAssetsQuerySchema = z.object({
   search: z.string().max(100).optional(),
   status: z.enum(ASSET_STATUSES).optional(),
   ownershipType: z.enum(ASSET_OWNERSHIP_TYPES).optional(),
+  criticality: z.enum(ASSET_CRITICALITY_LEVELS).optional(),
   category: objectId.optional(),
   location: objectId.optional(),
   department: objectId.optional(),
@@ -124,9 +130,14 @@ export const uploadAssetDocumentBodySchema = z.object({
 
 const mappedAssetImportRowSchema = z.object({
   assetIdRaw: importStr(),
+  assetTag: importStr(),
   name: importStr(),
   assetType: importStr(),
+  assetSubType: importStr(),
   ownershipType: importStr(),
+  criticality: importStr(),
+  companyEntity: importStr(),
+  description: importStr(),
   deviceType: importStr(),
   manufacturer: importStr(),
   model: importStr(),
