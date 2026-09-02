@@ -1,6 +1,10 @@
+import type { Model } from "mongoose";
 import { Asset } from "../../models/Asset";
+import { AssetCategory } from "../../models/AssetCategory";
 import { License } from "../../models/License";
+import { LicenseCategory } from "../../models/LicenseCategory";
 import { Ticket } from "../../models/Ticket";
+import { HelpdeskCategory } from "../../models/HelpdeskCategory";
 import { Task } from "../../models/Task";
 import { Vendor } from "../../models/Vendor";
 import { Department } from "../../models/Department";
@@ -68,6 +72,32 @@ export async function searchOrganization(ctx: SearchContext, rawQuery: string): 
     return { $and: tokens.map((rx) => ({ $or: fields.map((field) => ({ [field]: rx })) })) };
   }
 
+  /**
+   * Same AND-of-ORs shape as matchesAllTokens, but also lets a token match via the record's
+   * CATEGORY name rather than only its own fields - e.g. searching "laptop" previously only found
+   * the handful of assets whose own `name` happened to literally contain the word "laptop" (an
+   * inconsistent, incidental match), missing every other asset actually filed under the Laptop
+   * category (490 of them in one real org's data, vs. 2 matched by name alone). Resolves each
+   * token's matching category ids independently (a token is genuinely case-insensitive/partial
+   * against the category's own name), then folds `category: {$in: ...}` into that token's OR.
+   */
+  async function matchesAllTokensOrCategory(fields: string[], categoryModel: Model<any>) {
+    const categoryIdsPerToken = await Promise.all(
+      tokens.map((rx) =>
+        categoryModel
+          .find({ organization: ctx.organizationId, name: rx })
+          .select("_id")
+          .lean()
+          .then((rows) => rows.map((r) => r._id))
+      )
+    );
+    return {
+      $and: tokens.map((rx, i) => ({
+        $or: [...fields.map((field) => ({ [field]: rx })), { category: { $in: categoryIdsPerToken[i] } }],
+      })),
+    };
+  }
+
   const lookups: Promise<SearchResult[]>[] = [];
 
   if (canView(ctx, "assets", "assets")) {
@@ -76,50 +106,55 @@ export async function searchOrganization(ctx: SearchContext, rawQuery: string): 
     // title/id result (they'd 404 clicking into it, but the leak itself is the point of the fix).
     const canViewAllAssets = ctx.isAdmin || Boolean(ctx.permissions.assets?.update);
     lookups.push(
-      Asset.find({
-        organization: ctx.organizationId,
-        isDeleted: false,
-        ...(canViewAllAssets ? {} : { assignedUser: ctx.userId }),
-        ...matchesAllTokens(["name", "assetId", "serialNumber", "serviceTag", "imei"]),
-      })
-        .select("name assetId")
-        .limit(RESULTS_PER_TYPE)
-        .lean()
-        .then((rows) =>
-          rows.map((r) => ({ type: "asset" as const, id: String(r._id), title: r.name, subtitle: r.assetId }))
-        )
+      matchesAllTokensOrCategory(["name", "assetId", "serialNumber", "serviceTag", "imei"], AssetCategory).then(
+        (tokenMatch) =>
+          Asset.find({
+            organization: ctx.organizationId,
+            isDeleted: false,
+            ...(canViewAllAssets ? {} : { assignedUser: ctx.userId }),
+            ...tokenMatch,
+          })
+            .select("name assetId")
+            .limit(RESULTS_PER_TYPE)
+            .lean()
+            .then((rows) =>
+              rows.map((r) => ({ type: "asset" as const, id: String(r._id), title: r.name, subtitle: r.assetId }))
+            )
+      )
     );
   }
 
   if (canView(ctx, "licenses", "licenses")) {
     lookups.push(
-      License.find({
-        organization: ctx.organizationId,
-        isDeleted: false,
-        ...matchesAllTokens(["softwareName", "productName", "publisher", "licenseId"]),
-      })
-        .select("softwareName licenseId")
-        .limit(RESULTS_PER_TYPE)
-        .lean()
-        .then((rows) =>
-          rows.map((r) => ({ type: "license" as const, id: String(r._id), title: r.softwareName, subtitle: r.licenseId }))
-        )
+      matchesAllTokensOrCategory(["softwareName", "productName", "publisher", "licenseId"], LicenseCategory).then(
+        (tokenMatch) =>
+          License.find({ organization: ctx.organizationId, isDeleted: false, ...tokenMatch })
+            .select("softwareName licenseId")
+            .limit(RESULTS_PER_TYPE)
+            .lean()
+            .then((rows) =>
+              rows.map((r) => ({
+                type: "license" as const,
+                id: String(r._id),
+                title: r.softwareName,
+                subtitle: r.licenseId,
+              }))
+            )
+      )
     );
   }
 
   if (canView(ctx, "helpdesk", "helpdesk")) {
     lookups.push(
-      Ticket.find({
-        organization: ctx.organizationId,
-        isDeleted: false,
-        ...matchesAllTokens(["subject", "ticketId"]),
-      })
-        .select("subject ticketId")
-        .limit(RESULTS_PER_TYPE)
-        .lean()
-        .then((rows) =>
-          rows.map((r) => ({ type: "ticket" as const, id: String(r._id), title: r.subject, subtitle: r.ticketId }))
-        )
+      matchesAllTokensOrCategory(["subject", "ticketId"], HelpdeskCategory).then((tokenMatch) =>
+        Ticket.find({ organization: ctx.organizationId, isDeleted: false, ...tokenMatch })
+          .select("subject ticketId")
+          .limit(RESULTS_PER_TYPE)
+          .lean()
+          .then((rows) =>
+            rows.map((r) => ({ type: "ticket" as const, id: String(r._id), title: r.subject, subtitle: r.ticketId }))
+          )
+      )
     );
   }
 

@@ -81,21 +81,28 @@ export function CommandPalette() {
   // skipped below the backend's own 2-character minimum.
   const [results, setResults] = React.useState<SearchResult[]>([])
   const [searching, setSearching] = React.useState(false)
+  // Distinct from "no results" - a failed request (network/server error) used to silently reset
+  // to an empty list, which read identically to "nothing matched" even though the real problem
+  // was the request itself failing, not the query being wrong.
+  const [searchError, setSearchError] = React.useState(false)
 
   React.useEffect(() => {
     const q = query.trim()
     if (q.length < 2) {
       setResults([])
       setSearching(false)
+      setSearchError(false)
       return
     }
     setSearching(true)
+    setSearchError(false)
     const timer = setTimeout(async () => {
       try {
         const res = await apiClient.get<ApiEnvelope<SearchResult[]>>("/search", { params: { q } })
         setResults(res.data.data)
       } catch {
         setResults([])
+        setSearchError(true)
       } finally {
         setSearching(false)
       }
@@ -243,10 +250,38 @@ export function CommandPalette() {
           <div className="max-h-96 overflow-y-auto p-2">
             {combined.length === 0 ? (
               <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-                {searching ? "Searching..." : "No matching pages or records."}
+                {!query.trim()
+                  ? "No pages available."
+                  : query.trim().length < 2
+                    ? "Keep typing to search records..."
+                    : searching
+                      ? "Searching..."
+                      : searchError
+                        ? "Couldn't reach search - check your connection and try again."
+                        : "No matching pages or records."}
               </p>
             ) : (
               <>
+                {!query.trim() && (
+                  <div className="px-3 pb-2 pt-1 text-xs text-muted-foreground">
+                    Or search your organization's data - try an{" "}
+                    <span className="font-medium text-foreground">asset ID</span>,{" "}
+                    <span className="font-medium text-foreground">employee name</span>,{" "}
+                    <span className="font-medium text-foreground">ticket number</span>,{" "}
+                    <span className="font-medium text-foreground">task name</span>, or{" "}
+                    <span className="font-medium text-foreground">category</span>.
+                  </div>
+                )}
+                {searching && query.trim().length >= 2 && (
+                  <div className="flex items-center gap-1.5 px-3 py-1 text-xs text-muted-foreground">
+                    <Loader2 className="size-3 animate-spin" /> Searching for more results...
+                  </div>
+                )}
+                {searchError && !searching && (
+                  <p className="px-3 py-1 text-xs text-destructive">
+                    Couldn't load data results - showing pages only.
+                  </p>
+                )}
                 {filtered.length > 0 && (
                   <div className="flex flex-col gap-0.5">
                     {query.trim() && (
