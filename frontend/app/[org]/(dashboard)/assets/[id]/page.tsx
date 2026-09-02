@@ -133,8 +133,8 @@ function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleDateString() : "-"
 }
 
-function hasCustomFieldValues(customFields: Record<string, unknown>) {
-  return Object.values(customFields).some((v) => v !== undefined && v !== null && v !== "")
+function hasCustomFieldValues(customFields: Record<string, unknown> | null | undefined) {
+  return Object.values(customFields ?? {}).some((v) => v !== undefined && v !== null && v !== "")
 }
 
 function toFormValues(asset: Asset): AssetFormValues {
