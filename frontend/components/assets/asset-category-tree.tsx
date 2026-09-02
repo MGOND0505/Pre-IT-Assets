@@ -156,11 +156,17 @@ export function AssetCategoryTree({
 
   if (collapsed) {
     return (
-      <nav className="flex w-full shrink-0 flex-col items-center gap-1 md:w-10">
+      <nav className="flex w-full shrink-0 md:w-10">
         <Tooltip>
           <TooltipTrigger
             render={
-              <Button variant="ghost" size="icon" aria-label="Show category filters" onClick={toggleCollapsed}>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Show category filters"
+                onClick={toggleCollapsed}
+                className="h-9 w-9 shrink-0 rounded-md border bg-card shadow-soft-sm"
+              >
                 <ChevronRight className="size-4" />
               </Button>
             }

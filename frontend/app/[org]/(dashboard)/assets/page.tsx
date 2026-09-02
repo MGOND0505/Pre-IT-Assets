@@ -151,6 +151,7 @@ const ASSET_COLUMN_BUILDERS: Record<string, () => ColumnDef<Asset, unknown>> = {
   employeeName: () => ({
     id: "employeeName",
     header: "Employee Name",
+    meta: { hideBelow: "sm" },
     cell: ({ row }) => (
       <span
         title={row.original.assignedUser?.name}
@@ -163,6 +164,7 @@ const ASSET_COLUMN_BUILDERS: Record<string, () => ColumnDef<Asset, unknown>> = {
   employeeId: () => ({
     id: "employeeId",
     header: "Employee ID",
+    meta: { hideBelow: "md" },
     cell: ({ row }) => row.original.assignedUser?.employeeId || "-",
   }),
   purchaseDate: () => ({
