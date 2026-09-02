@@ -333,27 +333,17 @@ const STRING_DIFF_FIELDS: (keyof MappedFields & keyof IAsset)[] = [
   "assetSubType",
   "companyEntity",
   "description",
-  "deviceType",
   "manufacturer",
   "model",
   "serialNumber",
-  "imei",
-  "color",
-  "processor",
-  "laptopGeneration",
-  "graphicsCard",
   "ram",
   "storage",
   "macAddress",
   "adapterSerialNumber",
-  "miscAccessories",
   "operatingSystem",
   "operatingSystemLicense",
   "canvaLicense",
   "hostname",
-  "adMember",
-  "antivirusInstalled",
-  "remoteSoftware",
   "emailLicense",
   "microsoftOffice",
   "microsoftProject",
@@ -390,6 +380,14 @@ const MERGE_INTO_DESCRIPTION_FIELDS: { field: keyof MappedFields; label: string 
   { field: "userAccessLevel", label: "User access level" },
   { field: "currentOwner", label: "Current owner (imported)" },
   { field: "previousOwner", label: "Previous owner (imported)" },
+  { field: "deviceType", label: "Device type" },
+  { field: "imei", label: "IMEI" },
+  { field: "color", label: "Color" },
+  { field: "laptopGeneration", label: "Laptop generation" },
+  { field: "miscAccessories", label: "Miscellaneous accessories" },
+  { field: "adMember", label: "AD member (imported)" },
+  { field: "antivirusInstalled", label: "Antivirus installed (imported)" },
+  { field: "remoteSoftware", label: "Remote software (imported)" },
 ];
 
 /** Builds the extra description text for a row's now-homeless legacy fields - "" if none apply. */
@@ -431,6 +429,8 @@ function diffAgainstExisting(mapped: MappedFields, existing: ExistingAsset): str
   }
   if (!isBlank(mapped.purchaseCost) && parseNumberOrNull(mapped.purchaseCost) !== existing.purchaseCost) changed.push("purchaseCost");
   if (!isBlank(mapped.quantity) && parseNumberOrNull(mapped.quantity) !== existing.quantity) changed.push("quantity");
+  if (!isBlank(mapped.processor) && normalize(mapped.processor) !== normalize(existing.CPU)) changed.push("CPU");
+  if (!isBlank(mapped.graphicsCard) && normalize(mapped.graphicsCard) !== normalize(existing.GPU)) changed.push("GPU");
   // The now-homeless legacy fields (see MERGE_INTO_DESCRIPTION_FIELDS) never directly overwrite
   // description - they only ever APPEND - so this flags "description" as changed independently of
   // the plain description-vs-description comparison already done via STRING_DIFF_FIELDS above,
@@ -449,13 +449,7 @@ function diffAgainstExisting(mapped: MappedFields, existing: ExistingAsset): str
 function hasAnyRecognizableColumn(rawRows: Record<string, string>[]): boolean {
   return rawRows.some((row) => {
     const mapped = mapRow(row);
-    return (
-      !isBlank(mapped.name) ||
-      !isBlank(mapped.categoryName) ||
-      !isBlank(mapped.serialNumber) ||
-      !isBlank(mapped.imei) ||
-      !isBlank(mapped.assetIdRaw)
-    );
+    return !isBlank(mapped.name) || !isBlank(mapped.categoryName) || !isBlank(mapped.serialNumber) || !isBlank(mapped.assetIdRaw);
   });
 }
 
@@ -472,7 +466,6 @@ async function classifyRows(rawRows: Record<string, string>[], organizationId: s
 
   const byAssetId = new Map(existingAssets.map((a) => [a.assetId.toLowerCase(), a]));
   const bySerial = new Map(existingAssets.filter((a) => !isBlank(a.serialNumber)).map((a) => [a.serialNumber.toLowerCase(), a]));
-  const byImei = new Map(existingAssets.filter((a) => !isBlank(a.imei)).map((a) => [a.imei.toLowerCase(), a]));
 
   const seenInFile = new Set<string>();
 
@@ -480,11 +473,10 @@ async function classifyRows(rawRows: Record<string, string>[], organizationId: s
     const mapped = mapRow(row);
     const assetIdKey = normalize(mapped.assetIdRaw);
     const serialKey = normalize(mapped.serialNumber);
-    const imeiKey = normalize(mapped.imei);
 
-    const existing = (assetIdKey && byAssetId.get(assetIdKey)) || (serialKey && bySerial.get(serialKey)) || (imeiKey && byImei.get(imeiKey));
+    const existing = (assetIdKey && byAssetId.get(assetIdKey)) || (serialKey && bySerial.get(serialKey));
 
-    const fileKey = assetIdKey || serialKey || imeiKey;
+    const fileKey = assetIdKey || serialKey;
 
     let classification: MappedAssetRow["classification"];
     let reason: string | undefined;
@@ -530,7 +522,7 @@ export const previewAssetImport = asyncHandler(async (req: Request, res: Respons
   if (!hasAnyRecognizableColumn(rawRows)) {
     throw new ApiError(
       400,
-      "This file doesn't look like an asset CSV - no recognizable columns (Name, Category, Serial Number, IMEI, or Asset ID) were found. Try the template."
+      "This file doesn't look like an asset CSV - no recognizable columns (Name, Category, Serial Number, or Asset ID) were found. Try the template."
     );
   }
 
@@ -631,6 +623,8 @@ async function buildPartialPayload(mapped: MappedFields, organizationId: string,
   if (!isBlank(mapped.purchaseCost)) payload.purchaseCost = parseNumberOrNull(mapped.purchaseCost);
   if (!isBlank(mapped.quantity)) payload.quantity = parseNumberOrNull(mapped.quantity);
   if (!isBlank(mapped.warrantyEnd)) payload.warrantyEndDate = parseDateOrUndefined(mapped.warrantyEnd) ?? null;
+  if (!isBlank(mapped.processor)) payload.CPU = mapped.processor;
+  if (!isBlank(mapped.graphicsCard)) payload.GPU = mapped.graphicsCard;
 
   if (!isBlank(mapped.locationName)) {
     const location = await findOrCreateLocation(mapped.locationName, organizationId);
@@ -699,6 +693,8 @@ export const confirmAssetImport = asyncHandler(async (req: Request, res: Respons
           purchaseCost: parseNumberOrNull(row.mapped.purchaseCost),
           quantity: parseNumberOrNull(row.mapped.quantity),
           warrantyEndDate: parseDateOrUndefined(row.mapped.warrantyEnd) ?? null,
+          CPU: row.mapped.processor,
+          GPU: row.mapped.graphicsCard,
           location: location ? String(location._id) : null,
           department: department ? String(department._id) : null,
           vendor: vendor ? String(vendor._id) : null,

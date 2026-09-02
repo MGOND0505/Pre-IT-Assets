@@ -34,32 +34,34 @@ type Asset = {
   criticality: AssetCriticality
   companyEntity: string
   description: string
-  deviceType: string
   status: AssetStatus
   condition: string
   repairHistory: string
-  color: string
   manufacturer: string
   model: string
   serialNumber: string
-  serviceTag: string
-  imei: string
-  processor: string
-  laptopGeneration: string
-  graphicsCard: string
+  CPU: string
+  GPU: string
   ram: string
   storage: string
+  display: string
+  biosUefiVersion: string
+  deviceUUID: string
   hostname: string
   ipAddress: string
   macAddress: string
   adapterSerialNumber: string
-  miscAccessories: string
-  configuration: string
   operatingSystem: string
+  osVersion: string
   operatingSystemLicense: string
-  adMember: string
-  antivirusInstalled: string
-  remoteSoftware: string
+  directoryMembership: string
+  domainName: string
+  encryptionStatus: string
+  securityAgentStatus: string
+  antivirusStatus: string
+  patchStatus: string
+  complianceStatus: string
+  lastSecurityCheck: string | null
   emailLicense: string
   canvaLicense: string
   microsoftOffice: string
@@ -112,6 +114,7 @@ const TAB_VALUES = [
   "assignment",
   "assetLocation",
   "hardware",
+  "security",
   "software",
   "financial",
   "condition",
@@ -180,32 +183,34 @@ function toFormValues(asset: Asset): AssetFormValues {
     criticality: asset.criticality,
     companyEntity: asset.companyEntity,
     description: asset.description,
-    deviceType: asset.deviceType,
     status: asset.status,
     condition: asset.condition,
     repairHistory: asset.repairHistory,
-    color: asset.color,
     manufacturer: asset.manufacturer,
     model: asset.model,
     serialNumber: asset.serialNumber,
-    serviceTag: asset.serviceTag,
-    imei: asset.imei,
-    processor: asset.processor,
-    laptopGeneration: asset.laptopGeneration,
-    graphicsCard: asset.graphicsCard,
+    CPU: asset.CPU,
+    GPU: asset.GPU,
     ram: asset.ram,
     storage: asset.storage,
+    display: asset.display,
+    biosUefiVersion: asset.biosUefiVersion,
+    deviceUUID: asset.deviceUUID,
     hostname: asset.hostname,
     ipAddress: asset.ipAddress,
     macAddress: asset.macAddress,
     adapterSerialNumber: asset.adapterSerialNumber,
-    miscAccessories: asset.miscAccessories,
-    configuration: asset.configuration,
     operatingSystem: asset.operatingSystem,
+    osVersion: asset.osVersion,
     operatingSystemLicense: asset.operatingSystemLicense,
-    adMember: asset.adMember,
-    antivirusInstalled: asset.antivirusInstalled,
-    remoteSoftware: asset.remoteSoftware,
+    directoryMembership: asset.directoryMembership,
+    domainName: asset.domainName,
+    encryptionStatus: asset.encryptionStatus,
+    securityAgentStatus: asset.securityAgentStatus,
+    antivirusStatus: asset.antivirusStatus,
+    patchStatus: asset.patchStatus,
+    complianceStatus: asset.complianceStatus,
+    lastSecurityCheck: asset.lastSecurityCheck?.slice(0, 10) ?? "",
     emailLicense: asset.emailLicense,
     canvaLicense: asset.canvaLicense,
     microsoftOffice: asset.microsoftOffice,
@@ -339,6 +344,7 @@ export default function AssetDetailPage() {
               <TabsTrigger value="assignment">Assignment</TabsTrigger>
               <TabsTrigger value="assetLocation">Location</TabsTrigger>
               <TabsTrigger value="hardware">Hardware</TabsTrigger>
+              <TabsTrigger value="security">Security</TabsTrigger>
               <TabsTrigger value="software">Software licenses</TabsTrigger>
               <TabsTrigger value="financial">
                 Financial
@@ -359,14 +365,12 @@ export default function AssetDetailPage() {
                 <Row label="Asset tag" value={asset.assetTag} />
                 <Row label="Name" value={asset.name} />
                 <Row label="Category" value={asset.category?.name} />
-                <Row label="Device type" value={asset.deviceType} />
                 <Row label="Asset type" value={asset.assetType} />
                 <Row label="Asset sub-type" value={asset.assetSubType} />
                 <Row label="Ownership type" value={<AssetOwnershipBadge ownershipType={asset.ownershipType} />} />
                 <Row label="Criticality" value={<AssetCriticalityBadge criticality={asset.criticality} />} />
                 <Row label="Company entity" value={asset.companyEntity} />
                 <Row label="Status" value={<AssetStatusBadge status={asset.status} />} />
-                <Row label="Color" value={asset.color} />
                 <Row label="Description" value={asset.description} />
               </div>
             </TabsContent>
@@ -403,29 +407,38 @@ export default function AssetDetailPage() {
                 <Row label="Manufacturer" value={asset.manufacturer} />
                 <Row label="Model" value={asset.model} />
                 <Row label="Serial number" value={asset.serialNumber} />
-                <Row label="Service tag" value={asset.serviceTag} />
-                <Row label="IMEI" value={asset.imei} />
-                <Row label="Processor" value={asset.processor} />
-                <Row label="Laptop generation" value={asset.laptopGeneration} />
-                <Row label="Graphics card" value={asset.graphicsCard} />
+                <Row label="CPU" value={asset.CPU} />
+                <Row label="GPU" value={asset.GPU} />
                 <Row label="RAM" value={asset.ram} />
                 <Row label="Storage" value={asset.storage} />
+                <Row label="Display" value={asset.display} />
+                <Row label="BIOS/UEFI version" value={asset.biosUefiVersion} />
+                <Row label="Device UUID" value={asset.deviceUUID} />
                 <Row label="Hostname" value={asset.hostname} />
                 <Row label="IP address" value={asset.ipAddress} />
                 <Row label="MAC address" value={asset.macAddress} />
                 <Row label="Adapter serial number" value={asset.adapterSerialNumber} />
-                <Row label="Misc. accessories" value={asset.miscAccessories} />
-                <Row label="Configuration" value={asset.configuration} />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="security">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Row label="Directory membership" value={asset.directoryMembership} />
+                <Row label="Domain name" value={asset.domainName} />
+                <Row label="Encryption status" value={asset.encryptionStatus} />
+                <Row label="Security agent status" value={asset.securityAgentStatus} />
+                <Row label="Antivirus status" value={asset.antivirusStatus} />
+                <Row label="Patch status" value={asset.patchStatus} />
+                <Row label="Compliance status" value={asset.complianceStatus} />
+                <Row label="Last security check" value={formatDate(asset.lastSecurityCheck)} />
               </div>
             </TabsContent>
 
             <TabsContent value="software">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Row label="Operating system" value={asset.operatingSystem} />
+                <Row label="OS version" value={asset.osVersion} />
                 <Row label="OS license" value={asset.operatingSystemLicense} />
-                <Row label="AD member" value={asset.adMember} />
-                <Row label="Antivirus installed" value={asset.antivirusInstalled} />
-                <Row label="Remote software" value={asset.remoteSoftware} />
                 <Row label="Email license" value={asset.emailLicense} />
                 <Row label="Canva license" value={asset.canvaLicense} />
                 <Row label="Microsoft Office" value={asset.microsoftOffice} />

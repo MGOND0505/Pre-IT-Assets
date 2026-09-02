@@ -37,6 +37,9 @@ export type AssetAssignmentStatus = (typeof ASSET_ASSIGNMENT_STATUSES)[number];
 export const ASSET_DEPRECIATION_METHODS = ["Straight-Line", "None"] as const;
 export type AssetDepreciationMethod = (typeof ASSET_DEPRECIATION_METHODS)[number];
 
+export const ASSET_ANTIVIRUS_STATUSES = ["Installed", "Not Installed", "Outdated", "Unknown"] as const;
+export type AssetAntivirusStatus = (typeof ASSET_ANTIVIRUS_STATUSES)[number];
+
 export interface IAsset {
   organization: Types.ObjectId;
   assetId: string;
@@ -59,29 +62,35 @@ export interface IAsset {
   criticality: AssetCriticality;
   companyEntity: string;
   description: string;
-  deviceType: string;
   manufacturer: string;
   model: string;
   serialNumber: string;
-  serviceTag: string;
-  imei: string;
-  color: string;
   hostname: string;
   ipAddress: string;
   macAddress: string;
   operatingSystem: string;
+  // Free-text version/edition detail parsed out of the legacy operatingSystem blob where it could
+  // be split with confidence (e.g. "Windows 11 Pro" -> operatingSystem "Windows", osVersion
+  // "11 Pro") - see migrateAssetFieldsPhase3.ts. Never guessed: an unparseable original value
+  // stays whole in operatingSystem with this left blank.
+  osVersion: string;
   operatingSystemLicense: string;
-  configuration: string;
-  processor: string;
-  laptopGeneration: string;
-  graphicsCard: string;
+  CPU: string;
+  GPU: string;
   ram: string;
   storage: string;
+  display: string;
+  biosUefiVersion: string;
+  deviceUUID: string;
   adapterSerialNumber: string;
-  miscAccessories: string;
-  adMember: string;
-  antivirusInstalled: string;
-  remoteSoftware: string;
+  directoryMembership: string;
+  domainName: string;
+  encryptionStatus: string;
+  securityAgentStatus: string;
+  antivirusStatus: AssetAntivirusStatus;
+  patchStatus: string;
+  complianceStatus: string;
+  lastSecurityCheck: Date | null;
   emailLicense: string;
   canvaLicense: string;
   microsoftOffice: string;
@@ -151,29 +160,31 @@ const assetSchema = new Schema<IAsset>(
     criticality: { type: String, enum: ASSET_CRITICALITY_LEVELS, default: "Medium", index: true },
     companyEntity: { type: String, default: "" },
     description: { type: String, default: "" },
-    deviceType: { type: String, default: "" },
     manufacturer: { type: String, default: "" },
     model: { type: String, default: "" },
     serialNumber: { type: String, default: "", index: true },
-    serviceTag: { type: String, default: "", index: true },
-    imei: { type: String, default: "", index: true },
-    color: { type: String, default: "" },
     hostname: { type: String, default: "" },
     ipAddress: { type: String, default: "" },
     macAddress: { type: String, default: "" },
     operatingSystem: { type: String, default: "" },
+    osVersion: { type: String, default: "" },
     operatingSystemLicense: { type: String, default: "" },
-    configuration: { type: String, default: "" },
-    processor: { type: String, default: "" },
-    laptopGeneration: { type: String, default: "" },
-    graphicsCard: { type: String, default: "" },
+    CPU: { type: String, default: "" },
+    GPU: { type: String, default: "" },
     ram: { type: String, default: "" },
     storage: { type: String, default: "" },
+    display: { type: String, default: "" },
+    biosUefiVersion: { type: String, default: "" },
+    deviceUUID: { type: String, default: "" },
     adapterSerialNumber: { type: String, default: "" },
-    miscAccessories: { type: String, default: "" },
-    adMember: { type: String, default: "" },
-    antivirusInstalled: { type: String, default: "" },
-    remoteSoftware: { type: String, default: "" },
+    directoryMembership: { type: String, default: "" },
+    domainName: { type: String, default: "" },
+    encryptionStatus: { type: String, default: "" },
+    securityAgentStatus: { type: String, default: "" },
+    antivirusStatus: { type: String, enum: ASSET_ANTIVIRUS_STATUSES, default: "Unknown" },
+    patchStatus: { type: String, default: "" },
+    complianceStatus: { type: String, default: "" },
+    lastSecurityCheck: { type: Date, default: null },
     emailLicense: { type: String, default: "" },
     canvaLicense: { type: String, default: "" },
     microsoftOffice: { type: String, default: "" },

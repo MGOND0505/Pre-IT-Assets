@@ -28,6 +28,7 @@ const NONE = "__none__"
 
 const ASSET_ASSIGNMENT_STATUSES = ["Unassigned", "Assigned", "Shared", "Pool", "Temporary"] as const
 const ASSET_DEPRECIATION_METHODS = ["Straight-Line", "None"] as const
+const ASSET_ANTIVIRUS_STATUSES = ["Installed", "Not Installed", "Outdated", "Unknown"] as const
 
 export type AssetFormValues = {
   _id?: string
@@ -41,32 +42,34 @@ export type AssetFormValues = {
   criticality: string
   companyEntity: string
   description: string
-  deviceType: string
   status: string
   condition: string
   repairHistory: string
-  color: string
   manufacturer: string
   model: string
   serialNumber: string
-  serviceTag: string
-  imei: string
-  processor: string
-  laptopGeneration: string
-  graphicsCard: string
+  CPU: string
+  GPU: string
   ram: string
   storage: string
+  display: string
+  biosUefiVersion: string
+  deviceUUID: string
   hostname: string
   ipAddress: string
   macAddress: string
   adapterSerialNumber: string
-  miscAccessories: string
-  configuration: string
   operatingSystem: string
+  osVersion: string
   operatingSystemLicense: string
-  adMember: string
-  antivirusInstalled: string
-  remoteSoftware: string
+  directoryMembership: string
+  domainName: string
+  encryptionStatus: string
+  securityAgentStatus: string
+  antivirusStatus: string
+  patchStatus: string
+  complianceStatus: string
+  lastSecurityCheck: string
   emailLicense: string
   canvaLicense: string
   microsoftOffice: string
@@ -125,32 +128,34 @@ export const EMPTY_ASSET_FORM: AssetFormValues = {
   criticality: "Medium",
   companyEntity: "",
   description: "",
-  deviceType: "",
   status: "In Stock",
   condition: "",
   repairHistory: "",
-  color: "",
   manufacturer: "",
   model: "",
   serialNumber: "",
-  serviceTag: "",
-  imei: "",
-  processor: "",
-  laptopGeneration: "",
-  graphicsCard: "",
+  CPU: "",
+  GPU: "",
   ram: "",
   storage: "",
+  display: "",
+  biosUefiVersion: "",
+  deviceUUID: "",
   hostname: "",
   ipAddress: "",
   macAddress: "",
   adapterSerialNumber: "",
-  miscAccessories: "",
-  configuration: "",
   operatingSystem: "",
+  osVersion: "",
   operatingSystemLicense: "",
-  adMember: "",
-  antivirusInstalled: "",
-  remoteSoftware: "",
+  directoryMembership: "",
+  domainName: "",
+  encryptionStatus: "",
+  securityAgentStatus: "",
+  antivirusStatus: "Unknown",
+  patchStatus: "",
+  complianceStatus: "",
+  lastSecurityCheck: "",
   emailLicense: "",
   canvaLicense: "",
   microsoftOffice: "",
@@ -277,6 +282,7 @@ export function AssetForm({
         contractEndDate: form.contractEndDate || undefined,
         assignmentDate: form.assignmentDate || undefined,
         returnDate: form.returnDate || undefined,
+        lastSecurityCheck: form.lastSecurityCheck || undefined,
         vendor: form.vendor || undefined,
         location: form.location || undefined,
         department: form.department || undefined,
@@ -312,6 +318,7 @@ export function AssetForm({
           <TabsTrigger value="assignment" className="shrink-0">Assignment</TabsTrigger>
           <TabsTrigger value="assetLocation" className="shrink-0">Location</TabsTrigger>
           <TabsTrigger value="hardware" className="shrink-0">Hardware</TabsTrigger>
+          <TabsTrigger value="security" className="shrink-0">Security</TabsTrigger>
           <TabsTrigger value="software" className="shrink-0">OS &amp; software licenses</TabsTrigger>
           <TabsTrigger value="purchase" className="shrink-0">Purchase &amp; vendor</TabsTrigger>
           <TabsTrigger value="condition" className="shrink-0">Condition</TabsTrigger>
@@ -348,7 +355,6 @@ export function AssetForm({
                 </SelectContent>
               </Select>
             </div>
-            <Field label="Device type" id="asset-device-type" value={form.deviceType} onChange={set("deviceType")} />
             <Field label="Asset type" id="asset-type" value={form.assetType} onChange={set("assetType")} />
             <Field label="Asset sub-type" id="asset-sub-type" value={form.assetSubType} onChange={set("assetSubType")} />
             <div className="flex flex-col gap-2">
@@ -398,7 +404,6 @@ export function AssetForm({
                 </SelectContent>
               </Select>
             </div>
-            <Field label="Color" id="asset-color" value={form.color} onChange={set("color")} />
           </div>
         </TabsContent>
 
@@ -488,33 +493,52 @@ export function AssetForm({
             <Field label="Manufacturer" id="asset-manufacturer" value={form.manufacturer} onChange={set("manufacturer")} />
             <Field label="Model" id="asset-model" value={form.model} onChange={set("model")} />
             <Field label="Serial number" id="asset-serial" value={form.serialNumber} onChange={set("serialNumber")} />
-            <Field label="Service tag" id="asset-service-tag" value={form.serviceTag} onChange={set("serviceTag")} />
-            <Field label="IMEI" id="asset-imei" value={form.imei} onChange={set("imei")} />
-            <Field label="Processor" id="asset-processor" value={form.processor} onChange={set("processor")} />
-            <Field label="Laptop generation" id="asset-laptop-generation" value={form.laptopGeneration} onChange={set("laptopGeneration")} />
-            <Field label="Graphics card" id="asset-graphics-card" value={form.graphicsCard} onChange={set("graphicsCard")} />
+            <Field label="CPU" id="asset-cpu" value={form.CPU} onChange={set("CPU")} />
+            <Field label="GPU" id="asset-gpu" value={form.GPU} onChange={set("GPU")} />
             <Field label="RAM" id="asset-ram" value={form.ram} onChange={set("ram")} />
             <Field label="Storage" id="asset-storage" value={form.storage} onChange={set("storage")} />
+            <Field label="Display" id="asset-display" value={form.display} onChange={set("display")} />
+            <Field label="BIOS/UEFI version" id="asset-bios" value={form.biosUefiVersion} onChange={set("biosUefiVersion")} />
+            <Field label="Device UUID" id="asset-device-uuid" value={form.deviceUUID} onChange={set("deviceUUID")} />
             <Field label="Hostname" id="asset-hostname" value={form.hostname} onChange={set("hostname")} />
             <Field label="IP address" id="asset-ip" value={form.ipAddress} onChange={set("ipAddress")} />
             <Field label="MAC address" id="asset-mac" value={form.macAddress} onChange={set("macAddress")} />
             <Field label="Adapter serial number" id="asset-adapter-serial" value={form.adapterSerialNumber} onChange={set("adapterSerialNumber")} />
-            <div className="col-span-2">
-              <Field label="Miscellaneous accessories" id="asset-misc-accessories" value={form.miscAccessories} onChange={set("miscAccessories")} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="security">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Directory membership" id="asset-directory-membership" value={form.directoryMembership} onChange={set("directoryMembership")} />
+            <Field label="Domain name" id="asset-domain-name" value={form.domainName} onChange={set("domainName")} />
+            <Field label="Encryption status" id="asset-encryption-status" value={form.encryptionStatus} onChange={set("encryptionStatus")} />
+            <Field label="Security agent status" id="asset-security-agent-status" value={form.securityAgentStatus} onChange={set("securityAgentStatus")} />
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="asset-antivirus-status">Antivirus status</Label>
+              <Select value={form.antivirusStatus} onValueChange={setSelect("antivirusStatus")}>
+                <SelectTrigger id="asset-antivirus-status" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ASSET_ANTIVIRUS_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="col-span-2">
-              <Field label="Configuration" id="asset-configuration" value={form.configuration} onChange={set("configuration")} />
-            </div>
+            <Field label="Patch status" id="asset-patch-status" value={form.patchStatus} onChange={set("patchStatus")} />
+            <Field label="Compliance status" id="asset-compliance-status" value={form.complianceStatus} onChange={set("complianceStatus")} />
+            <Field label="Last security check" id="asset-last-security-check" type="date" value={form.lastSecurityCheck} onChange={set("lastSecurityCheck")} />
           </div>
         </TabsContent>
 
         <TabsContent value="software">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Operating system" id="asset-os" value={form.operatingSystem} onChange={set("operatingSystem")} />
+            <Field label="OS version" id="asset-os-version" value={form.osVersion} onChange={set("osVersion")} />
             <Field label="OS license" id="asset-os-license" value={form.operatingSystemLicense} onChange={set("operatingSystemLicense")} />
-            <Field label="AD member" id="asset-ad-member" value={form.adMember} onChange={set("adMember")} />
-            <Field label="Antivirus installed" id="asset-antivirus" value={form.antivirusInstalled} onChange={set("antivirusInstalled")} />
-            <Field label="Remote software" id="asset-remote-software" value={form.remoteSoftware} onChange={set("remoteSoftware")} />
             <Field label="Email license" id="asset-email-license" value={form.emailLicense} onChange={set("emailLicense")} />
             <Field label="Canva license" id="asset-canva" value={form.canvaLicense} onChange={set("canvaLicense")} />
             <Field label="Microsoft Office" id="asset-ms-office" value={form.microsoftOffice} onChange={set("microsoftOffice")} />
