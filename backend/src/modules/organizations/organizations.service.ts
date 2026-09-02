@@ -90,12 +90,28 @@ const OBJECT_ID_RE = /^[0-9a-fA-F]{24}$/;
  * addressed by :id, but the frontend's Organization Details page lives at /{orgSlug}/organization
  * and only has the slug on hand (its own Mongo id would require an extra round trip), so this
  * lets it call the same endpoint either way. */
+/** Drops any enabledModules entries that aren't currently valid (e.g. `aiAssistant`, which used
+ * to be a per-org entitlement and no longer is - see ENTITLEMENT_MODULES's own comment) - a
+ * stale value here fails the WHOLE document's validation on save, not just that field, which
+ * would otherwise permanently block every future update to that org (status, delete, retention,
+ * details, module access - all of them) until manually cleaned up in the database. Only mutates
+ * the in-memory array - callers that go on to org.save() persist the cleanup as a side effect;
+ * read-only callers (getOrganizationDetails) just return cleaner data without an extra write. */
+function sanitizeEnabledModules(org: InstanceType<typeof Organization>) {
+  const valid: readonly string[] = ENTITLEMENT_MODULES;
+  if (org.enabledModules.some((m) => !valid.includes(m))) {
+    org.enabledModules = org.enabledModules.filter((m) => valid.includes(m)) as EntitlementModule[];
+  }
+  return org;
+}
+
 async function findByIdOrSlug(idOrSlug: string) {
   if (OBJECT_ID_RE.test(idOrSlug)) {
     const byId = await Organization.findOne({ _id: idOrSlug, isDeleted: false });
-    if (byId) return byId;
+    if (byId) return sanitizeEnabledModules(byId);
   }
-  return Organization.findOne({ slug: idOrSlug.toLowerCase().trim(), isDeleted: false });
+  const bySlug = await Organization.findOne({ slug: idOrSlug.toLowerCase().trim(), isDeleted: false });
+  return bySlug ? sanitizeEnabledModules(bySlug) : bySlug;
 }
 
 async function primaryAdminFor(organizationId: string) {
