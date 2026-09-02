@@ -20,7 +20,7 @@ function useLookup<T>(endpoint: string, limit = 100) {
   return { items, loading }
 }
 
-export type AssetCategoryOption = { _id: string; name: string; prefix: string }
+export type AssetCategoryOption = { _id: string; name: string; prefix: string; group: string }
 export type LicenseCategoryOption = { _id: string; name: string }
 export type VendorOption = { _id: string; name: string }
 export type LocationOption = { _id: string; name: string }

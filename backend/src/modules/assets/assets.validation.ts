@@ -9,6 +9,7 @@ import {
   ASSET_OPERATING_SYSTEMS,
 } from "../../models/Asset";
 import { ASSET_DOCUMENT_TYPES } from "../../models/AssetDocument";
+import { ASSET_CATEGORY_GROUPS } from "../../models/AssetCategory";
 
 const objectId = z.string().min(1);
 const str = () => z.string().optional().default("");
@@ -82,6 +83,7 @@ export const listAssetsQuerySchema = z.object({
   criticality: z.enum(ASSET_CRITICALITY_LEVELS).optional(),
   assignmentStatus: z.enum(ASSET_ASSIGNMENT_STATUSES).optional(),
   category: objectId.optional(),
+  group: z.enum(ASSET_CATEGORY_GROUPS).optional(),
   location: objectId.optional(),
   department: objectId.optional(),
   vendor: objectId.optional(),

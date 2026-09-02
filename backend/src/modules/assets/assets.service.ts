@@ -20,7 +20,7 @@ import {
 } from "../../services/alerts/assetChangeAlerts";
 
 const POPULATE_FIELDS = [
-  { path: "category", select: "name prefix" },
+  { path: "category", select: "name prefix group" },
   { path: "vendor", select: "name" },
   { path: "location", select: "name city" },
   { path: "department", select: "name" },
@@ -61,6 +61,11 @@ type ListInput = {
   criticality?: string;
   assignmentStatus?: string;
   category?: string;
+  // Category-based nav: filters to every category belonging to this group at once (e.g. "IT
+  // Infrastructure" -> Switch/Router/Firewall/Access Point/Server/CCTV). Ignored when `category`
+  // is also set - a specific category is always more precise than its group, and the tree UI
+  // never sends both at once anyway (see assets/page.tsx).
+  group?: string;
   location?: string;
   department?: string;
   vendor?: string;
@@ -97,7 +102,12 @@ export async function listAssets(input: ListInput, organizationId: string, reque
   if (input.status) filter.status = input.status;
   if (input.ownershipType) filter.ownershipType = input.ownershipType;
   if (input.criticality) filter.criticality = input.criticality;
-  if (input.category) filter.category = input.category;
+  if (input.category) {
+    filter.category = input.category;
+  } else if (input.group) {
+    const categoriesInGroup = await AssetCategory.find({ organization: organizationId, group: input.group }).select("_id");
+    filter.category = { $in: categoriesInGroup.map((c) => c._id) };
+  }
   if (input.location) filter.location = input.location;
   if (input.department) filter.department = input.department;
   if (input.vendor) filter.vendor = input.vendor;
@@ -142,8 +152,6 @@ export async function listAssets(input: ListInput, organizationId: string, reque
       { assetTag: { $regex: search, $options: "i" } },
       { name: { $regex: search, $options: "i" } },
       { serialNumber: { $regex: search, $options: "i" } },
-      { serviceTag: { $regex: search, $options: "i" } },
-      { imei: { $regex: search, $options: "i" } },
       { hostname: { $regex: search, $options: "i" } },
       { manufacturer: { $regex: search, $options: "i" } },
       { model: { $regex: search, $options: "i" } },

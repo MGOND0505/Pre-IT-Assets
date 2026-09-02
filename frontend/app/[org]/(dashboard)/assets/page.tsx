@@ -17,6 +17,7 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { AssetStatusBadge, ASSET_STATUSES, type AssetStatus } from "@/components/assets/asset-status-badge"
 import { AssetOwnershipBadge, type AssetOwnershipType } from "@/components/assets/asset-ownership-badge"
 import { AssetCriticalityBadge, ASSET_CRITICALITY_LEVELS, type AssetCriticality } from "@/components/assets/asset-criticality-badge"
+import { AssetCategoryTree, type AssetCategorySelection } from "@/components/assets/asset-category-tree"
 import { apiClient, apiErrorMessage, orgScopedApiUrl, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
@@ -57,7 +58,7 @@ export default function AssetsPage() {
     const fromUrl = searchParams.get("status")
     return fromUrl && (ASSET_STATUSES as readonly string[]).includes(fromUrl) ? fromUrl : ALL
   })
-  const [category, setCategory] = React.useState<string>(ALL)
+  const [categorySelection, setCategorySelection] = React.useState<AssetCategorySelection>({ group: null, category: null })
   const [criticality, setCriticality] = React.useState<string>(() => {
     const fromUrl = searchParams.get("criticality")
     return fromUrl && (ASSET_CRITICALITY_LEVELS as readonly string[]).includes(fromUrl) ? fromUrl : ALL
@@ -82,7 +83,8 @@ export default function AssetsPage() {
           limit: 10,
           search: search || undefined,
           status: status === ALL ? undefined : status,
-          category: category === ALL ? undefined : category,
+          category: categorySelection.category ?? undefined,
+          group: categorySelection.category ? undefined : categorySelection.group ?? undefined,
           criticality: criticality === ALL ? undefined : criticality,
         },
       })
@@ -92,7 +94,7 @@ export default function AssetsPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, status, category, criticality])
+  }, [page, search, status, categorySelection, criticality])
 
   React.useEffect(() => {
     if (canView) load()
@@ -285,94 +287,88 @@ export default function AssetsPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
-        <Input
-          placeholder="Search by asset ID, employee, serial, IMEI, hostname, IP, MAC..."
-          value={search}
-          onChange={(e) => {
+      <div className="flex flex-col gap-6 md:flex-row">
+        <AssetCategoryTree
+          categories={categories}
+          selection={categorySelection}
+          onChange={(next) => {
             setPage(1)
-            setSearch(e.target.value)
+            setCategorySelection(next)
           }}
-          className="w-full md:max-w-sm"
         />
-        <Select
-          value={status}
-          onValueChange={(v) => {
-            setPage(1)
-            setStatus(v ?? ALL)
-          }}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All statuses</SelectItem>
-            {ASSET_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={category}
-          onValueChange={(v) => {
-            setPage(1)
-            setCategory(v ?? ALL)
-          }}
-        >
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All categories</SelectItem>
-            {categories.map((c) => (
-              <SelectItem key={c._id} value={c._id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={criticality}
-          onValueChange={(v) => {
-            setPage(1)
-            setCriticality(v ?? ALL)
-          }}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Criticality" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All criticalities</SelectItem>
-            {ASSET_CRITICALITY_LEVELS.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
 
-        {selectedIds.size > 0 && (
-          <Button variant="outline" onClick={handleDownloadSelectedCsv}>
-            Download selected as CSV ({selectedIds.size})
-          </Button>
-        )}
-        {canBulkDelete && selectedIds.size > 0 && (
-          <Button variant="destructive" onClick={() => setConfirmingBulkDelete(true)}>
-            Delete selected ({selectedIds.size})
-          </Button>
-        )}
+        <div className="flex min-w-0 flex-1 flex-col gap-6">
+          <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+            <Input
+              placeholder="Search by asset ID, employee, serial, hostname, IP, MAC..."
+              value={search}
+              onChange={(e) => {
+                setPage(1)
+                setSearch(e.target.value)
+              }}
+              className="w-full md:max-w-sm"
+            />
+            <Select
+              value={status}
+              onValueChange={(v) => {
+                setPage(1)
+                setStatus(v ?? ALL)
+              }}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All statuses</SelectItem>
+                {ASSET_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={criticality}
+              onValueChange={(v) => {
+                setPage(1)
+                setCriticality(v ?? ALL)
+              }}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Criticality" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All criticalities</SelectItem>
+                {ASSET_CRITICALITY_LEVELS.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {selectedIds.size > 0 && (
+              <Button variant="outline" onClick={handleDownloadSelectedCsv}>
+                Download selected as CSV ({selectedIds.size})
+              </Button>
+            )}
+            {canBulkDelete && selectedIds.size > 0 && (
+              <Button variant="destructive" onClick={() => setConfirmingBulkDelete(true)}>
+                Delete selected ({selectedIds.size})
+              </Button>
+            )}
+          </div>
+
+          <DataTable
+            columns={columns}
+            data={data?.items ?? []}
+            isLoading={loading}
+            emptyMessage="No assets yet."
+            onRowClick={(asset) => router.push(toOrgHref(`/assets/${asset._id}`))}
+          />
+          {data && <Pagination page={data.page} totalPages={data.totalPages} onPageChange={setPage} />}
+        </div>
       </div>
-
-      <DataTable
-        columns={columns}
-        data={data?.items ?? []}
-        isLoading={loading}
-        emptyMessage="No assets yet."
-        onRowClick={(asset) => router.push(toOrgHref(`/assets/${asset._id}`))}
-      />
-      {data && <Pagination page={data.page} totalPages={data.totalPages} onPageChange={setPage} />}
 
       {confirmingBulkDelete && (
         <ConfirmDialog
