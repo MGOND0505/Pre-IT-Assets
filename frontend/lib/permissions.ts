@@ -41,6 +41,7 @@ export const ENTITLEMENT_MODULES = [
   "recycleBin",
   "auditLogs",
   "fileUpload",
+  "changeWarning",
 ] as const
 export type EntitlementModule = (typeof ENTITLEMENT_MODULES)[number]
 
@@ -126,6 +127,7 @@ export const MODULE_LABELS: Record<PermissionModule | EntitlementModule, string>
   recycleBin: "Recycle Bin",
   assetCategories: "Asset Categories & Types",
   fileUpload: "File Upload",
+  changeWarning: "Change Warning",
 }
 
 type ModulePermissions = { [action in PermissionAction]: boolean }
@@ -191,4 +193,14 @@ export function hasModule(user: ModuleAware, moduleKey: EntitlementModule): bool
   if (!user) return false
   if (user.role === "superAdmin") return true
   return Boolean(user.organization?.enabledModules.includes(moduleKey))
+}
+
+// Two-layer gate for the Change Warning feature: the org must be entitled (Super Admin, per
+// org) AND the org's own Admin must have turned it on (Administration > Settings). Any
+// authenticated user (not just Admins) needs this - see auth-context.tsx's CurrentUser/
+// MyAccessResponse, which carry changeWarningEnabled alongside organization.enabledModules.
+export function shouldWarnBeforeChange(
+  user: (ModuleAware & { changeWarningEnabled?: boolean }) | null | undefined
+): boolean {
+  return hasModule(user, "changeWarning") && Boolean(user?.changeWarningEnabled)
 }

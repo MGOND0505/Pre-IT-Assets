@@ -27,6 +27,7 @@ export interface ISystemSettings {
   alertEmailsBcc: string[];
   expiryAlertsEnabled: boolean;
   assetChangeAlertsEnabled: boolean;
+  changeWarningEnabled: boolean;
   notificationChannel: NotificationChannel;
   smtpHost: string;
   smtpPort: number;
@@ -78,6 +79,7 @@ const systemSettingsSchema = new Schema<ISystemSettings>(
     alertEmailsBcc: { type: [String], default: [] },
     expiryAlertsEnabled: { type: Boolean, default: false },
     assetChangeAlertsEnabled: { type: Boolean, default: false },
+    changeWarningEnabled: { type: Boolean, default: false },
     notificationChannel: { type: String, enum: ["smtp", "microsoft365", "google"], default: "smtp" },
     smtpHost: { type: String, default: "", trim: true },
     smtpPort: { type: Number, default: 587 },

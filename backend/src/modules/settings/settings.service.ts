@@ -22,6 +22,7 @@ const BACKFILL_DEFAULTS: Partial<ISystemSettings> = {
   alertEmailsBcc: [],
   expiryAlertsEnabled: false,
   assetChangeAlertsEnabled: false,
+  changeWarningEnabled: false,
   notificationChannel: "smtp",
   smtpHost: "",
   smtpPort: 587,
@@ -143,6 +144,11 @@ export async function getPasswordPolicy(organizationId: string): Promise<Passwor
     requireSpecialChar: settings.passwordRequireSpecialChar,
     historyLimit: settings.passwordHistoryLimit,
   };
+}
+
+export async function getChangeWarningEnabled(organizationId: string): Promise<boolean> {
+  const settings = await getSettings(organizationId);
+  return settings.changeWarningEnabled;
 }
 
 export async function setLogo(organizationId: string, fileName: string) {

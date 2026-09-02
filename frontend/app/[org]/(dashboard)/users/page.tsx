@@ -35,7 +35,7 @@ import { AdminResetPasswordDialog } from "@/components/users/admin-reset-passwor
 import { LeaveStatusDialog } from "@/components/users/leave-status-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { can, PERMISSION_MODULES, type PermissionsShape } from "@/lib/permissions"
+import { can, shouldWarnBeforeChange, PERMISSION_MODULES, type PermissionsShape } from "@/lib/permissions"
 import { useRoleOptions } from "@/lib/use-lookup-options"
 import { useOrgHref } from "@/lib/use-org-href"
 
@@ -92,6 +92,7 @@ export default function UsersPage() {
   // Seeds the initial filter from a deep link like /users?role=orgAdmin (the Organization
   // Details page's "Admins" tab) - not a visible filter control, just a starting query.
   const initialRole = searchParams.get("role")
+  const warnOnChange = shouldWarnBeforeChange(currentUser)
   const [data, setData] = React.useState<PaginatedUsers | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [page, setPage] = React.useState(1)
@@ -395,9 +396,10 @@ export default function UsersPage() {
           onOpenChange={(open) => !open && setPendingStatusChange(null)}
           title={`${pendingStatusChange.status === "Active" ? "Deactivate" : "Activate"} ${pendingStatusChange.email}?`}
           description={
-            pendingStatusChange.status === "Active"
+            (pendingStatusChange.status === "Active"
               ? "They will be immediately logged out and unable to sign in until reactivated."
-              : "They will be able to sign in again."
+              : "They will be able to sign in again.") +
+            (warnOnChange ? " This will modify an existing employee record." : "")
           }
           confirmLabel={pendingStatusChange.status === "Active" ? "Deactivate" : "Activate"}
           destructive={pendingStatusChange.status === "Active"}
@@ -433,6 +435,7 @@ export default function UsersPage() {
           userId={leaveStatusUser._id}
           userName={leaveStatusUser.name}
           currentBackupAgentId={leaveStatusUser.backupAgent}
+          warnBeforeSave={warnOnChange}
           onSaved={load}
         />
       )}
@@ -442,7 +445,10 @@ export default function UsersPage() {
           open
           onOpenChange={(open) => !open && setPendingReturnFromLeave(null)}
           title={`Mark ${pendingReturnFromLeave.email} back from leave?`}
-          description="They'll become eligible for new ticket auto-assignment again. Tickets already handed to their backup agent will NOT move back automatically."
+          description={
+            "They'll become eligible for new ticket auto-assignment again. Tickets already handed to their backup agent will NOT move back automatically." +
+            (warnOnChange ? " This will modify an existing employee record." : "")
+          }
           confirmLabel="Mark back"
           onConfirm={() => handleReturnFromLeave(pendingReturnFromLeave)}
         />

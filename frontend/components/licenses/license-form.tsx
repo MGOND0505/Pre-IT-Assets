@@ -9,8 +9,10 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { CustomFieldsSection } from "@/components/custom-fields/custom-fields-section"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
+import { shouldWarnBeforeChange } from "@/lib/permissions"
 import {
   useCustomFieldDefinitionOptions,
   useDepartmentOptions,
@@ -93,6 +95,7 @@ export function LicenseForm({
 }) {
   const [form, setForm] = React.useState<LicenseFormValues>(initial)
   const [submitting, setSubmitting] = React.useState(false)
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
 
   const { user } = useAuth()
   const { items: categories } = useLicenseCategoryOptions()
@@ -127,7 +130,7 @@ export function LicenseForm({
 
   const isEdit = Boolean(form._id)
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
     if (!form.softwareName.trim()) {
@@ -139,6 +142,15 @@ export function LicenseForm({
       return
     }
 
+    if (isEdit && shouldWarnBeforeChange(user)) {
+      setConfirmOpen(true)
+      return
+    }
+
+    performSave()
+  }
+
+  async function performSave() {
     setSubmitting(true)
     try {
       const payload = {
@@ -170,6 +182,7 @@ export function LicenseForm({
   }
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <section className="flex flex-col gap-4">
         <h3 className="text-sm font-semibold text-muted-foreground">Basic information</h3>
@@ -333,5 +346,17 @@ export function LicenseForm({
         </Button>
       </div>
     </form>
+    <ConfirmDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      title="Confirm license changes"
+      description="You're about to update this license's existing information. Review your changes before saving."
+      confirmLabel="Save changes"
+      onConfirm={() => {
+        setConfirmOpen(false)
+        performSave()
+      }}
+    />
+    </>
   )
 }

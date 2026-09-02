@@ -34,6 +34,9 @@ export type CurrentUser = {
   status: "Active" | "Inactive"
   mustChangePassword: boolean
   passwordPolicy: PasswordPolicy
+  // For subSuperAdmin, this reflects the org they're CURRENTLY viewing (merged in from
+  // /{orgSlug}/my-access below), same as `organization` above - see lib/permissions.ts#shouldWarnBeforeChange.
+  changeWarningEnabled: boolean
 }
 
 type AuthContextValue = {
@@ -48,6 +51,7 @@ const AuthContext = React.createContext<AuthContextValue | undefined>(undefined)
 type MyAccessResponse = {
   organization: { _id: string; name: string; slug: string; enabledModules: EntitlementModule[] } | null
   permissions: PermissionsShape
+  changeWarningEnabled: boolean
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -74,7 +78,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (profile.role === "subSuperAdmin" && orgSlug) {
         try {
           const accessRes = await apiClient.get<ApiEnvelope<MyAccessResponse>>("/my-access")
-          profile = { ...profile, organization: accessRes.data.data.organization, permissions: accessRes.data.data.permissions }
+          profile = {
+            ...profile,
+            organization: accessRes.data.data.organization,
+            permissions: accessRes.data.data.permissions,
+            changeWarningEnabled: accessRes.data.data.changeWarningEnabled,
+          }
         } catch {
           // No grant for this org (or it's inactive) - leave permissions/organization at their
           // /auth/me defaults; the dashboard layout's wrongOrg guard will bounce this case.

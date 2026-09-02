@@ -3,7 +3,7 @@ import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
 import { User } from "../../models/User";
 import * as authService from "./auth.service";
-import { getPasswordPolicy } from "../settings/settings.service";
+import { getPasswordPolicy, getChangeWarningEnabled } from "../settings/settings.service";
 import { BASELINE_POLICY } from "../../utils/passwordPolicy";
 import { setAuthCookie, clearAuthCookie } from "../../utils/authCookie";
 
@@ -18,8 +18,9 @@ async function serializeCurrentUser(userId: string) {
   // returns the original id regardless, avoiding the classic "String(populatedDoc)" bug.
   const organizationId = user.populated("organization") as string | undefined;
   const passwordPolicy = organizationId ? await getPasswordPolicy(organizationId) : BASELINE_POLICY;
+  const changeWarningEnabled = organizationId ? await getChangeWarningEnabled(organizationId) : false;
 
-  return { ...user.toJSON(), passwordPolicy };
+  return { ...user.toJSON(), passwordPolicy, changeWarningEnabled };
 }
 
 export const login = asyncHandler(async (req: Request, res: Response) => {

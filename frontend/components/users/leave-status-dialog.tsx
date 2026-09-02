@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useUserOptions } from "@/lib/use-lookup-options"
 
@@ -23,6 +24,7 @@ export function LeaveStatusDialog({
   userId,
   userName,
   currentBackupAgentId,
+  warnBeforeSave = false,
   onSaved,
 }: {
   open: boolean
@@ -30,21 +32,31 @@ export function LeaveStatusDialog({
   userId: string
   userName: string
   currentBackupAgentId: string | null
+  warnBeforeSave?: boolean
   onSaved: () => void
 }) {
   const [backupAgentId, setBackupAgentId] = React.useState(currentBackupAgentId ?? "")
   const [submitting, setSubmitting] = React.useState(false)
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
   const { items: users } = useUserOptions()
 
   React.useEffect(() => {
     if (open) setBackupAgentId(currentBackupAgentId ?? "")
   }, [open, currentBackupAgentId])
 
-  async function handleConfirm() {
+  function handleSave() {
     if (!backupAgentId) {
       toast.error("Select a backup agent")
       return
     }
+    if (warnBeforeSave) {
+      setConfirmOpen(true)
+      return
+    }
+    handleConfirm()
+  }
+
+  async function handleConfirm() {
     setSubmitting(true)
     try {
       const res = await apiClient.patch<ApiEnvelope<{ reassignedTicketCount: number }>>(`/users/${userId}/leave`, {
@@ -67,6 +79,7 @@ export function LeaveStatusDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
@@ -94,11 +107,23 @@ export function LeaveStatusDialog({
           </Select>
         </div>
         <DialogFooter>
-          <Button onClick={handleConfirm} disabled={submitting || !backupAgentId}>
+          <Button onClick={handleSave} disabled={submitting || !backupAgentId}>
             {submitting ? "Saving..." : "Mark on leave"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <ConfirmDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      title="Confirm leave status change"
+      description="This will modify an existing employee record. Review before saving."
+      confirmLabel="Mark on leave"
+      onConfirm={() => {
+        setConfirmOpen(false)
+        handleConfirm()
+      }}
+    />
+    </>
   )
 }

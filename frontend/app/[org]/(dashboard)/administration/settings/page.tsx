@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { apiClient, apiErrorMessage, publicLogoUrl, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { can, type PermissionsShape } from "@/lib/permissions"
+import { can, hasModule, type PermissionsShape } from "@/lib/permissions"
 import { useBranding } from "@/lib/branding-context"
 import { isValidHexColor } from "@/lib/color-utils"
 import { ModulePermissionGrid, basicUserPermissions } from "@/components/users/permission-grid"
@@ -33,6 +33,7 @@ type Settings = {
   alertEmailsBcc: string[]
   expiryAlertsEnabled: boolean
   assetChangeAlertsEnabled: boolean
+  changeWarningEnabled: boolean
   notificationChannel: NotificationChannel
   smtpHost: string
   smtpPort: number
@@ -68,7 +69,7 @@ const CHANNEL_OPTIONS: { value: NotificationChannel; label: string }[] = [
 ]
 
 export default function SettingsPage() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, refresh: refreshAuth } = useAuth()
   const { refresh: refreshBranding } = useBranding()
   const [settings, setSettings] = React.useState<Settings | null>(null)
   const [renewalDaysInput, setRenewalDaysInput] = React.useState("")
@@ -167,6 +168,7 @@ export default function SettingsPage() {
         alertEmailsBcc,
         expiryAlertsEnabled: settings.expiryAlertsEnabled,
         assetChangeAlertsEnabled: settings.assetChangeAlertsEnabled,
+        changeWarningEnabled: settings.changeWarningEnabled,
         notificationChannel: settings.notificationChannel,
         smtpHost: settings.smtpHost,
         smtpPort: settings.smtpPort,
@@ -201,6 +203,7 @@ export default function SettingsPage() {
       setGooglePrivateKeyInput("")
       toast.success("Settings saved")
       refreshBranding()
+      refreshAuth()
     } catch (err) {
       toast.error(apiErrorMessage(err, "Could not save settings"))
     } finally {
@@ -497,6 +500,37 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {hasModule(user, "changeWarning") && (
+        <Card className="max-w-lg">
+          <CardHeader>
+            <CardTitle>Change Warning</CardTitle>
+            <CardDescription>
+              Enabled for your organization by the Super Admin. Turn this on to require a confirmation step before
+              saving edits to existing records.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <Label htmlFor="change-warning-enabled">Warn before saving changes</Label>
+                <p className="text-xs text-muted-foreground">
+                  Show a confirmation warning before saving edits to existing assets, licenses, or employee records,
+                  so people get a chance to review or cancel.
+                </p>
+              </div>
+              <input
+                id="change-warning-enabled"
+                type="checkbox"
+                disabled={!canWrite}
+                checked={settings.changeWarningEnabled}
+                onChange={(e) => setSettings({ ...settings, changeWarningEnabled: e.target.checked })}
+                className="size-4"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="max-w-lg">
         <CardHeader>

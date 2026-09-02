@@ -9,9 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ModulePermissionGrid, basicUserPermissions, subAdminPermissions } from "@/components/users/permission-grid"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { emptyPermissions, type PermissionsShape } from "@/lib/permissions"
+import { emptyPermissions, shouldWarnBeforeChange, type PermissionsShape } from "@/lib/permissions"
 import { useRoleOptions } from "@/lib/use-lookup-options"
 import { useOrgHref } from "@/lib/use-org-href"
 
@@ -44,6 +45,7 @@ export default function EditUserPermissionsPage() {
   const [record, setRecord] = React.useState<UserRecord | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [submitting, setSubmitting] = React.useState(false)
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
 
   const [role, setRole] = React.useState<RoleChoice>("subAdmin")
   const [permissions, setPermissions] = React.useState<PermissionsShape>(emptyPermissions())
@@ -96,8 +98,19 @@ export default function EditUserPermissionsPage() {
     if (selected) setPermissions(selected.permissions)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!record) return
+
+    if (shouldWarnBeforeChange(currentUser)) {
+      setConfirmOpen(true)
+      return
+    }
+
+    performSave()
+  }
+
+  async function performSave() {
     if (!record) return
 
     setSubmitting(true)
@@ -179,6 +192,17 @@ export default function EditUserPermissionsPage() {
           </form>
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Confirm permission changes"
+        description="You're about to change this user's role and permissions. Review before saving."
+        confirmLabel="Save changes"
+        onConfirm={() => {
+          setConfirmOpen(false)
+          performSave()
+        }}
+      />
     </div>
   )
 }

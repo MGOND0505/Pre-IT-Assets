@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CustomFieldsSection } from "@/components/custom-fields/custom-fields-section"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { can } from "@/lib/permissions"
+import { can, shouldWarnBeforeChange } from "@/lib/permissions"
 import {
   useAssetCategoryOptions,
   useCustomFieldDefinitionOptions,
@@ -168,6 +169,7 @@ export function AssetForm({
 }) {
   const [form, setForm] = React.useState<AssetFormValues>(initial)
   const [submitting, setSubmitting] = React.useState(false)
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
 
   const { user } = useAuth()
   const canEditAssetId = can(user, "assets", "editAssetId")
@@ -209,7 +211,7 @@ export function AssetForm({
 
   const isEdit = Boolean(form._id)
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
     if (!form.name.trim() || !form.category) {
@@ -217,6 +219,15 @@ export function AssetForm({
       return
     }
 
+    if (isEdit && shouldWarnBeforeChange(user)) {
+      setConfirmOpen(true)
+      return
+    }
+
+    performSave()
+  }
+
+  async function performSave() {
     setSubmitting(true)
     try {
       const payload = {
@@ -253,6 +264,7 @@ export function AssetForm({
   }
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <Tabs defaultValue="basic" className="gap-6">
         {/* Six tabs never all fit on one line at typical dialog/page widths - rather than
@@ -599,5 +611,17 @@ export function AssetForm({
         </Button>
       </div>
     </form>
+    <ConfirmDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      title="Confirm asset changes"
+      description="You're about to update this asset's existing information. Review your changes before saving."
+      confirmLabel="Save changes"
+      onConfirm={() => {
+        setConfirmOpen(false)
+        performSave()
+      }}
+    />
+    </>
   )
 }

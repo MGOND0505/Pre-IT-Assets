@@ -25,6 +25,7 @@ import { searchRouter } from "../modules/search/search.routes";
 import { analyticsRouter } from "../modules/analytics/analytics.routes";
 import { notificationsRouter } from "../modules/notifications/notifications.routes";
 import { aiAssistantRouter } from "../modules/ai-assistant/ai-assistant.routes";
+import { getSettings } from "../modules/settings/settings.service";
 
 /** Mounted under /api/:orgSlug - authenticate + resolveOrganization already ran by the time
  * any of these routers see the request (see app.ts), so none of them need their own
@@ -39,7 +40,16 @@ export const orgScopedRouter = Router();
 orgScopedRouter.get(
   "/my-access",
   asyncHandler(async (req, res) => {
-    ok(res, { organization: req.organization, permissions: req.user!.permissions }, "My access");
+    const settings = await getSettings(String(req.organization!._id));
+    ok(
+      res,
+      {
+        organization: req.organization,
+        permissions: req.user!.permissions,
+        changeWarningEnabled: settings.changeWarningEnabled,
+      },
+      "My access"
+    );
   })
 );
 

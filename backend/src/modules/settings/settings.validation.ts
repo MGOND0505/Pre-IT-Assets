@@ -34,6 +34,7 @@ export const updateSettingsSchema = z.object({
   alertEmailsBcc: z.array(z.string().trim().email()).max(20).optional(),
   expiryAlertsEnabled: z.boolean().optional(),
   assetChangeAlertsEnabled: z.boolean().optional(),
+  changeWarningEnabled: z.boolean().optional(),
   notificationChannel: z.enum(["smtp", "microsoft365", "google"]).optional(),
   smtpHost: z.string().trim().max(200).optional().or(z.literal("")),
   smtpPort: z.coerce.number().int().min(1).max(65535).optional(),

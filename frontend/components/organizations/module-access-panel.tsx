@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { toast } from "sonner"
-import { Boxes, KeyRound, Truck, Building, MapPin, BarChart3, LifeBuoy, ListChecks, Settings2, Trash2, ScrollText, Paperclip, X } from "lucide-react"
+import { Boxes, KeyRound, Truck, Building, MapPin, BarChart3, LifeBuoy, ListChecks, Settings2, Trash2, ScrollText, Paperclip, AlertTriangle, X } from "lucide-react"
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -23,6 +23,7 @@ const MODULE_ICON: Record<EntitlementModule, React.ComponentType<{ className?: s
   recycleBin: Trash2,
   auditLogs: ScrollText,
   fileUpload: Paperclip,
+  changeWarning: AlertTriangle,
 }
 
 const MODULE_DESCRIPTION: Record<EntitlementModule, string> = {
@@ -38,6 +39,7 @@ const MODULE_DESCRIPTION: Record<EntitlementModule, string> = {
   recycleBin: "Restore or permanently remove deleted records",
   auditLogs: "View activity and change history",
   fileUpload: "Attach files to assets, tickets, and tasks",
+  changeWarning: "Warn users before saving edits to existing records",
 }
 
 /** Inline panel (not a modal) for toggling which real, existing entitlement modules an

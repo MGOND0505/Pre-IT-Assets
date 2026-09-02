@@ -59,6 +59,11 @@ export const ENTITLEMENT_MODULES = [
   "recycleBin",
   "auditLogs",
   "fileUpload",
+  // Entitlement-only, same as recycleBin/fileUpload - never joins PERMISSION_MODULES/
+  // MODULE_ACTIONS/PermissionsShape. Gates whether an org's own Admin gets a further on/off
+  // switch (SystemSettings.changeWarningEnabled, Administration > Settings) for showing a
+  // confirm-before-save warning on Asset/License edits and employee status-change actions.
+  "changeWarning",
 ] as const;
 export type EntitlementModule = (typeof ENTITLEMENT_MODULES)[number];
 

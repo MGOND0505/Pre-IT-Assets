@@ -92,6 +92,13 @@ export const updateSettings = asyncHandler(async (req: Request, res: Response) =
     if (!input[field]) delete input[field];
   }
 
+  // Defense in depth - the Settings page only offers this checkbox when the org is entitled,
+  // but a direct API call shouldn't be able to turn it on for an org the Super Admin hasn't
+  // enabled changeWarning for. Mirrors requireModuleEnabled's own message (middleware/authorize.ts).
+  if (input.changeWarningEnabled === true && !req.organization!.enabledModules.includes("changeWarning")) {
+    throw new ApiError(403, "This module is not enabled for your organization");
+  }
+
   const settings = await settingsService.updateSettings(organizationId, input as Partial<ISystemSettings>);
 
   const redactedOld = { ...oldValue } as Record<string, unknown>;
