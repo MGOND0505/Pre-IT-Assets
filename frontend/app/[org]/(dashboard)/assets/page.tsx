@@ -24,6 +24,8 @@ import { can } from "@/lib/permissions"
 import { useAssetCategoryOptions } from "@/lib/use-lookup-options"
 import { useOrgHref } from "@/lib/use-org-href"
 
+type RefOption = { _id: string; name: string } | null
+
 type Asset = {
   _id: string
   assetId: string
@@ -32,15 +34,149 @@ type Asset = {
   category: { _id: string; name: string; prefix: string } | null
   manufacturer: string
   model: string
+  serialNumber: string
+  CPU: string
+  ram: string
+  storage: string
+  display: string
+  hostname: string
+  macAddress: string
+  adapterSerialNumber: string
+  operatingSystem: string
+  osVersion: string
+  remarks: string
+  domainName: string
+  antivirusStatus: string
   ownershipType: AssetOwnershipType
   criticality: AssetCriticality
   status: AssetStatus
-  location: { _id: string; name: string } | null
+  location: RefOption
+  department: RefOption
+  vendor: RefOption
+  assignedUser: (RefOption & { email?: string }) | null
+  purchaseDate: string | null
+  warrantyEndDate: string | null
 }
 
 type Paginated = { items: Asset[]; total: number; page: number; totalPages: number }
 
 const ALL = "__all__"
+
+function formatDate(value: string | null) {
+  return value ? new Date(value).toLocaleDateString() : "-"
+}
+
+function textColumn(key: keyof Asset, header: string, hideBelow?: "sm" | "md" | "lg"): ColumnDef<Asset, unknown> {
+  return {
+    id: key,
+    header,
+    meta: hideBelow ? { hideBelow } : undefined,
+    cell: ({ row }) => {
+      const value = row.original[key]
+      return (
+        <span title={String(value ?? "")} className="block min-w-[100px] max-w-[160px] whitespace-normal break-words">
+          {(value as string) || "-"}
+        </span>
+      )
+    },
+  }
+}
+
+function refColumn(key: "location" | "department" | "vendor", header: string, hideBelow?: "sm" | "md" | "lg"): ColumnDef<Asset, unknown> {
+  return {
+    id: key,
+    header,
+    meta: hideBelow ? { hideBelow } : undefined,
+    cell: ({ row }) => {
+      const ref = row.original[key]
+      return (
+        <span title={ref?.name} className="block min-w-[100px] max-w-[160px] whitespace-normal break-words">
+          {ref?.name ?? "-"}
+        </span>
+      )
+    },
+  }
+}
+
+// Every key an AssetCategory.listColumns entry can name - mirrors ASSET_LIST_COLUMN_OPTIONS in
+// asset-category-form-dialog.tsx (the config UI's field catalog). Keys not in this map are
+// silently dropped, so a category curated before a column type existed never crashes the list.
+const ASSET_COLUMN_BUILDERS: Record<string, () => ColumnDef<Asset, unknown>> = {
+  category: () => ({
+    id: "category",
+    header: "Category",
+    meta: { hideBelow: "md" },
+    cell: ({ row }) => (
+      <span title={row.original.category?.name} className="block min-w-[100px] max-w-[140px] whitespace-normal break-words">
+        {row.original.category?.name ?? "-"}
+      </span>
+    ),
+  }),
+  manufacturer: () => textColumn("manufacturer", "Manufacturer", "md"),
+  model: () => textColumn("model", "Model", "md"),
+  serialNumber: () => textColumn("serialNumber", "Serial number", "lg"),
+  status: () => ({
+    id: "status",
+    header: "Status",
+    cell: ({ row }) => <AssetStatusBadge status={row.original.status} />,
+  }),
+  ownershipType: () => ({
+    id: "ownershipType",
+    header: "Ownership",
+    meta: { hideBelow: "md" },
+    cell: ({ row }) => <AssetOwnershipBadge ownershipType={row.original.ownershipType} />,
+  }),
+  criticality: () => ({
+    id: "criticality",
+    header: "Criticality",
+    meta: { hideBelow: "lg" },
+    cell: ({ row }) => <AssetCriticalityBadge criticality={row.original.criticality} />,
+  }),
+  location: () => refColumn("location", "Location", "md"),
+  department: () => refColumn("department", "Department", "lg"),
+  vendor: () => refColumn("vendor", "Vendor", "lg"),
+  assignedUser: () => ({
+    id: "assignedUser",
+    header: "Assigned to",
+    meta: { hideBelow: "md" },
+    cell: ({ row }) => (
+      <span
+        title={row.original.assignedUser?.name}
+        className="block min-w-[100px] max-w-[160px] whitespace-normal break-words"
+      >
+        {row.original.assignedUser?.name ?? "Unassigned"}
+      </span>
+    ),
+  }),
+  purchaseDate: () => ({
+    id: "purchaseDate",
+    header: "Purchase date",
+    meta: { hideBelow: "lg" },
+    cell: ({ row }) => formatDate(row.original.purchaseDate),
+  }),
+  warrantyEndDate: () => ({
+    id: "warrantyEndDate",
+    header: "Warranty end",
+    meta: { hideBelow: "lg" },
+    cell: ({ row }) => formatDate(row.original.warrantyEndDate),
+  }),
+  CPU: () => textColumn("CPU", "CPU", "lg"),
+  ram: () => textColumn("ram", "RAM", "lg"),
+  storage: () => textColumn("storage", "Storage", "lg"),
+  display: () => textColumn("display", "Display", "lg"),
+  hostname: () => textColumn("hostname", "Hostname", "lg"),
+  macAddress: () => textColumn("macAddress", "MAC address", "lg"),
+  adapterSerialNumber: () => textColumn("adapterSerialNumber", "Adapter serial number", "lg"),
+  operatingSystem: () => textColumn("operatingSystem", "Operating system", "lg"),
+  osVersion: () => textColumn("osVersion", "OS version", "lg"),
+  remarks: () => textColumn("remarks", "Remarks", "lg"),
+  domainName: () => textColumn("domainName", "Domain name", "lg"),
+  antivirusStatus: () => textColumn("antivirusStatus", "Antivirus status", "lg"),
+}
+
+// The list's standard column set, used whenever the list isn't filtered to exactly one category,
+// or that category never curated its own listColumns (null - the uncurated default).
+const DEFAULT_LIST_COLUMN_KEYS = ["category", "manufacturer", "model", "location", "ownershipType", "criticality", "status"]
 
 export default function AssetsPage() {
   const router = useRouter()
@@ -151,6 +287,17 @@ export default function AssetsPage() {
   const idsOnPage = data?.items.map((a) => a._id) ?? []
   const allOnPageSelected = idsOnPage.length > 0 && idsOnPage.every((id) => selectedIds.has(id))
 
+  // Only swaps in a category's curated columns while the list is filtered to exactly that one
+  // category - a group filter or "All Assets" always uses the standard set, since a mixed list of
+  // categories has no single curated column set to show.
+  const selectedCategoryObj = categorySelection.category
+    ? categories.find((c) => c._id === categorySelection.category)
+    : null
+  const middleColumnKeys = selectedCategoryObj?.listColumns ?? DEFAULT_LIST_COLUMN_KEYS
+  const middleColumns = middleColumnKeys
+    .map((key) => ASSET_COLUMN_BUILDERS[key]?.())
+    .filter((c): c is ColumnDef<Asset, unknown> => Boolean(c))
+
   const columns: ColumnDef<Asset, unknown>[] = [
     ...(canSelectRows
       ? ([
@@ -195,72 +342,7 @@ export default function AssetsPage() {
         </span>
       ),
     },
-    {
-      accessorKey: "category",
-      header: "Category",
-      meta: { hideBelow: "md" },
-      cell: ({ row }) => (
-        <span
-          title={row.original.category?.name}
-          className="block min-w-[100px] max-w-[140px] whitespace-normal break-words"
-        >
-          {row.original.category?.name ?? "-"}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "manufacturer",
-      header: "Manufacturer",
-      meta: { hideBelow: "md" },
-      cell: ({ row }) => (
-        <span
-          title={row.original.manufacturer}
-          className="block min-w-[100px] max-w-[140px] whitespace-normal break-words"
-        >
-          {row.original.manufacturer || "-"}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "model",
-      header: "Model",
-      meta: { hideBelow: "md" },
-      cell: ({ row }) => (
-        <span title={row.original.model} className="block min-w-[110px] max-w-[150px] whitespace-normal break-words">
-          {row.original.model || "-"}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "location",
-      header: "Location",
-      meta: { hideBelow: "md" },
-      cell: ({ row }) => (
-        <span
-          title={row.original.location?.name}
-          className="block min-w-[120px] max-w-[170px] whitespace-normal break-words"
-        >
-          {row.original.location?.name ?? "-"}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "ownershipType",
-      header: "Ownership",
-      meta: { hideBelow: "md" },
-      cell: ({ row }) => <AssetOwnershipBadge ownershipType={row.original.ownershipType} />,
-    },
-    {
-      accessorKey: "criticality",
-      header: "Criticality",
-      meta: { hideBelow: "lg" },
-      cell: ({ row }) => <AssetCriticalityBadge criticality={row.original.criticality} />,
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => <AssetStatusBadge status={row.original.status} />,
-    },
+    ...middleColumns,
   ]
 
   if (authLoading) return null

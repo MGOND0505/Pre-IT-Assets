@@ -28,6 +28,9 @@ export type AssetCategoryOption = {
   // null = uncurated (show every Hardware/Security core field, the pre-redesign default);
   // an array (possibly empty) = an explicit curated list from Asset Category management.
   visibleCoreFields: string[] | null
+  // null = use the Assets list's default column set; an array (possibly empty) = an explicit
+  // curated column set, shown only while the list is filtered to exactly this one category.
+  listColumns: string[] | null
 }
 export type LicenseCategoryOption = { _id: string; name: string }
 export type VendorOption = { _id: string; name: string }

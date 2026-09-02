@@ -45,6 +45,30 @@ export const ASSET_CORE_FIELD_OPTIONS: { key: string; label: string }[] = [
   { key: "antivirusStatus", label: "Antivirus status" },
 ]
 
+// Fields the Assets list table can show as columns, beyond Asset ID/Name (always shown as the
+// row's identifier/link) - a mix of common list-worthy fields plus the same Hardware/Security
+// keys visibleCoreFields already knows about, so a category can put e.g. "CPU" in its list
+// columns without a second, differently-keyed field catalog to maintain.
+const ASSET_LIST_COLUMN_COMMON_OPTIONS: { key: string; label: string }[] = [
+  { key: "category", label: "Category" },
+  { key: "manufacturer", label: "Manufacturer" },
+  { key: "model", label: "Model" },
+  { key: "serialNumber", label: "Serial number" },
+  { key: "status", label: "Status" },
+  { key: "ownershipType", label: "Ownership" },
+  { key: "criticality", label: "Criticality" },
+  { key: "location", label: "Location" },
+  { key: "department", label: "Department" },
+  { key: "assignedUser", label: "Assigned to" },
+  { key: "vendor", label: "Vendor" },
+  { key: "purchaseDate", label: "Purchase date" },
+  { key: "warrantyEndDate", label: "Warranty end" },
+]
+export const ASSET_LIST_COLUMN_OPTIONS: { key: string; label: string }[] = [
+  ...ASSET_LIST_COLUMN_COMMON_OPTIONS,
+  ...ASSET_CORE_FIELD_OPTIONS,
+]
+
 export type AssetCategory = {
   _id: string
   name: string
@@ -54,6 +78,7 @@ export type AssetCategory = {
   status: "Active" | "Inactive"
   group: (typeof ASSET_CATEGORY_GROUPS)[number]
   visibleCoreFields: string[] | null
+  listColumns: string[] | null
 }
 
 export function AssetCategoryFormDialog({
@@ -84,6 +109,10 @@ export function AssetCategoryFormDialog({
   // zero fields selected is a deliberate, valid choice (e.g. a TV needs none of them).
   const [curateFields, setCurateFields] = React.useState(false)
   const [visibleCoreFields, setVisibleCoreFields] = React.useState<string[]>([])
+  // Same null-vs-curated-array pattern as visibleCoreFields, for the Assets list's column set
+  // instead of the form's field set - see ASSET_LIST_COLUMN_OPTIONS above.
+  const [curateListColumns, setCurateListColumns] = React.useState(false)
+  const [listColumns, setListColumns] = React.useState<string[]>([])
   const [submitting, setSubmitting] = React.useState(false)
 
   React.useEffect(() => {
@@ -94,11 +123,17 @@ export function AssetCategoryFormDialog({
       setGroup(category?.group ?? "Peripherals & Other")
       setCurateFields(category?.visibleCoreFields != null)
       setVisibleCoreFields(category?.visibleCoreFields ?? [])
+      setCurateListColumns(category?.listColumns != null)
+      setListColumns(category?.listColumns ?? [])
     }
   }, [open, category])
 
   function toggleField(key: string) {
     setVisibleCoreFields((fields) => (fields.includes(key) ? fields.filter((f) => f !== key) : [...fields, key]))
+  }
+
+  function toggleListColumn(key: string) {
+    setListColumns((cols) => (cols.includes(key) ? cols.filter((c) => c !== key) : [...cols, key]))
   }
 
   async function handleSave() {
@@ -114,6 +149,7 @@ export function AssetCategoryFormDialog({
         description,
         group,
         visibleCoreFields: curateFields ? visibleCoreFields : null,
+        listColumns: curateListColumns ? listColumns : null,
       }
       if (isEdit && category) {
         await apiClient.put(`/asset-categories/${category._id}`, payload)
@@ -198,6 +234,37 @@ export function AssetCategoryFormDialog({
                       onCheckedChange={() => toggleField(f.key)}
                     />
                     <Label htmlFor={`cat-field-${f.key}`} className="text-sm font-normal">
+                      {f.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="cat-curate-list-columns"
+                checked={curateListColumns}
+                onCheckedChange={(v) => setCurateListColumns(v === true)}
+              />
+              <Label htmlFor="cat-curate-list-columns">Customize the Assets list columns for this type</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Unchecked (default): the Assets list shows its standard column set. Checked: while the
+              list is filtered to just this type, it shows only the columns selected below instead -
+              Asset ID and Name are always shown regardless.
+            </p>
+            {curateListColumns && (
+              <div className="grid grid-cols-2 gap-2 rounded-md border p-3 sm:grid-cols-3">
+                {ASSET_LIST_COLUMN_OPTIONS.map((f) => (
+                  <div key={f.key} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`cat-list-column-${f.key}`}
+                      checked={listColumns.includes(f.key)}
+                      onCheckedChange={() => toggleListColumn(f.key)}
+                    />
+                    <Label htmlFor={`cat-list-column-${f.key}`} className="text-sm font-normal">
                       {f.label}
                     </Label>
                   </div>
