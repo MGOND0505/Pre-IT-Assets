@@ -72,6 +72,7 @@ export default function AssetCategoriesPage() {
       cell: ({ row }) => <Badge variant="outline">{row.original.prefix}</Badge>,
     },
     { accessorKey: "description", header: "Description" },
+    { accessorKey: "group", header: "Group" },
     { accessorKey: "nextSequence", header: "Next #" },
     {
       accessorKey: "status",

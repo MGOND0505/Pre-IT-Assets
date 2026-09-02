@@ -50,7 +50,12 @@ function stripAssetIdUnlessAuthorized(req: Request): void {
 
 export const createAsset = asyncHandler(async (req: Request, res: Response) => {
   stripAssetIdUnlessAuthorized(req);
-  req.body.customFields = await validateCustomFieldValues(req.body.customFields, "assets", req.organization!._id);
+  req.body.customFields = await validateCustomFieldValues(
+    req.body.customFields,
+    "assets",
+    req.organization!._id,
+    req.body.category
+  );
   const asset = await assetsService.createAsset(req.body, req.user!.id, req.organization!._id);
 
   await logAction({
@@ -70,7 +75,12 @@ export const updateAsset = asyncHandler(async (req: Request, res: Response) => {
   const before = await assetsService.getAssetById(req.params.id, req.organization!._id);
   const oldValue = before.toObject();
 
-  req.body.customFields = await validateCustomFieldValues(req.body.customFields, "assets", req.organization!._id);
+  req.body.customFields = await validateCustomFieldValues(
+    req.body.customFields,
+    "assets",
+    req.organization!._id,
+    req.body.category ?? String(before.category)
+  );
   const asset = await assetsService.updateAsset(req.params.id, req.body, req.organization!._id, req.user!.id);
 
   await logAction({

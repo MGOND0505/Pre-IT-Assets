@@ -15,6 +15,13 @@ type ListInput = {
   module?: CustomFieldModule;
   status?: "Active" | "Inactive";
   includeDeleted?: boolean;
+  // Exact-match scope filter, for the admin management UI: unset = no filter, "" = only
+  // module-wide (category: null) definitions, any other value = only that exact category.
+  category?: string;
+  // "Applicable to this category" filter, for rendering a category's asset form: returns
+  // module-wide (category: null) definitions PLUS this exact category's own definitions.
+  // Mutually exclusive with `category` in practice - if both are set, `category` wins.
+  applicableToCategory?: string;
 };
 
 export async function listCustomFieldDefinitions(input: ListInput, organizationId: string) {
@@ -24,6 +31,11 @@ export async function listCustomFieldDefinitions(input: ListInput, organizationI
   const filter: Record<string, unknown> = { organization: organizationId, isDeleted: input.includeDeleted ? true : false };
   if (input.module) filter.module = input.module;
   if (input.status) filter.status = input.status;
+  if (input.category !== undefined) {
+    filter.category = input.category === "" ? null : input.category;
+  } else if (input.applicableToCategory) {
+    filter.category = { $in: [null, input.applicableToCategory] };
+  }
   if (input.search) filter.label = { $regex: escapeRegex(input.search), $options: "i" };
 
   const [items, total] = await Promise.all([
@@ -44,27 +56,41 @@ export async function getCustomFieldDefinitionById(id: string, organizationId: s
   return definition;
 }
 
-async function assertLabelAvailable(organizationId: string, module: CustomFieldModule, label: string | undefined, excludeId?: string) {
+async function assertLabelAvailable(
+  organizationId: string,
+  module: CustomFieldModule,
+  category: string | null | undefined,
+  label: string | undefined,
+  excludeId?: string
+) {
   if (!label) return;
   const existing = await CustomFieldDefinition.findOne({
     organization: organizationId,
     module,
+    category: category ?? null,
     label,
     isDeleted: false,
     _id: { $ne: excludeId },
   });
-  if (existing) throw new ApiError(409, "A custom field with this label already exists for this module");
+  if (existing) throw new ApiError(409, "A custom field with this label already exists for this scope");
 }
 
-async function assertKeyAvailable(organizationId: string, module: CustomFieldModule, key: string, excludeId?: string) {
+async function assertKeyAvailable(
+  organizationId: string,
+  module: CustomFieldModule,
+  category: string | null | undefined,
+  key: string,
+  excludeId?: string
+) {
   const existing = await CustomFieldDefinition.findOne({
     organization: organizationId,
     module,
+    category: category ?? null,
     key,
     isDeleted: false,
     _id: { $ne: excludeId },
   });
-  if (existing) throw new ApiError(409, "A custom field with this label already exists for this module");
+  if (existing) throw new ApiError(409, "A custom field with this label already exists for this scope");
 }
 
 /** Lowercases, replaces anything that isn't alphanumeric with an underscore, collapses repeats,
@@ -79,6 +105,7 @@ function slugify(label: string): string {
 
 type CreateInput = {
   module: CustomFieldModule;
+  category?: string | null;
   label: string;
   type: CustomFieldType;
   options?: string[];
@@ -87,15 +114,17 @@ type CreateInput = {
 };
 
 export async function createCustomFieldDefinition(input: CreateInput, organizationId: string) {
-  await assertLabelAvailable(organizationId, input.module, input.label);
+  const category = input.category ?? null;
+  await assertLabelAvailable(organizationId, input.module, category, input.label);
 
   const key = slugify(input.label);
   if (!key) throw new ApiError(400, "Label must contain at least one letter or number");
-  await assertKeyAvailable(organizationId, input.module, key);
+  await assertKeyAvailable(organizationId, input.module, category, key);
 
   return CustomFieldDefinition.create({
     organization: organizationId,
     module: input.module,
+    category,
     label: input.label,
     key,
     type: input.type,
@@ -106,6 +135,7 @@ export async function createCustomFieldDefinition(input: CreateInput, organizati
 }
 
 type UpdateInput = Partial<{
+  category: string | null;
   label: string;
   type: CustomFieldType;
   options: string[];
@@ -116,7 +146,11 @@ type UpdateInput = Partial<{
 
 export async function updateCustomFieldDefinition(id: string, input: UpdateInput, organizationId: string) {
   const definition = await getCustomFieldDefinitionById(id, organizationId);
-  await assertLabelAvailable(organizationId, definition.module, input.label, id);
+  const nextCategory = "category" in input ? (input.category ?? null) : String(definition.category ?? "") || null;
+  await assertLabelAvailable(organizationId, definition.module, nextCategory, input.label, id);
+  // A category move (not just a label edit) can collide with an existing definition of the same
+  // (server-derived, immutable) key that already lives in the destination category.
+  if ("category" in input) await assertKeyAvailable(organizationId, definition.module, nextCategory, definition.key, id);
 
   // `key` is server-derived and immutable - never touched here even though `label` (its source)
   // can change, so existing stored values on Asset/License/Ticket.customFields stay keyed
@@ -141,8 +175,9 @@ export async function deleteCustomFieldDefinition(id: string, deletedBy: string,
 export async function restoreCustomFieldDefinition(id: string, organizationId: string) {
   const definition = await CustomFieldDefinition.findOne({ organization: organizationId, _id: id, isDeleted: true });
   if (!definition) throw new ApiError(404, "Deleted custom field not found");
-  await assertLabelAvailable(organizationId, definition.module, definition.label, id);
-  await assertKeyAvailable(organizationId, definition.module, definition.key, id);
+  const category = String(definition.category ?? "") || null;
+  await assertLabelAvailable(organizationId, definition.module, category, definition.label, id);
+  await assertKeyAvailable(organizationId, definition.module, category, definition.key, id);
 
   definition.isDeleted = false;
   definition.deletedAt = null;

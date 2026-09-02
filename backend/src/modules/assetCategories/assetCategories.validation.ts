@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ASSET_CATEGORY_GROUPS } from "../../models/AssetCategory";
 
 export const createAssetCategorySchema = z.object({
   name: z.string().min(1),
@@ -8,6 +9,9 @@ export const createAssetCategorySchema = z.object({
     .max(6)
     .regex(/^[A-Za-z0-9]+$/, "Prefix must be letters/digits only"),
   description: z.string().optional().default(""),
+  group: z.enum(ASSET_CATEGORY_GROUPS).optional(),
+  visibleCoreFields: z.array(z.string()).nullish(),
+  listColumns: z.array(z.string()).nullish(),
 });
 
 export const updateAssetCategorySchema = z.object({
@@ -20,6 +24,9 @@ export const updateAssetCategorySchema = z.object({
     .optional(),
   description: z.string().optional(),
   status: z.enum(["Active", "Inactive"]).optional(),
+  group: z.enum(ASSET_CATEGORY_GROUPS).optional(),
+  visibleCoreFields: z.array(z.string()).nullish(),
+  listColumns: z.array(z.string()).nullish(),
 });
 
 export const listAssetCategoriesQuerySchema = z.object({
@@ -27,6 +34,7 @@ export const listAssetCategoriesQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional(),
   search: z.string().max(100).optional(),
   status: z.enum(["Active", "Inactive"]).optional(),
+  group: z.enum(ASSET_CATEGORY_GROUPS).optional(),
 });
 
 export const assetCategoryIdParamsSchema = z.object({

@@ -26,14 +26,24 @@ const MAX_TEXT_FIELD_LENGTH = 2000;
 export async function validateCustomFieldValues(
   rawValues: unknown,
   module: CustomFieldModule,
-  organizationId: string
+  organizationId: string,
+  // Only meaningful for module "assets" - when provided, category-scoped definitions for OTHER
+  // categories are excluded (so a Laptop's write never has to satisfy Mobile's required "IMEI").
+  // Module-wide (category: null) definitions always apply regardless of this param.
+  categoryId?: string | null
 ): Promise<Record<string, unknown>> {
   const input = (rawValues && typeof rawValues === "object" ? (rawValues as Record<string, unknown>) : {}) as Record<
     string,
     unknown
   >;
 
-  const definitions = await CustomFieldDefinition.find({ organization: organizationId, module, status: "Active", isDeleted: false });
+  const definitions = await CustomFieldDefinition.find({
+    organization: organizationId,
+    module,
+    status: "Active",
+    isDeleted: false,
+    category: categoryId ? { $in: [null, categoryId] } : null,
+  });
 
   const result: Record<string, unknown> = {};
 

@@ -1,8 +1,14 @@
-import { AssetCategory } from "../../models/AssetCategory";
+import { AssetCategory, type AssetCategoryGroup } from "../../models/AssetCategory";
 import { ApiError } from "../../utils/ApiError";
 import { escapeRegex } from "../../utils/regex";
 
-type ListInput = { page?: number; limit?: number; search?: string; status?: "Active" | "Inactive" };
+type ListInput = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: "Active" | "Inactive";
+  group?: AssetCategoryGroup;
+};
 
 export async function listAssetCategories(input: ListInput, organizationId: string) {
   const page = input.page ?? 1;
@@ -10,6 +16,7 @@ export async function listAssetCategories(input: ListInput, organizationId: stri
 
   const filter: Record<string, unknown> = { organization: organizationId };
   if (input.status) filter.status = input.status;
+  if (input.group) filter.group = input.group;
   if (input.search) {
     const search = escapeRegex(input.search);
     filter.$or = [
@@ -51,7 +58,14 @@ async function assertUnique(organizationId: string, name?: string, prefix?: stri
 }
 
 export async function createAssetCategory(
-  input: { name: string; prefix: string; description?: string },
+  input: {
+    name: string;
+    prefix: string;
+    description?: string;
+    group?: AssetCategoryGroup;
+    visibleCoreFields?: string[] | null;
+    listColumns?: string[] | null;
+  },
   organizationId: string
 ) {
   await assertUnique(organizationId, input.name, input.prefix);
@@ -60,7 +74,15 @@ export async function createAssetCategory(
 
 export async function updateAssetCategory(
   id: string,
-  input: Partial<{ name: string; prefix: string; description: string; status: "Active" | "Inactive" }>,
+  input: Partial<{
+    name: string;
+    prefix: string;
+    description: string;
+    status: "Active" | "Inactive";
+    group: AssetCategoryGroup;
+    visibleCoreFields: string[] | null;
+    listColumns: string[] | null;
+  }>,
   organizationId: string
 ) {
   const category = await getAssetCategoryById(id, organizationId);

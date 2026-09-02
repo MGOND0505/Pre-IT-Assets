@@ -12,7 +12,7 @@ export async function ensureDefaultsForOrg(organizationId: string): Promise<void
   for (const def of DEFAULT_ASSET_CATEGORIES) {
     const existing = await AssetCategory.findOne({ organization: organizationId, name: def.name });
     if (!existing) {
-      await AssetCategory.create({ organization: organizationId, name: def.name, prefix: def.prefix });
+      await AssetCategory.create({ organization: organizationId, name: def.name, prefix: def.prefix, group: def.group });
     }
   }
 

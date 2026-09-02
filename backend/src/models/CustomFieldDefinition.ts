@@ -15,6 +15,10 @@ export type CustomFieldType = (typeof CUSTOM_FIELD_TYPES)[number];
 export interface ICustomFieldDefinition {
   organization: Types.ObjectId;
   module: CustomFieldModule;
+  // null = applies to every asset in the module (the original, still-default behavior). Set only
+  // meaningfully for module "assets" today - scopes the field to one AssetCategory (e.g. an "IMEI"
+  // field that only appears on Mobile-category assets), per the category-based Assets redesign.
+  category: Types.ObjectId | null;
   label: string;
   key: string;
   type: CustomFieldType;
@@ -31,6 +35,7 @@ const customFieldDefinitionSchema = new Schema<ICustomFieldDefinition>(
   {
     organization: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     module: { type: String, enum: CUSTOM_FIELD_MODULES, required: true, index: true },
+    category: { type: Schema.Types.ObjectId, ref: "AssetCategory", default: null, index: true },
     label: { type: String, required: true, trim: true },
     key: { type: String, required: true },
     type: { type: String, enum: CUSTOM_FIELD_TYPES, required: true },
@@ -46,7 +51,7 @@ const customFieldDefinitionSchema = new Schema<ICustomFieldDefinition>(
 );
 
 customFieldDefinitionSchema.index(
-  { organization: 1, module: 1, key: 1 },
+  { organization: 1, module: 1, category: 1, key: 1 },
   { unique: true, partialFilterExpression: { isDeleted: false } }
 );
 
