@@ -1,12 +1,14 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { type ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { MagneticButton } from "@/components/ui/magnetic-button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -28,15 +30,14 @@ import {
 import { DataTable } from "@/components/common/data-table"
 import { Pagination } from "@/components/common/pagination"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
-import { UserFormDialog } from "@/components/users/user-form-dialog"
 import { UserStatusBadge } from "@/components/users/user-status-badge"
 import { AdminResetPasswordDialog } from "@/components/users/admin-reset-password-dialog"
-import { EditPermissionsDialog } from "@/components/users/edit-permissions-dialog"
 import { LeaveStatusDialog } from "@/components/users/leave-status-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can, PERMISSION_MODULES, type PermissionsShape } from "@/lib/permissions"
 import { useRoleOptions } from "@/lib/use-lookup-options"
+import { useOrgHref } from "@/lib/use-org-href"
 
 const NO_ROLE = "__org_default__"
 
@@ -65,7 +66,7 @@ type PaginatedUsers = {
 }
 
 // null covers every pre-existing account created before employeeTier existed - treated
-// identically to "subAdmin" everywhere else in the app (edit-permissions-dialog.tsx's own
+// identically to "subAdmin" everywhere else in the app (users/[id]/permissions/page.tsx's own
 // roleOf), so label it the same way here too. A user with a saved Role applied shows that
 // Role's own name instead of the generic 3-tier label, so admins can see at a glance which
 // named template (if any) was last applied - falls back to the generic label otherwise.
@@ -85,6 +86,7 @@ function permissionSummary(user: User): string {
 }
 
 export default function UsersPage() {
+  const toOrgHref = useOrgHref()
   const { user: currentUser, loading: authLoading } = useAuth()
   const searchParams = useSearchParams()
   // Seeds the initial filter from a deep link like /users?role=orgAdmin (the Organization
@@ -96,7 +98,6 @@ export default function UsersPage() {
   const [pendingStatusChange, setPendingStatusChange] = React.useState<User | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<User | null>(null)
   const [resetPasswordUser, setResetPasswordUser] = React.useState<User | null>(null)
-  const [editPermissionsUser, setEditPermissionsUser] = React.useState<User | null>(null)
   const [leaveStatusUser, setLeaveStatusUser] = React.useState<User | null>(null)
   const [pendingReturnFromLeave, setPendingReturnFromLeave] = React.useState<User | null>(null)
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
@@ -317,7 +318,7 @@ export default function UsersPage() {
           <DropdownMenuContent align="end">
             {canManagePrivileged && (
               <>
-                <DropdownMenuItem onClick={() => setEditPermissionsUser(row.original)}>
+                <DropdownMenuItem render={<Link href={toOrgHref(`/users/${row.original._id}/permissions`)} />}>
                   Edit permissions
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setResetPasswordUser(row.original)}>Reset password</DropdownMenuItem>
@@ -366,7 +367,11 @@ export default function UsersPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
           <p className="text-sm text-muted-foreground">Manage who has access to this system and what they can do.</p>
         </div>
-        {canManagePrivileged && <UserFormDialog onCreated={load} />}
+        {canManagePrivileged && (
+          <MagneticButton>
+            <Button render={<Link href={toOrgHref("/users/add")} />}>Add user</Button>
+          </MagneticButton>
+        )}
       </div>
 
       {canManagePrivileged && selectedIds.size > 0 && (
@@ -418,20 +423,6 @@ export default function UsersPage() {
           onOpenChange={(open) => !open && setResetPasswordUser(null)}
           userId={resetPasswordUser._id}
           userEmail={resetPasswordUser.email}
-        />
-      )}
-
-      {editPermissionsUser && (
-        <EditPermissionsDialog
-          open
-          onOpenChange={(open) => !open && setEditPermissionsUser(null)}
-          userId={editPermissionsUser._id}
-          userEmail={editPermissionsUser.email}
-          currentIsAdmin={editPermissionsUser.isAdmin}
-          currentEmployeeTier={editPermissionsUser.employeeTier}
-          currentPermissions={editPermissionsUser.permissions}
-          currentRoleTemplateId={editPermissionsUser.roleTemplate?._id ?? null}
-          onSaved={load}
         />
       )}
 

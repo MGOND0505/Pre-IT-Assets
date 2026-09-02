@@ -210,7 +210,8 @@ export default function SettingsPage() {
 
   // A separate save action from the big settings form above - this is its own distinct concern
   // (a permission matrix, not a form field), matching how permission editing everywhere else in
-  // this app (edit-permissions-dialog.tsx) is its own dedicated save, not bundled into a bigger form.
+  // this app (users/[id]/permissions/page.tsx) is its own dedicated save, not bundled into a
+  // bigger form.
   async function handleSaveDefaultPermissions() {
     if (!defaultEmployeePermissions) return
     setSavingDefaultPermissions(true)

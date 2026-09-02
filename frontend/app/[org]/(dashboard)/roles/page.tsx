@@ -1,12 +1,14 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { type ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { MagneticButton } from "@/components/ui/magnetic-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,10 +18,20 @@ import {
 import { DataTable } from "@/components/common/data-table"
 import { Pagination } from "@/components/common/pagination"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
-import { RoleFormDialog, type Role } from "@/components/roles/role-form-dialog"
+import { type RolePortalType } from "@/components/roles/role-form"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { can, PERMISSION_MODULES } from "@/lib/permissions"
+import { can, PERMISSION_MODULES, type PermissionsShape } from "@/lib/permissions"
+import { useOrgHref } from "@/lib/use-org-href"
+
+type Role = {
+  _id: string
+  name: string
+  description: string
+  portalType: RolePortalType
+  permissions: PermissionsShape
+  status: "Active" | "Inactive"
+}
 
 type Paginated = { items: Role[]; total: number; page: number; totalPages: number }
 
@@ -37,11 +49,11 @@ function permissionSummary(role: Role): string {
 }
 
 export default function RolesPage() {
+  const toOrgHref = useOrgHref()
   const { user, loading: authLoading } = useAuth()
   const [data, setData] = React.useState<Paginated | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [page, setPage] = React.useState(1)
-  const [editing, setEditing] = React.useState<Role | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<Role | null>(null)
 
   const canView = can(user, "roles", "view")
@@ -127,7 +139,9 @@ export default function RolesPage() {
             }
           />
           <DropdownMenuContent align="end">
-            {canWrite && <DropdownMenuItem onClick={() => setEditing(row.original)}>Edit</DropdownMenuItem>}
+            {canWrite && (
+              <DropdownMenuItem render={<Link href={toOrgHref(`/roles/${row.original._id}/edit`)} />}>Edit</DropdownMenuItem>
+            )}
             {canDelete && (
               <DropdownMenuItem variant="destructive" onClick={() => setPendingDelete(row.original)}>
                 Delete
@@ -153,23 +167,15 @@ export default function RolesPage() {
             Define reusable named permission templates to apply to Sub Admin and Employee users.
           </p>
         </div>
-        {canCreate && <RoleFormDialog onSaved={load} />}
+        {canCreate && (
+          <MagneticButton>
+            <Button render={<Link href={toOrgHref("/roles/add")} />}>Add role</Button>
+          </MagneticButton>
+        )}
       </div>
 
       <DataTable columns={columns} data={data?.items ?? []} isLoading={loading} emptyMessage="No roles yet." />
       {data && <Pagination page={data.page} totalPages={data.totalPages} onPageChange={setPage} />}
-
-      {editing && (
-        <RoleFormDialog
-          role={editing}
-          open
-          onOpenChange={(open) => !open && setEditing(null)}
-          onSaved={() => {
-            load()
-            setEditing(null)
-          }}
-        />
-      )}
 
       {pendingDelete && (
         <ConfirmDialog
