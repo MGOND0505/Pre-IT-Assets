@@ -138,9 +138,6 @@ export async function getLicenseReportRows(filters: LicenseReportFilters = {}, o
       purchaseDate: l.purchaseDate ? l.purchaseDate.toISOString().slice(0, 10) : "",
       expiryDate: l.expiryDate ? l.expiryDate.toISOString().slice(0, 10) : "",
       daysRemaining: daysRemaining ?? "",
-      costPerLicense: l.costPerLicense ?? "",
-      totalCost: l.totalCost ?? "",
-      invoiceNumber: l.invoiceNumber,
       notes: l.notes,
     };
   });

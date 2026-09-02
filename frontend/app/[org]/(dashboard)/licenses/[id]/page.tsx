@@ -36,12 +36,8 @@ type License = {
   totalLicenses: number
   assignedUsers: { _id: string; name: string; email: string }[]
   assets: { _id: string; assetId: string; name: string }[]
-  costPerLicense: number | null
-  totalCost: number | null
   department: RefOption
   status: "Active" | "Expired" | "Cancelled"
-  poNumber: string
-  invoiceNumber: string
   notes: string
   customFields: Record<string, unknown>
 }
@@ -75,12 +71,8 @@ function toFormValues(license: License): LicenseFormValues {
     totalLicenses: String(license.totalLicenses),
     assignedUsers: license.assignedUsers.map((u) => u._id),
     assets: license.assets.map((a) => a._id),
-    costPerLicense: license.costPerLicense?.toString() ?? "",
-    totalCost: license.totalCost?.toString() ?? "",
     department: license.department?._id ?? "",
     status: license.status,
-    poNumber: license.poNumber,
-    invoiceNumber: license.invoiceNumber,
     notes: license.notes,
     customFields: license.customFields ?? {},
   }
@@ -172,10 +164,6 @@ export default function LicenseDetailPage() {
           <Row label="Expiry" value={<LicenseExpiryBadge expiryDate={license.expiryDate} />} />
           <Row label="Renewal date" value={formatDate(license.renewalDate)} />
           <Row label="Seats" value={`${license.assignedUsers.length} / ${license.totalLicenses}`} />
-          <Row label="Cost per license" value={license.costPerLicense != null ? `₹${license.costPerLicense}` : "-"} />
-          <Row label="Total cost" value={license.totalCost != null ? `₹${license.totalCost}` : "-"} />
-          <Row label="PO number" value={license.poNumber} />
-          <Row label="Invoice number" value={license.invoiceNumber} />
           <Row label="Notes" value={license.notes} />
         </CardContent>
       </Card>

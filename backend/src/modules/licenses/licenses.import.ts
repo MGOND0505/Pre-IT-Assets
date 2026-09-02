@@ -65,6 +65,24 @@ export type MappedLicenseRow = {
   changedFields?: string[];
 };
 
+/** Fields that no longer exist as their own License column (removed per your request - see
+ * models/License.ts) but still arrive as raw import columns for backward-compatible
+ * spreadsheets. Rather than silently dropping a real value a row provides, each non-blank one
+ * gets appended into `notes` as a labeled line - mirrors assets.import.ts's own
+ * MERGE_INTO_DESCRIPTION_FIELDS pattern exactly. */
+const MERGE_INTO_NOTES_FIELDS: { field: keyof MappedFields; label: string }[] = [
+  { field: "costPerLicense", label: "Cost per license (imported)" },
+  { field: "poNumber", label: "PO number (imported)" },
+  { field: "invoiceNumber", label: "Invoice number (imported)" },
+];
+
+/** Builds the extra notes text for a row's now-homeless legacy fields - "" if none apply. */
+function buildMergedNotesSuffix(mapped: MappedFields): string {
+  return MERGE_INTO_NOTES_FIELDS.filter(({ field }) => !isBlank(mapped[field] as string))
+    .map(({ field, label }) => `[${label}] ${(mapped[field] as string).trim()}`)
+    .join("\n");
+}
+
 function isBlank(value: string | null | undefined): boolean {
   return !value || value.trim() === "" || value.trim().toUpperCase() === "N/A";
 }
@@ -131,13 +149,16 @@ function diffAgainstExisting(mapped: MappedFields, existing: ExistingLicense): s
     ["licenseType", mapped.licenseType, existing.licenseType],
     ["vendorName", mapped.vendorName, existing.vendor?.name],
     ["departmentName", mapped.departmentName, existing.department?.name],
-    ["poNumber", mapped.poNumber, existing.poNumber],
-    ["invoiceNumber", mapped.invoiceNumber, existing.invoiceNumber],
     ["notes", mapped.notes, existing.notes],
   ];
   for (const [field, incoming, current] of stringChecks) {
     if (!isBlank(incoming) && normalize(incoming) !== normalize(current)) changed.push(field);
   }
+  // The now-homeless legacy fields (see MERGE_INTO_NOTES_FIELDS) never directly overwrite notes -
+  // they only ever APPEND - so this flags "notes" as changed independently of the plain
+  // notes-vs-notes comparison already done above, whenever a row still carries one of these old
+  // columns with real content.
+  if (buildMergedNotesSuffix(mapped) && !changed.includes("notes")) changed.push("notes");
 
   if (!isBlank(mapped.status) && mapStatus(mapped.status) !== existing.status) changed.push("status");
   if (!isBlank(mapped.purchaseDate) && dateToDayString(parseDateOrUndefined(mapped.purchaseDate) ?? null) !== dateToDayString(existing.purchaseDate)) {
@@ -147,7 +168,6 @@ function diffAgainstExisting(mapped: MappedFields, existing: ExistingLicense): s
     changed.push("expiryDate");
   }
   if (!isBlank(mapped.totalLicenses) && parseNumberOrNull(mapped.totalLicenses) !== existing.totalLicenses) changed.push("totalLicenses");
-  if (!isBlank(mapped.costPerLicense) && parseNumberOrNull(mapped.costPerLicense) !== existing.costPerLicense) changed.push("costPerLicense");
 
   return changed;
 }
@@ -371,7 +391,10 @@ async function findOrCreateDepartment(organizationId: string, name: string) {
   return Department.create({ organization: organizationId, name: name.trim() });
 }
 
-async function buildPartialPayload(organizationId: string, mapped: MappedFields) {
+/** `existingNotes` lets the now-homeless legacy fields (see MERGE_INTO_NOTES_FIELDS) safely
+ * APPEND rather than overwrite whatever notes are already there - mirrors assets.import.ts's
+ * buildPartialPayload's own existingDescription param. */
+async function buildPartialPayload(organizationId: string, mapped: MappedFields, existingNotes: string) {
   const payload: Record<string, unknown> = {};
 
   if (!isBlank(mapped.softwareName)) payload.softwareName = mapped.softwareName;
@@ -381,11 +404,14 @@ async function buildPartialPayload(organizationId: string, mapped: MappedFields)
   if (!isBlank(mapped.purchaseDate)) payload.purchaseDate = parseDateOrUndefined(mapped.purchaseDate) ?? null;
   if (!isBlank(mapped.expiryDate)) payload.expiryDate = parseDateOrUndefined(mapped.expiryDate) ?? null;
   if (!isBlank(mapped.totalLicenses)) payload.totalLicenses = parseNumberOrNull(mapped.totalLicenses) || 1;
-  if (!isBlank(mapped.costPerLicense)) payload.costPerLicense = parseNumberOrNull(mapped.costPerLicense);
   if (!isBlank(mapped.status)) payload.status = mapStatus(mapped.status);
-  if (!isBlank(mapped.poNumber)) payload.poNumber = mapped.poNumber;
-  if (!isBlank(mapped.invoiceNumber)) payload.invoiceNumber = mapped.invoiceNumber;
   if (!isBlank(mapped.notes)) payload.notes = mapped.notes;
+
+  const mergeSuffix = buildMergedNotesSuffix(mapped);
+  if (mergeSuffix) {
+    const base = (payload.notes as string | undefined) ?? existingNotes;
+    payload.notes = [base, mergeSuffix].filter(Boolean).join("\n\n");
+  }
 
   if (!isBlank(mapped.vendorName)) {
     const vendor = await findOrCreateVendor(organizationId, mapped.vendorName);
@@ -481,6 +507,9 @@ export const confirmLicenseImport = asyncHandler(async (req: Request, res: Respo
         findOrCreateDepartment(organizationId, row.mapped.departmentName),
       ]);
 
+      const mergeSuffix = buildMergedNotesSuffix(row.mapped);
+      const notes = [row.mapped.notes, mergeSuffix].filter(Boolean).join("\n\n");
+
       await licensesService.createLicense(
         organizationId,
         {
@@ -492,11 +521,8 @@ export const confirmLicenseImport = asyncHandler(async (req: Request, res: Respo
           purchaseDate: parseDateOrUndefined(row.mapped.purchaseDate) ?? null,
           expiryDate: parseDateOrUndefined(row.mapped.expiryDate) ?? null,
           totalLicenses: parseNumberOrNull(row.mapped.totalLicenses) || 1,
-          costPerLicense: parseNumberOrNull(row.mapped.costPerLicense),
           status: mapStatus(row.mapped.status),
-          poNumber: row.mapped.poNumber,
-          invoiceNumber: row.mapped.invoiceNumber,
-          notes: row.mapped.notes,
+          notes,
         },
         req.user!.id
       );
@@ -509,7 +535,8 @@ export const confirmLicenseImport = asyncHandler(async (req: Request, res: Respo
   for (const row of updatedRows) {
     try {
       if (!row.existingId) throw new Error("missing existing record reference");
-      const payload = await buildPartialPayload(organizationId, row.mapped);
+      const existing = await licensesService.getLicenseById(organizationId, row.existingId);
+      const payload = await buildPartialPayload(organizationId, row.mapped, existing.notes);
       await licensesService.updateLicense(organizationId, row.existingId, payload as never);
       updated += 1;
     } catch (err) {

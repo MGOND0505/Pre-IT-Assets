@@ -39,12 +39,8 @@ export type LicenseFormValues = {
   totalLicenses: string
   assignedUsers: string[]
   assets: string[]
-  costPerLicense: string
-  totalCost: string
   department: string
   status: string
-  poNumber: string
-  invoiceNumber: string
   notes: string
   customFields: Record<string, unknown>
 }
@@ -63,12 +59,8 @@ export const EMPTY_LICENSE_FORM: LicenseFormValues = {
   totalLicenses: "1",
   assignedUsers: [],
   assets: [],
-  costPerLicense: "",
-  totalCost: "",
   department: "",
   status: "Active",
-  poNumber: "",
-  invoiceNumber: "",
   notes: "",
   customFields: {},
 }
@@ -170,8 +162,6 @@ export function LicenseForm({
         expiryDate: form.expiryDate || undefined,
         renewalDate: form.renewalDate || undefined,
         totalLicenses: form.totalLicenses ? Number(form.totalLicenses) : undefined,
-        costPerLicense: form.costPerLicense ? Number(form.costPerLicense) : undefined,
-        totalCost: form.totalCost ? Number(form.totalCost) : undefined,
       }
 
       if (isEdit && form._id) {
@@ -243,29 +233,6 @@ export function LicenseForm({
               </SelectContent>
             </Select>
           </div>
-        </div>
-      </section>
-
-      <Separator />
-
-      <section className="flex flex-col gap-4">
-        <h3 className="text-sm font-semibold text-muted-foreground">Dates &amp; quantity</h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Purchase date" id="lic-purchase-date" type="date" value={form.purchaseDate} onChange={set("purchaseDate")} />
-          <Field label="Start date" id="lic-start-date" type="date" value={form.startDate} onChange={set("startDate")} />
-          <Field label="Expiry date" id="lic-expiry-date" type="date" value={form.expiryDate} onChange={set("expiryDate")} />
-          <Field label="Renewal date" id="lic-renewal-date" type="date" value={form.renewalDate} onChange={set("renewalDate")} />
-          <Field label="Total licenses" id="lic-total" type="number" value={form.totalLicenses} onChange={set("totalLicenses")} />
-        </div>
-      </section>
-
-      <Separator />
-
-      <section className="flex flex-col gap-4">
-        <h3 className="text-sm font-semibold text-muted-foreground">Financial &amp; vendor</h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Cost per license" id="lic-cost-per" type="number" value={form.costPerLicense} onChange={set("costPerLicense")} />
-          <Field label="Total cost" id="lic-total-cost" type="number" value={form.totalCost} onChange={set("totalCost")} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="lic-vendor">Vendor</Label>
             <Select value={form.vendor} onValueChange={setSelect("vendor")}>
@@ -281,8 +248,19 @@ export function LicenseForm({
               </SelectContent>
             </Select>
           </div>
-          <Field label="PO number" id="lic-po" value={form.poNumber} onChange={set("poNumber")} />
-          <Field label="Invoice number" id="lic-invoice" value={form.invoiceNumber} onChange={set("invoiceNumber")} />
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="flex flex-col gap-4">
+        <h3 className="text-sm font-semibold text-muted-foreground">Dates &amp; quantity</h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Purchase date" id="lic-purchase-date" type="date" value={form.purchaseDate} onChange={set("purchaseDate")} />
+          <Field label="Start date" id="lic-start-date" type="date" value={form.startDate} onChange={set("startDate")} />
+          <Field label="Expiry date" id="lic-expiry-date" type="date" value={form.expiryDate} onChange={set("expiryDate")} />
+          <Field label="Renewal date" id="lic-renewal-date" type="date" value={form.renewalDate} onChange={set("renewalDate")} />
+          <Field label="Total licenses" id="lic-total" type="number" value={form.totalLicenses} onChange={set("totalLicenses")} />
         </div>
       </section>
 

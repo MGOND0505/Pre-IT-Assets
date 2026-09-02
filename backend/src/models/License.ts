@@ -32,12 +32,8 @@ export interface ILicense {
   // tab surfaces this in reverse (every license naming a given asset). Not capped by
   // totalLicenses the way assignedUsers is - a Volume/Per Device license can cover many machines.
   assets: Types.ObjectId[];
-  costPerLicense: number | null;
-  totalCost: number | null;
   department: Types.ObjectId | null;
   status: LicenseStatus;
-  poNumber: string;
-  invoiceNumber: string;
   notes: string;
   isDeleted: boolean;
   deletedAt: Date | null;
@@ -65,12 +61,8 @@ const licenseSchema = new Schema<ILicense>(
     totalLicenses: { type: Number, default: 1, min: 1 },
     assignedUsers: [{ type: Schema.Types.ObjectId, ref: "User" }],
     assets: [{ type: Schema.Types.ObjectId, ref: "Asset" }],
-    costPerLicense: { type: Number, default: null },
-    totalCost: { type: Number, default: null },
     department: { type: Schema.Types.ObjectId, ref: "Department", default: null },
     status: { type: String, enum: LICENSE_STATUSES, default: "Active", index: true },
-    poNumber: { type: String, default: "" },
-    invoiceNumber: { type: String, default: "" },
     notes: { type: String, default: "" },
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date, default: null },
