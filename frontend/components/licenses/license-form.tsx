@@ -327,7 +327,6 @@ export function LicenseForm({
         <>
           <Separator />
           <section className="flex flex-col gap-4">
-            <h3 className="text-sm font-semibold text-muted-foreground">Software tab (Assets module)</h3>
             <div className="flex flex-col gap-2">
               <Label>Linked assets ({form.assets.length})</Label>
               <p className="text-xs text-muted-foreground">
