@@ -32,7 +32,7 @@ export function AiAssistantWidget() {
   return (
     <div className="fixed bottom-6 left-6 z-40 flex flex-col items-start gap-3">
       {open && (
-        <div className="flex w-[380px] max-w-[calc(100vw-3rem)] flex-col gap-2 rounded-xl bg-popover p-3 text-popover-foreground shadow-soft-lg ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95">
+        <div className="flex w-[440px] max-w-[calc(100vw-3rem)] flex-col gap-2 rounded-xl bg-popover p-3 text-popover-foreground shadow-soft-lg ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95">
           <div className="flex items-center justify-between px-1">
             <div className="flex flex-col gap-0.5">
               <AiAssistantLogo textClassName="text-sm" />
@@ -48,17 +48,17 @@ export function AiAssistantWidget() {
               <X className="size-4" />
             </Button>
           </div>
-          <AiAssistantChat panelHeightClassName="h-[420px]" />
+          <AiAssistantChat panelHeightClassName="h-[500px]" />
         </div>
       )}
 
       <Button
         size="icon"
-        className="size-12 rounded-full shadow-soft-lg"
+        className="size-14 rounded-full shadow-soft-lg"
         aria-label={open ? "Close AI Assistant" : "Open AI Assistant"}
         onClick={() => setOpen((v) => !v)}
       >
-        {open ? <X className="size-5" /> : <AiAssistantIcon className="size-6" />}
+        {open ? <X className="size-6" /> : <AiAssistantIcon className="size-7" />}
       </Button>
     </div>
   )
