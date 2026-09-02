@@ -1,12 +1,14 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { type ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { MagneticButton } from "@/components/ui/magnetic-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,19 +18,21 @@ import {
 import { DataTable } from "@/components/common/data-table"
 import { Pagination } from "@/components/common/pagination"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
-import { DesignationFormDialog, type Designation } from "@/components/designations/designation-form-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
+import { useOrgHref } from "@/lib/use-org-href"
+
+type Designation = { _id: string; name: string; description: string; status: "Active" | "Inactive" }
 
 type Paginated = { items: Designation[]; total: number; page: number; totalPages: number }
 
 export default function DesignationsPage() {
+  const toOrgHref = useOrgHref()
   const { user, loading: authLoading } = useAuth()
   const [data, setData] = React.useState<Paginated | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [page, setPage] = React.useState(1)
-  const [editing, setEditing] = React.useState<Designation | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<Designation | null>(null)
 
   const canView = can(user, "designations", "view")
@@ -104,7 +108,9 @@ export default function DesignationsPage() {
             }
           />
           <DropdownMenuContent align="end">
-            {canWrite && <DropdownMenuItem onClick={() => setEditing(row.original)}>Edit</DropdownMenuItem>}
+            {canWrite && (
+              <DropdownMenuItem render={<Link href={toOrgHref(`/designations/${row.original._id}/edit`)} />}>Edit</DropdownMenuItem>
+            )}
             {canDelete && (
               <DropdownMenuItem variant="destructive" onClick={() => setPendingDelete(row.original)}>
                 Delete
@@ -128,23 +134,15 @@ export default function DesignationsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Designations</h1>
           <p className="text-sm text-muted-foreground">Manage the job designations used across the system.</p>
         </div>
-        {canCreate && <DesignationFormDialog onSaved={load} />}
+        {canCreate && (
+          <MagneticButton>
+            <Button render={<Link href={toOrgHref("/designations/add")} />}>Add designation</Button>
+          </MagneticButton>
+        )}
       </div>
 
       <DataTable columns={columns} data={data?.items ?? []} isLoading={loading} emptyMessage="No designations yet." />
       {data && <Pagination page={data.page} totalPages={data.totalPages} onPageChange={setPage} />}
-
-      {editing && (
-        <DesignationFormDialog
-          designation={editing}
-          open
-          onOpenChange={(open) => !open && setEditing(null)}
-          onSaved={() => {
-            load()
-            setEditing(null)
-          }}
-        />
-      )}
 
       {pendingDelete && (
         <ConfirmDialog
