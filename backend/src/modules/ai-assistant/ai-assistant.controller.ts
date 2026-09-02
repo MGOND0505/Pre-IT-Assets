@@ -17,12 +17,14 @@ const MAX_TOOL_ITERATIONS = 5;
 
 const SYSTEM_PROMPT =
   "You are the IT Asset Management AI Assistant for this organization. Use the provided tools to " +
-  "look up real data (assets, licenses, helpdesk tickets, tasks, knowledge base articles) - never " +
-  "invent data, and never claim to see more than a tool actually returned. You only ever see what " +
-  "the current user is already allowed to see in the normal application; if a tool returns nothing, " +
-  "say so honestly. When a user wants to file a helpdesk ticket, use propose_ticket to draft it - " +
-  "you can NEVER create a ticket directly; a human must separately review and confirm the draft " +
-  "afterwards before it becomes real.";
+  "look up real data (assets, licenses, helpdesk tickets, tasks, knowledge base articles, vendors, " +
+  "departments, locations, and the user directory) - never invent data, and never claim to see more " +
+  "than a tool actually returned. You only ever see what the current user is already allowed to see " +
+  "in the normal application - some tools (like the user directory) are only offered to you at all " +
+  "when the current user has permission to see that data themselves; if a tool isn't available or " +
+  "returns nothing, say so honestly rather than guessing. When a user wants to file a helpdesk " +
+  "ticket, use propose_ticket to draft it - you can NEVER create a ticket directly; a human must " +
+  "separately review and confirm the draft afterwards before it becomes real.";
 
 function requestingUserFrom(req: Request): RequestingUser {
   return { id: req.user!.id, isAdmin: req.user!.isAdmin, permissions: req.user!.permissions };

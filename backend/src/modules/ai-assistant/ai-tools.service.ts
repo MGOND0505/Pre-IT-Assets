@@ -6,6 +6,10 @@ import * as licensesService from "../licenses/licenses.service";
 import * as helpdeskService from "../helpdesk/helpdesk.service";
 import * as tasksService from "../tasks/tasks.service";
 import * as knowledgeBaseService from "../knowledgeBase/knowledgeBase.service";
+import * as vendorsService from "../vendors/vendors.service";
+import * as departmentsService from "../departments/departments.service";
+import * as locationsService from "../locations/locations.service";
+import * as usersService from "../users/users.service";
 
 /**
  * THE non-negotiable safety boundary for the whole AI Assistant feature: every tool below is
@@ -143,6 +147,88 @@ const ALL_TOOLS: ToolDefinition[] = [
       return {
         total: result.total,
         items: result.items.map((a) => ({ title: String(a.title ?? ""), snippet: String(a.content ?? "").slice(0, 200) })),
+      };
+    },
+  },
+  {
+    name: "search_vendors",
+    description:
+      "Search the organization's vendors/suppliers (name, contact person, email, status). Not ownership-scoped - every user with access to this tool sees the same org-wide vendor list, same as the normal Vendors page.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Free-text search (vendor name, contact person, or email)." },
+        status: { type: "string", description: "Optional exact status filter, e.g. Active, Inactive." },
+      },
+    },
+    module: "vendors",
+    action: "view",
+    handler: async (args, _requestingUser, organizationId) => {
+      const input = { search: asString(args.query), status: asString(args.status) as never, limit: 10 };
+      const result = await vendorsService.listVendors(input, organizationId);
+      return {
+        total: result.total,
+        items: result.items.map((v) => ({ name: v.name, contactPerson: v.contactPerson, email: v.email, status: v.status })),
+      };
+    },
+  },
+  {
+    name: "search_departments",
+    description:
+      "Search the organization's departments (name, status). Not ownership-scoped - every user with access to this tool sees the same org-wide department list, same as the normal Departments page.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Free-text search (department name)." },
+        status: { type: "string", description: "Optional exact status filter, e.g. Active, Inactive." },
+      },
+    },
+    module: "departments",
+    action: "view",
+    handler: async (args, _requestingUser, organizationId) => {
+      const input = { search: asString(args.query), status: asString(args.status) as never, limit: 10 };
+      const result = await departmentsService.listDepartments(input, organizationId);
+      return { total: result.total, items: result.items.map((d) => ({ name: d.name, status: d.status })) };
+    },
+  },
+  {
+    name: "search_locations",
+    description:
+      "Search the organization's locations/sites (name, status). Not ownership-scoped - every user with access to this tool sees the same org-wide location list, same as the normal Locations page.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Free-text search (location name)." },
+        status: { type: "string", description: "Optional exact status filter, e.g. Active, Inactive." },
+      },
+    },
+    module: "locations",
+    action: "view",
+    handler: async (args, _requestingUser, organizationId) => {
+      const input = { search: asString(args.query), status: asString(args.status) as never, limit: 10 };
+      const result = await locationsService.listLocations(input, organizationId);
+      return { total: result.total, items: result.items.map((l) => ({ name: l.name, status: l.status })) };
+    },
+  },
+  {
+    name: "search_users",
+    description:
+      "Search the organization's user directory (name, email, employee ID, role, status). Gated on the same 'users' permission as the normal Users page (typically Admin/Sub Admin only) - a regular Employee will never even see this tool offered, exactly like they can't see the Users page today.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Free-text search (name, email, or employee ID)." },
+        status: { type: "string", description: "Optional exact status filter, e.g. Active, Inactive." },
+      },
+    },
+    module: "users",
+    action: "view",
+    handler: async (args, _requestingUser, organizationId) => {
+      const input = { search: asString(args.query), status: asString(args.status) as never, limit: 10 };
+      const result = await usersService.listUsers(input, organizationId);
+      return {
+        total: result.total,
+        items: result.items.map((u) => ({ name: u.name, email: u.email, employeeId: u.employeeId, role: u.role, status: u.status })),
       };
     },
   },
