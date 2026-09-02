@@ -21,6 +21,7 @@ import {
   useVendorOptions,
 } from "@/lib/use-lookup-options"
 import { ASSET_STATUSES } from "@/components/assets/asset-status-badge"
+import { ASSET_OWNERSHIP_TYPES } from "@/components/assets/asset-ownership-badge"
 
 const NONE = "__none__"
 
@@ -30,6 +31,7 @@ export type AssetFormValues = {
   name: string
   category: string
   assetType: string
+  ownershipType: string
   deviceType: string
   status: string
   condition: string
@@ -105,6 +107,7 @@ export const EMPTY_ASSET_FORM: AssetFormValues = {
   name: "",
   category: "",
   assetType: "",
+  ownershipType: "Own",
   deviceType: "",
   status: "In Stock",
   condition: "",
@@ -322,6 +325,21 @@ export function AssetForm({
             </div>
             <Field label="Device type" id="asset-device-type" value={form.deviceType} onChange={set("deviceType")} />
             <Field label="Asset type" id="asset-type" value={form.assetType} onChange={set("assetType")} />
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="asset-ownership-type">Ownership type</Label>
+              <Select value={form.ownershipType} onValueChange={setSelect("ownershipType")}>
+                <SelectTrigger id="asset-ownership-type" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ASSET_OWNERSHIP_TYPES.map((o) => (
+                    <SelectItem key={o} value={o}>
+                      {o}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="asset-status">Status</Label>
               <Select value={form.status} onValueChange={setSelect("status")}>

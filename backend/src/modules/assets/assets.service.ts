@@ -57,6 +57,7 @@ type ListInput = {
   limit?: number;
   search?: string;
   status?: string;
+  ownershipType?: string;
   category?: string;
   location?: string;
   department?: string;
@@ -90,6 +91,7 @@ export async function listAssets(input: ListInput, organizationId: string, reque
     filter.assignedUser = input.assignedUser;
   }
   if (input.status) filter.status = input.status;
+  if (input.ownershipType) filter.ownershipType = input.ownershipType;
   if (input.category) filter.category = input.category;
   if (input.location) filter.location = input.location;
   if (input.department) filter.department = input.department;

@@ -3,7 +3,14 @@ import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
 import { ApiError } from "../../utils/ApiError";
 import { parseSpreadsheet, findColumn } from "../../utils/spreadsheet";
-import { Asset, ASSET_STATUSES, type AssetStatus, type IAsset } from "../../models/Asset";
+import {
+  Asset,
+  ASSET_STATUSES,
+  ASSET_OWNERSHIP_TYPES,
+  type AssetStatus,
+  type AssetOwnershipType,
+  type IAsset,
+} from "../../models/Asset";
 import { AssetCategory } from "../../models/AssetCategory";
 import { Location } from "../../models/Location";
 import { Department } from "../../models/Department";
@@ -29,6 +36,7 @@ export const ASSET_IMPORT_TEMPLATE_COLUMNS = [
   "Email License",
   "Device Type (Laptop / Desktop)",
   "Asset Type",
+  "Ownership Type (Own / Rental)",
   "Make",
   "Model",
   "Serial Number",
@@ -83,6 +91,7 @@ type MappedFields = {
   assetIdRaw: string;
   name: string;
   assetType: string;
+  ownershipType: string;
   deviceType: string;
   manufacturer: string;
   model: string;
@@ -177,6 +186,11 @@ function mapStatus(raw: string): AssetStatus {
   return (ASSET_STATUSES as readonly string[]).includes(raw) ? (raw as AssetStatus) : "In Stock";
 }
 
+function mapOwnershipType(raw: string): AssetOwnershipType {
+  if (/rent|lease/i.test(raw)) return "Rental";
+  return (ASSET_OWNERSHIP_TYPES as readonly string[]).includes(raw) ? (raw as AssetOwnershipType) : "Own";
+}
+
 function mapRow(row: Record<string, string>): MappedFields {
   const manufacturer = findColumn(row, ["Make", "Manufacturer", "Brand"]);
   const model = findColumn(row, ["Model"]);
@@ -188,6 +202,7 @@ function mapRow(row: Record<string, string>): MappedFields {
     assetIdRaw: findColumn(row, ["Asset ID", "AssetId"]),
     name,
     assetType,
+    ownershipType: findColumn(row, ["Ownership Type", "Ownership", "Own/Rental", "Own / Rental"]),
     deviceType,
     manufacturer,
     model,
@@ -356,6 +371,9 @@ function diffAgainstExisting(mapped: MappedFields, existing: ExistingAsset): str
   if (!isBlank(mapped.vendorName) && normalize(mapped.vendorName) !== normalize(existing.vendor?.name)) changed.push("vendor");
 
   if (!isBlank(mapped.status) && mapStatus(mapped.status) !== existing.status) changed.push("status");
+  if (!isBlank(mapped.ownershipType) && mapOwnershipType(mapped.ownershipType) !== existing.ownershipType) {
+    changed.push("ownershipType");
+  }
   if (!isBlank(mapped.purchaseDate) && dateToDayString(parseDateOrUndefined(mapped.purchaseDate) ?? null) !== dateToDayString(existing.purchaseDate)) {
     changed.push("purchaseDate");
   }
@@ -544,6 +562,7 @@ async function buildPartialPayload(mapped: MappedFields, organizationId: string)
   }
 
   if (!isBlank(mapped.status)) payload.status = mapStatus(mapped.status);
+  if (!isBlank(mapped.ownershipType)) payload.ownershipType = mapOwnershipType(mapped.ownershipType);
   if (!isBlank(mapped.purchaseDate)) payload.purchaseDate = parseDateOrUndefined(mapped.purchaseDate) ?? null;
   if (!isBlank(mapped.purchaseCost)) payload.purchaseCost = parseNumberOrNull(mapped.purchaseCost);
   if (!isBlank(mapped.quantity)) payload.quantity = parseNumberOrNull(mapped.quantity);
@@ -604,6 +623,7 @@ export const confirmAssetImport = asyncHandler(async (req: Request, res: Respons
           ...plainFieldsFromMapped(row.mapped),
           category: String(category._id),
           status: mapStatus(row.mapped.status),
+          ownershipType: mapOwnershipType(row.mapped.ownershipType),
           purchaseDate: parseDateOrUndefined(row.mapped.purchaseDate) ?? null,
           purchaseCost: parseNumberOrNull(row.mapped.purchaseCost),
           quantity: parseNumberOrNull(row.mapped.quantity),

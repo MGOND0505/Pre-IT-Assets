@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ASSET_STATUSES } from "../../models/Asset";
+import { ASSET_STATUSES, ASSET_OWNERSHIP_TYPES } from "../../models/Asset";
 import { ASSET_DOCUMENT_TYPES } from "../../models/AssetDocument";
 
 const objectId = z.string().min(1);
@@ -14,6 +14,7 @@ export const createAssetSchema = z.object({
   name: z.string().min(1),
   category: objectId,
   assetType: str(),
+  ownershipType: z.enum(ASSET_OWNERSHIP_TYPES).optional(),
   deviceType: str(),
   manufacturer: str(),
   model: str(),
@@ -93,6 +94,7 @@ export const listAssetsQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional(),
   search: z.string().max(100).optional(),
   status: z.enum(ASSET_STATUSES).optional(),
+  ownershipType: z.enum(ASSET_OWNERSHIP_TYPES).optional(),
   category: objectId.optional(),
   location: objectId.optional(),
   department: objectId.optional(),
@@ -124,6 +126,7 @@ const mappedAssetImportRowSchema = z.object({
   assetIdRaw: importStr(),
   name: importStr(),
   assetType: importStr(),
+  ownershipType: importStr(),
   deviceType: importStr(),
   manufacturer: importStr(),
   model: importStr(),

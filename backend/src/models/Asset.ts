@@ -16,12 +16,20 @@ export const ASSET_STATUSES = [
 
 export type AssetStatus = (typeof ASSET_STATUSES)[number];
 
+// Deliberately a distinct field from the pre-existing `assetType` (a free-text field that
+// doubles as an asset-category-name fallback during bulk import, e.g. "Laptop"/"Desktop" - see
+// assets.import.ts#mapRow) - reusing that field/label for "Own vs Rental" would silently repurpose
+// real existing data for every asset already imported through it.
+export const ASSET_OWNERSHIP_TYPES = ["Own", "Rental"] as const;
+export type AssetOwnershipType = (typeof ASSET_OWNERSHIP_TYPES)[number];
+
 export interface IAsset {
   organization: Types.ObjectId;
   assetId: string;
   name: string;
   category: Types.ObjectId;
   assetType: string;
+  ownershipType: AssetOwnershipType;
   deviceType: string;
   manufacturer: string;
   model: string;
@@ -105,6 +113,7 @@ const assetSchema = new Schema<IAsset>(
     name: { type: String, required: true, trim: true },
     category: { type: Schema.Types.ObjectId, ref: "AssetCategory", required: true },
     assetType: { type: String, default: "" },
+    ownershipType: { type: String, enum: ASSET_OWNERSHIP_TYPES, default: "Own", index: true },
     deviceType: { type: String, default: "" },
     manufacturer: { type: String, default: "" },
     model: { type: String, default: "" },

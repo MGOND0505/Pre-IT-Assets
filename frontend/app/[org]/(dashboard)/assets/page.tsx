@@ -15,6 +15,7 @@ import { DataTable } from "@/components/common/data-table"
 import { Pagination } from "@/components/common/pagination"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { AssetStatusBadge, ASSET_STATUSES, type AssetStatus } from "@/components/assets/asset-status-badge"
+import { AssetOwnershipBadge, type AssetOwnershipType } from "@/components/assets/asset-ownership-badge"
 import { apiClient, apiErrorMessage, orgScopedApiUrl, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
@@ -28,6 +29,7 @@ type Asset = {
   category: { _id: string; name: string; prefix: string } | null
   manufacturer: string
   model: string
+  ownershipType: AssetOwnershipType
   status: AssetStatus
   location: { _id: string; name: string } | null
 }
@@ -231,6 +233,12 @@ export default function AssetsPage() {
           {row.original.location?.name ?? "-"}
         </span>
       ),
+    },
+    {
+      accessorKey: "ownershipType",
+      header: "Ownership",
+      meta: { hideBelow: "md" },
+      cell: ({ row }) => <AssetOwnershipBadge ownershipType={row.original.ownershipType} />,
     },
     {
       accessorKey: "status",
