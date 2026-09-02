@@ -27,8 +27,15 @@ services:
           # host), so this can never exceed what `nproc` reports on the target machine. Raise both
           # values if the deploy target has more headroom - see the model-size note in env.ts's
           # OLLAMA_MODEL comment for the RAM a given model needs.
+          #
+          # 768M was the original guess and was too low even for llama3.2:1b - a real deploy on a
+          # 1-CPU/1.9GB-RAM box hit an OOM kill of the llama-server child process mid-generation
+          # (Ollama itself stayed up, reported "500 ... unexpected EOF"). 1.3G leaves enough
+          # headroom for the model's ~1.3GB weights plus KV-cache/activation overhead while still
+          # leaving a few hundred MB for the host OS and the other 3 containers combined (their
+          # measured usage is under 200MB total) - tune this per the ACTUAL model size deployed.
           cpus: "0.75"
-          memory: 768M
+          memory: 1300M
 
   mongo:
     image: mongo:7
