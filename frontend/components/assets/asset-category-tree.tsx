@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ChevronDown, ChevronRight, Plus } from "lucide-react"
+import { ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -13,6 +13,19 @@ import type { AssetCategoryOption } from "@/lib/use-lookup-options"
 type AssetCategoryGroup = (typeof ASSET_CATEGORY_GROUPS)[number]
 
 export type AssetCategorySelection = { group: AssetCategoryGroup | null; category: string | null }
+
+// Per-viewer UI preference, not app state - persisted so the tree stays collapsed/expanded across
+// visits instead of resetting every time the Assets page loads.
+const COLLAPSE_STORAGE_KEY = "assets:categoryTree:collapsed"
+
+function readStoredCollapsed(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    return window.localStorage.getItem(COLLAPSE_STORAGE_KEY) === "true"
+  } catch {
+    return false
+  }
+}
 
 function NavRow({
   label,
@@ -114,6 +127,19 @@ export function AssetCategoryTree({
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>(() =>
     Object.fromEntries(ASSET_CATEGORY_GROUPS.map((g) => [g, true]))
   )
+  const [collapsed, setCollapsed] = React.useState(readStoredCollapsed)
+
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev
+      try {
+        window.localStorage.setItem(COLLAPSE_STORAGE_KEY, String(next))
+      } catch {
+        // A private window or blocked site data just means the preference won't persist.
+      }
+      return next
+    })
+  }
 
   const byGroup = React.useMemo(() => {
     const map = new Map<string, AssetCategoryOption[]>()
@@ -128,8 +154,38 @@ export function AssetCategoryTree({
 
   const isAllActive = selection.group === null && selection.category === null
 
+  if (collapsed) {
+    return (
+      <nav className="flex w-full shrink-0 flex-col items-center gap-1 md:w-10">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button variant="ghost" size="icon" aria-label="Show category filters" onClick={toggleCollapsed}>
+                <ChevronRight className="size-4" />
+              </Button>
+            }
+          />
+          <TooltipContent>Show category filters</TooltipContent>
+        </Tooltip>
+      </nav>
+    )
+  }
+
   return (
     <nav className="flex w-full flex-col gap-0.5 md:w-56 md:shrink-0">
+      <div className="flex items-center justify-between px-1">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Categories</span>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button variant="ghost" size="icon" className="size-6" aria-label="Hide category filters" onClick={toggleCollapsed}>
+                <ChevronLeft className="size-3.5" />
+              </Button>
+            }
+          />
+          <TooltipContent>Hide category filters</TooltipContent>
+        </Tooltip>
+      </div>
       <NavRow label="All Assets" active={isAllActive} onClick={() => onChange({ group: null, category: null })} />
       {ASSET_CATEGORY_GROUPS.map((group) => {
         const groupCategories = byGroup.get(group) ?? []
