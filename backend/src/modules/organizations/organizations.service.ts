@@ -746,7 +746,7 @@ export async function searchAllOrganizations(rawQuery: string): Promise<GlobalSe
       .lean(),
     Asset.find({
       isDeleted: false,
-      $or: [{ name: rx }, { assetId: rx }, { serialNumber: rx }, { serviceTag: rx }, { imei: rx }],
+      $or: [{ name: rx }, { assetId: rx }, { serialNumber: rx }],
     })
       .select("name assetId organization")
       .populate({ path: "organization", select: "name slug" })

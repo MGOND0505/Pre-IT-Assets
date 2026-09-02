@@ -365,6 +365,7 @@ const MERGE_INTO_DESCRIPTION_FIELDS: { field: keyof MappedFields; label: string 
   { field: "previousOwner", label: "Previous owner (imported)" },
   { field: "deviceType", label: "Device type" },
   { field: "imei", label: "IMEI" },
+  { field: "quantity", label: "Quantity (imported)" },
   { field: "color", label: "Color" },
   { field: "laptopGeneration", label: "Laptop generation" },
   { field: "miscAccessories", label: "Miscellaneous accessories" },
