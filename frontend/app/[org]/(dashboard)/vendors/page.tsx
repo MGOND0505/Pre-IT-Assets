@@ -1,12 +1,14 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { type ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { MagneticButton } from "@/components/ui/magnetic-button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
@@ -18,21 +20,32 @@ import {
 import { DataTable } from "@/components/common/data-table"
 import { Pagination } from "@/components/common/pagination"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
-import { VendorFormDialog, type Vendor } from "@/components/vendors/vendor-form-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/permissions"
+import { useOrgHref } from "@/lib/use-org-href"
+
+type Vendor = {
+  _id: string
+  name: string
+  contactPerson: string
+  email: string
+  phone: string
+  service: string
+  address: string
+  status: "Active" | "Inactive"
+}
 
 type Paginated = { items: Vendor[]; total: number; page: number; totalPages: number }
 
 export default function VendorsPage() {
+  const toOrgHref = useOrgHref()
   const { user, loading: authLoading } = useAuth()
   const [data, setData] = React.useState<Paginated | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState("")
   const [status, setStatus] = React.useState<"Active" | "Inactive" | "">("")
-  const [editing, setEditing] = React.useState<Vendor | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<Vendor | null>(null)
 
   const canView = can(user, "vendors", "view")
@@ -130,7 +143,9 @@ export default function VendorsPage() {
             }
           />
           <DropdownMenuContent align="end">
-            {canWrite && <DropdownMenuItem onClick={() => setEditing(row.original)}>Edit</DropdownMenuItem>}
+            {canWrite && (
+              <DropdownMenuItem render={<Link href={toOrgHref(`/vendors/${row.original._id}/edit`)} />}>Edit</DropdownMenuItem>
+            )}
             {canDelete && (
               <DropdownMenuItem variant="destructive" onClick={() => setPendingDelete(row.original)}>
                 Delete
@@ -154,7 +169,11 @@ export default function VendorsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Vendors</h1>
           <p className="text-sm text-muted-foreground">Manage the vendors used across the system.</p>
         </div>
-        {canCreate && <VendorFormDialog onSaved={load} />}
+        {canCreate && (
+          <MagneticButton>
+            <Button render={<Link href={toOrgHref("/vendors/add")} />}>Add Vendor</Button>
+          </MagneticButton>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -187,18 +206,6 @@ export default function VendorsPage() {
 
       <DataTable columns={columns} data={data?.items ?? []} isLoading={loading} emptyMessage="No vendors yet." />
       {data && <Pagination page={data.page} totalPages={data.totalPages} onPageChange={setPage} />}
-
-      {editing && (
-        <VendorFormDialog
-          vendor={editing}
-          open
-          onOpenChange={(open) => !open && setEditing(null)}
-          onSaved={() => {
-            load()
-            setEditing(null)
-          }}
-        />
-      )}
 
       {pendingDelete && (
         <ConfirmDialog
