@@ -50,7 +50,7 @@ const GROUP_BY_CATEGORY_NAME: Record<string, string> = {
   Other: "Peripherals & Other",
 };
 
-const INFRA_VISIBLE_CORE_FIELDS = ["ipAddress", "macAddress", "hostname", "domainName", "patchStatus", "complianceStatus", "lastSecurityCheck"];
+const INFRA_VISIBLE_CORE_FIELDS = ["macAddress", "hostname", "domainName"];
 
 const VISIBLE_CORE_FIELDS_BY_CATEGORY_NAME: Record<string, string[]> = {
   Mobile: ["operatingSystem", "osVersion"],

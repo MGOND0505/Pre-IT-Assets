@@ -388,6 +388,7 @@ const MERGE_INTO_DESCRIPTION_FIELDS: { field: keyof MappedFields; label: string 
   { field: "adMember", label: "AD member (imported)" },
   { field: "antivirusInstalled", label: "Antivirus installed (imported)" },
   { field: "remoteSoftware", label: "Remote software (imported)" },
+  { field: "graphicsCard", label: "GPU (imported)" },
 ];
 
 /** Builds the extra description text for a row's now-homeless legacy fields - "" if none apply. */
@@ -430,7 +431,6 @@ function diffAgainstExisting(mapped: MappedFields, existing: ExistingAsset): str
   if (!isBlank(mapped.purchaseCost) && parseNumberOrNull(mapped.purchaseCost) !== existing.purchaseCost) changed.push("purchaseCost");
   if (!isBlank(mapped.quantity) && parseNumberOrNull(mapped.quantity) !== existing.quantity) changed.push("quantity");
   if (!isBlank(mapped.processor) && normalize(mapped.processor) !== normalize(existing.CPU)) changed.push("CPU");
-  if (!isBlank(mapped.graphicsCard) && normalize(mapped.graphicsCard) !== normalize(existing.GPU)) changed.push("GPU");
   // The now-homeless legacy fields (see MERGE_INTO_DESCRIPTION_FIELDS) never directly overwrite
   // description - they only ever APPEND - so this flags "description" as changed independently of
   // the plain description-vs-description comparison already done via STRING_DIFF_FIELDS above,
@@ -624,7 +624,6 @@ async function buildPartialPayload(mapped: MappedFields, organizationId: string,
   if (!isBlank(mapped.quantity)) payload.quantity = parseNumberOrNull(mapped.quantity);
   if (!isBlank(mapped.warrantyEnd)) payload.warrantyEndDate = parseDateOrUndefined(mapped.warrantyEnd) ?? null;
   if (!isBlank(mapped.processor)) payload.CPU = mapped.processor;
-  if (!isBlank(mapped.graphicsCard)) payload.GPU = mapped.graphicsCard;
 
   if (!isBlank(mapped.locationName)) {
     const location = await findOrCreateLocation(mapped.locationName, organizationId);
@@ -694,7 +693,6 @@ export const confirmAssetImport = asyncHandler(async (req: Request, res: Respons
           quantity: parseNumberOrNull(row.mapped.quantity),
           warrantyEndDate: parseDateOrUndefined(row.mapped.warrantyEnd) ?? null,
           CPU: row.mapped.processor,
-          GPU: row.mapped.graphicsCard,
           location: location ? String(location._id) : null,
           department: department ? String(department._id) : null,
           vendor: vendor ? String(vendor._id) : null,

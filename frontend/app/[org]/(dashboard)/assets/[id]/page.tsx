@@ -41,27 +41,17 @@ type Asset = {
   model: string
   serialNumber: string
   CPU: string
-  GPU: string
   ram: string
   storage: string
   display: string
-  biosUefiVersion: string
-  deviceUUID: string
   hostname: string
-  ipAddress: string
   macAddress: string
   adapterSerialNumber: string
   operatingSystem: string
   osVersion: string
   operatingSystemLicense: string
-  directoryMembership: string
   domainName: string
-  encryptionStatus: string
-  securityAgentStatus: string
   antivirusStatus: string
-  patchStatus: string
-  complianceStatus: string
-  lastSecurityCheck: string | null
   emailLicense: string
   canvaLicense: string
   microsoftOffice: string
@@ -97,9 +87,7 @@ type Asset = {
   contractStartDate: string | null
   contractEndDate: string | null
   location: RefOption
-  building: string
   floor: string
-  room: string
   subLocation: string
   department: RefOption
   assignedUser: (RefOption & { email?: string; employeeId?: string }) | null
@@ -190,27 +178,17 @@ function toFormValues(asset: Asset): AssetFormValues {
     model: asset.model,
     serialNumber: asset.serialNumber,
     CPU: asset.CPU,
-    GPU: asset.GPU,
     ram: asset.ram,
     storage: asset.storage,
     display: asset.display,
-    biosUefiVersion: asset.biosUefiVersion,
-    deviceUUID: asset.deviceUUID,
     hostname: asset.hostname,
-    ipAddress: asset.ipAddress,
     macAddress: asset.macAddress,
     adapterSerialNumber: asset.adapterSerialNumber,
     operatingSystem: asset.operatingSystem,
     osVersion: asset.osVersion,
     operatingSystemLicense: asset.operatingSystemLicense,
-    directoryMembership: asset.directoryMembership,
     domainName: asset.domainName,
-    encryptionStatus: asset.encryptionStatus,
-    securityAgentStatus: asset.securityAgentStatus,
     antivirusStatus: asset.antivirusStatus,
-    patchStatus: asset.patchStatus,
-    complianceStatus: asset.complianceStatus,
-    lastSecurityCheck: asset.lastSecurityCheck?.slice(0, 10) ?? "",
     emailLicense: asset.emailLicense,
     canvaLicense: asset.canvaLicense,
     microsoftOffice: asset.microsoftOffice,
@@ -246,9 +224,7 @@ function toFormValues(asset: Asset): AssetFormValues {
     contractStartDate: asset.contractStartDate?.slice(0, 10) ?? "",
     contractEndDate: asset.contractEndDate?.slice(0, 10) ?? "",
     location: asset.location?._id ?? "",
-    building: asset.building,
     floor: asset.floor,
-    room: asset.room,
     subLocation: asset.subLocation,
     department: asset.department?._id ?? "",
     assignedUser: asset.assignedUser?._id ?? "",
@@ -396,9 +372,7 @@ export default function AssetDetailPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Row label="Location" value={asset.location?.name} />
                 <Row label="Sub-location" value={asset.subLocation} />
-                <Row label="Building" value={asset.building} />
                 <Row label="Floor" value={asset.floor} />
-                <Row label="Room" value={asset.room} />
               </div>
             </TabsContent>
 
@@ -408,14 +382,10 @@ export default function AssetDetailPage() {
                 <Row label="Model" value={asset.model} />
                 <Row label="Serial number" value={asset.serialNumber} />
                 <Row label="CPU" value={asset.CPU} />
-                <Row label="GPU" value={asset.GPU} />
                 <Row label="RAM" value={asset.ram} />
                 <Row label="Storage" value={asset.storage} />
                 <Row label="Display" value={asset.display} />
-                <Row label="BIOS/UEFI version" value={asset.biosUefiVersion} />
-                <Row label="Device UUID" value={asset.deviceUUID} />
                 <Row label="Hostname" value={asset.hostname} />
-                <Row label="IP address" value={asset.ipAddress} />
                 <Row label="MAC address" value={asset.macAddress} />
                 <Row label="Adapter serial number" value={asset.adapterSerialNumber} />
               </div>
@@ -423,14 +393,8 @@ export default function AssetDetailPage() {
 
             <TabsContent value="security">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <Row label="Directory membership" value={asset.directoryMembership} />
                 <Row label="Domain name" value={asset.domainName} />
-                <Row label="Encryption status" value={asset.encryptionStatus} />
-                <Row label="Security agent status" value={asset.securityAgentStatus} />
                 <Row label="Antivirus status" value={asset.antivirusStatus} />
-                <Row label="Patch status" value={asset.patchStatus} />
-                <Row label="Compliance status" value={asset.complianceStatus} />
-                <Row label="Last security check" value={formatDate(asset.lastSecurityCheck)} />
               </div>
             </TabsContent>
 

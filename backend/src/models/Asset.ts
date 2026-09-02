@@ -66,7 +66,6 @@ export interface IAsset {
   model: string;
   serialNumber: string;
   hostname: string;
-  ipAddress: string;
   macAddress: string;
   operatingSystem: string;
   // Free-text version/edition detail parsed out of the legacy operatingSystem blob where it could
@@ -76,21 +75,12 @@ export interface IAsset {
   osVersion: string;
   operatingSystemLicense: string;
   CPU: string;
-  GPU: string;
   ram: string;
   storage: string;
   display: string;
-  biosUefiVersion: string;
-  deviceUUID: string;
   adapterSerialNumber: string;
-  directoryMembership: string;
   domainName: string;
-  encryptionStatus: string;
-  securityAgentStatus: string;
   antivirusStatus: AssetAntivirusStatus;
-  patchStatus: string;
-  complianceStatus: string;
-  lastSecurityCheck: Date | null;
   emailLicense: string;
   canvaLicense: string;
   microsoftOffice: string;
@@ -126,9 +116,7 @@ export interface IAsset {
   contractStartDate: Date | null;
   contractEndDate: Date | null;
   location: Types.ObjectId | null;
-  building: string;
   floor: string;
-  room: string;
   subLocation: string;
   department: Types.ObjectId | null;
   assignedUser: Types.ObjectId | null;
@@ -164,27 +152,17 @@ const assetSchema = new Schema<IAsset>(
     model: { type: String, default: "" },
     serialNumber: { type: String, default: "", index: true },
     hostname: { type: String, default: "" },
-    ipAddress: { type: String, default: "" },
     macAddress: { type: String, default: "" },
     operatingSystem: { type: String, default: "" },
     osVersion: { type: String, default: "" },
     operatingSystemLicense: { type: String, default: "" },
     CPU: { type: String, default: "" },
-    GPU: { type: String, default: "" },
     ram: { type: String, default: "" },
     storage: { type: String, default: "" },
     display: { type: String, default: "" },
-    biosUefiVersion: { type: String, default: "" },
-    deviceUUID: { type: String, default: "" },
     adapterSerialNumber: { type: String, default: "" },
-    directoryMembership: { type: String, default: "" },
     domainName: { type: String, default: "" },
-    encryptionStatus: { type: String, default: "" },
-    securityAgentStatus: { type: String, default: "" },
     antivirusStatus: { type: String, enum: ASSET_ANTIVIRUS_STATUSES, default: "Unknown" },
-    patchStatus: { type: String, default: "" },
-    complianceStatus: { type: String, default: "" },
-    lastSecurityCheck: { type: Date, default: null },
     emailLicense: { type: String, default: "" },
     canvaLicense: { type: String, default: "" },
     microsoftOffice: { type: String, default: "" },
@@ -220,9 +198,7 @@ const assetSchema = new Schema<IAsset>(
     contractStartDate: { type: Date, default: null },
     contractEndDate: { type: Date, default: null },
     location: { type: Schema.Types.ObjectId, ref: "Location", default: null, index: true },
-    building: { type: String, default: "" },
     floor: { type: String, default: "" },
-    room: { type: String, default: "" },
     subLocation: { type: String, default: "" },
     department: { type: Schema.Types.ObjectId, ref: "Department", default: null, index: true },
     assignedUser: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },

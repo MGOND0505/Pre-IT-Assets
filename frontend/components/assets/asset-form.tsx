@@ -49,27 +49,17 @@ export type AssetFormValues = {
   model: string
   serialNumber: string
   CPU: string
-  GPU: string
   ram: string
   storage: string
   display: string
-  biosUefiVersion: string
-  deviceUUID: string
   hostname: string
-  ipAddress: string
   macAddress: string
   adapterSerialNumber: string
   operatingSystem: string
   osVersion: string
   operatingSystemLicense: string
-  directoryMembership: string
   domainName: string
-  encryptionStatus: string
-  securityAgentStatus: string
   antivirusStatus: string
-  patchStatus: string
-  complianceStatus: string
-  lastSecurityCheck: string
   emailLicense: string
   canvaLicense: string
   microsoftOffice: string
@@ -105,9 +95,7 @@ export type AssetFormValues = {
   contractStartDate: string
   contractEndDate: string
   location: string
-  building: string
   floor: string
-  room: string
   subLocation: string
   department: string
   assignedUser: string
@@ -135,27 +123,17 @@ export const EMPTY_ASSET_FORM: AssetFormValues = {
   model: "",
   serialNumber: "",
   CPU: "",
-  GPU: "",
   ram: "",
   storage: "",
   display: "",
-  biosUefiVersion: "",
-  deviceUUID: "",
   hostname: "",
-  ipAddress: "",
   macAddress: "",
   adapterSerialNumber: "",
   operatingSystem: "",
   osVersion: "",
   operatingSystemLicense: "",
-  directoryMembership: "",
   domainName: "",
-  encryptionStatus: "",
-  securityAgentStatus: "",
   antivirusStatus: "Unknown",
-  patchStatus: "",
-  complianceStatus: "",
-  lastSecurityCheck: "",
   emailLicense: "",
   canvaLicense: "",
   microsoftOffice: "",
@@ -191,9 +169,7 @@ export const EMPTY_ASSET_FORM: AssetFormValues = {
   contractStartDate: "",
   contractEndDate: "",
   location: "",
-  building: "",
   floor: "",
-  room: "",
   subLocation: "",
   department: "",
   assignedUser: "",
@@ -282,7 +258,6 @@ export function AssetForm({
         contractEndDate: form.contractEndDate || undefined,
         assignmentDate: form.assignmentDate || undefined,
         returnDate: form.returnDate || undefined,
-        lastSecurityCheck: form.lastSecurityCheck || undefined,
         vendor: form.vendor || undefined,
         location: form.location || undefined,
         department: form.department || undefined,
@@ -482,9 +457,7 @@ export function AssetForm({
               </Select>
             </div>
             <Field label="Sub-location" id="asset-sub-location" value={form.subLocation} onChange={set("subLocation")} />
-            <Field label="Building" id="asset-building" value={form.building} onChange={set("building")} />
             <Field label="Floor" id="asset-floor" value={form.floor} onChange={set("floor")} />
-            <Field label="Room" id="asset-room" value={form.room} onChange={set("room")} />
           </div>
         </TabsContent>
 
@@ -494,14 +467,10 @@ export function AssetForm({
             <Field label="Model" id="asset-model" value={form.model} onChange={set("model")} />
             <Field label="Serial number" id="asset-serial" value={form.serialNumber} onChange={set("serialNumber")} />
             <Field label="CPU" id="asset-cpu" value={form.CPU} onChange={set("CPU")} />
-            <Field label="GPU" id="asset-gpu" value={form.GPU} onChange={set("GPU")} />
             <Field label="RAM" id="asset-ram" value={form.ram} onChange={set("ram")} />
             <Field label="Storage" id="asset-storage" value={form.storage} onChange={set("storage")} />
             <Field label="Display" id="asset-display" value={form.display} onChange={set("display")} />
-            <Field label="BIOS/UEFI version" id="asset-bios" value={form.biosUefiVersion} onChange={set("biosUefiVersion")} />
-            <Field label="Device UUID" id="asset-device-uuid" value={form.deviceUUID} onChange={set("deviceUUID")} />
             <Field label="Hostname" id="asset-hostname" value={form.hostname} onChange={set("hostname")} />
-            <Field label="IP address" id="asset-ip" value={form.ipAddress} onChange={set("ipAddress")} />
             <Field label="MAC address" id="asset-mac" value={form.macAddress} onChange={set("macAddress")} />
             <Field label="Adapter serial number" id="asset-adapter-serial" value={form.adapterSerialNumber} onChange={set("adapterSerialNumber")} />
           </div>
@@ -509,10 +478,7 @@ export function AssetForm({
 
         <TabsContent value="security">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Directory membership" id="asset-directory-membership" value={form.directoryMembership} onChange={set("directoryMembership")} />
             <Field label="Domain name" id="asset-domain-name" value={form.domainName} onChange={set("domainName")} />
-            <Field label="Encryption status" id="asset-encryption-status" value={form.encryptionStatus} onChange={set("encryptionStatus")} />
-            <Field label="Security agent status" id="asset-security-agent-status" value={form.securityAgentStatus} onChange={set("securityAgentStatus")} />
             <div className="flex flex-col gap-2">
               <Label htmlFor="asset-antivirus-status">Antivirus status</Label>
               <Select value={form.antivirusStatus} onValueChange={setSelect("antivirusStatus")}>
@@ -528,9 +494,6 @@ export function AssetForm({
                 </SelectContent>
               </Select>
             </div>
-            <Field label="Patch status" id="asset-patch-status" value={form.patchStatus} onChange={set("patchStatus")} />
-            <Field label="Compliance status" id="asset-compliance-status" value={form.complianceStatus} onChange={set("complianceStatus")} />
-            <Field label="Last security check" id="asset-last-security-check" type="date" value={form.lastSecurityCheck} onChange={set("lastSecurityCheck")} />
           </div>
         </TabsContent>
 

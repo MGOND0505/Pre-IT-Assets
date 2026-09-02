@@ -147,7 +147,6 @@ export async function listAssets(input: ListInput, organizationId: string, reque
       { hostname: { $regex: search, $options: "i" } },
       { manufacturer: { $regex: search, $options: "i" } },
       { model: { $regex: search, $options: "i" } },
-      { ipAddress: { $regex: search, $options: "i" } },
       { macAddress: { $regex: search, $options: "i" } },
       ...(matchingUsers.length > 0 ? [{ assignedUser: { $in: matchingUsers.map((u) => u.id) } }] : []),
     ];

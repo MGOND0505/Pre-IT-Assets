@@ -101,28 +101,23 @@ const ASSET_REPORT_PIPELINE = [
           { $not: { $in: [{ $toLower: { $trim: { input: { $ifNull: ["$repairHistory", ""] } } } }, ["none", "n/a", "na"]] } },
         ],
       },
-      // adMember/antivirusInstalled (free text) were replaced by directoryMembership (free text -
-      // any non-blank value means domain-joined) and antivirusStatus (enum) per the Phase 3
-      // Hardware/Security consolidation - same 3-signal compliance heuristic, new source fields.
-      isDomainJoined: {
-        $ne: [{ $trim: { input: { $ifNull: ["$directoryMembership", ""] } } }, ""],
-      },
+      // directoryMembership/encryptionStatus/securityAgentStatus/patchStatus/complianceStatus/
+      // lastSecurityCheck were removed from the Asset Master per your request - antivirusStatus
+      // (enum) and operatingSystemLicense are the only remaining security-adjacent signals, so the
+      // compliance heuristic below is now a 2-signal score instead of 3.
       hasAntivirus: { $eq: ["$antivirusStatus", "Installed"] },
       isOsLicensed: TRUTHY_EXPR("$operatingSystemLicense"),
     },
   },
   {
     $addFields: {
-      // Simple heuristic: share of the 3 core security signals present, 0-100. Documented in the dashboard, adjustable later.
+      // Simple heuristic: share of the 2 remaining security signals present, 0-100.
       complianceScore: {
         $round: [
           {
             $multiply: [
               {
-                $divide: [
-                  { $sum: [{ $toInt: "$isDomainJoined" }, { $toInt: "$hasAntivirus" }, { $toInt: "$isOsLicensed" }] },
-                  3,
-                ],
+                $divide: [{ $sum: [{ $toInt: "$hasAntivirus" }, { $toInt: "$isOsLicensed" }] }, 2],
               },
               100,
             ],
@@ -148,30 +143,19 @@ const ASSET_REPORT_PIPELINE = [
       model: str("$model"),
       serialNumber: str("$serialNumber"),
       CPU: str("$CPU"),
-      GPU: str("$GPU"),
       ram: str("$ram"),
       storage: str("$storage"),
       display: str("$display"),
-      biosUefiVersion: str("$biosUefiVersion"),
-      deviceUUID: str("$deviceUUID"),
       hostname: str("$hostname"),
-      ipAddress: str("$ipAddress"),
       macAddress: str("$macAddress"),
       adapterSerialNumber: str("$adapterSerialNumber"),
       operatingSystem: str("$operatingSystem"),
       osVersion: str("$osVersion"),
       operatingSystemLicense: str("$operatingSystemLicense"),
       isOsLicensed: 1,
-      directoryMembership: str("$directoryMembership"),
       domainName: str("$domainName"),
-      isDomainJoined: 1,
-      encryptionStatus: str("$encryptionStatus"),
-      securityAgentStatus: str("$securityAgentStatus"),
       antivirusStatus: str("$antivirusStatus"),
       hasAntivirus: 1,
-      patchStatus: str("$patchStatus"),
-      complianceStatus: str("$complianceStatus"),
-      lastSecurityCheck: 1,
       emailLicense: str("$emailLicense"),
       canvaLicense: str("$canvaLicense"),
       microsoftOffice: str("$microsoftOffice"),
@@ -216,9 +200,7 @@ const ASSET_REPORT_PIPELINE = [
       contractStartDate: 1,
       contractEndDate: 1,
       location: str("$locationDoc.name"),
-      building: str("$building"),
       floor: str("$floor"),
-      room: str("$room"),
       subLocation: str("$subLocation"),
       department: str("$departmentDoc.name"),
       // assignedUserName/Email/EmployeeId are derived from the assignedUser lookup, never stored

@@ -32,27 +32,17 @@ export const ASSET_CATEGORY_GROUPS = [
 // category-based Assets redesign's "Common Asset Fields" requirement.
 export const ASSET_CORE_FIELD_OPTIONS: { key: string; label: string }[] = [
   { key: "CPU", label: "CPU" },
-  { key: "GPU", label: "GPU" },
   { key: "ram", label: "RAM" },
   { key: "storage", label: "Storage" },
   { key: "display", label: "Display" },
-  { key: "biosUefiVersion", label: "BIOS/UEFI version" },
-  { key: "deviceUUID", label: "Device UUID" },
   { key: "hostname", label: "Hostname" },
-  { key: "ipAddress", label: "IP address" },
   { key: "macAddress", label: "MAC address" },
   { key: "adapterSerialNumber", label: "Adapter serial number" },
   { key: "operatingSystem", label: "Operating system" },
   { key: "osVersion", label: "OS version" },
   { key: "operatingSystemLicense", label: "OS license" },
-  { key: "directoryMembership", label: "Directory membership" },
   { key: "domainName", label: "Domain name" },
-  { key: "encryptionStatus", label: "Encryption status" },
-  { key: "securityAgentStatus", label: "Security agent status" },
   { key: "antivirusStatus", label: "Antivirus status" },
-  { key: "patchStatus", label: "Patch status" },
-  { key: "complianceStatus", label: "Compliance status" },
-  { key: "lastSecurityCheck", label: "Last security check" },
 ]
 
 export type AssetCategory = {
