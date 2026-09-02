@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
   Boxes,
@@ -19,17 +19,12 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { RevealGroup, RevealItem } from "@/components/dashboard/reveal"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { ENTITLEMENT_MODULES, MODULE_LABELS, type EntitlementModule } from "@/lib/permissions"
+import { MODULE_LABELS, type EntitlementModule } from "@/lib/permissions"
 
 type SubscriptionState = "Active" | "ExpiringSoon" | "GracePeriod" | "Suspended"
 
@@ -79,11 +74,9 @@ function tabClass(active: boolean) {
 export default function OrganizationDetailsPage() {
   const params = useParams<{ org: string }>()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { user } = useAuth()
   const [data, setData] = React.useState<OrganizationDetails | null>(null)
   const [loading, setLoading] = React.useState(true)
-  const [editOpen, setEditOpen] = React.useState(false)
   const [suspendOpen, setSuspendOpen] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
@@ -103,16 +96,6 @@ export default function OrganizationDetailsPage() {
   React.useEffect(() => {
     if (user?.role === "superAdmin") load()
   }, [user, load])
-
-  // Lets the organizations list's "Edit" row action (app/page.tsx) deep-link straight into the
-  // edit dialog instead of landing here and requiring a second click - strips the param right
-  // after so a refresh or Cancel doesn't keep reopening it.
-  React.useEffect(() => {
-    if (data && searchParams.get("edit")) {
-      setEditOpen(true)
-      router.replace(`/${params.org}/organization`)
-    }
-  }, [data, searchParams, router, params.org])
 
   async function handleSuspendToggle() {
     if (!data) return
@@ -299,7 +282,7 @@ export default function OrganizationDetailsPage() {
       </RevealGroup>
 
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" onClick={() => setEditOpen(true)}>
+        <Button variant="outline" onClick={() => router.push(`/${params.org}/organization/edit`)}>
           Edit Organization
         </Button>
         <Button variant="outline" onClick={() => router.push(`/${params.org}/users?role=orgAdmin`)}>
@@ -324,8 +307,6 @@ export default function OrganizationDetailsPage() {
           Delete Organization
         </Button>
       </div>
-
-      <EditOrganizationDialog open={editOpen} onOpenChange={setEditOpen} organization={org} onSaved={load} />
 
       <ConfirmDialog
         open={suspendOpen}
@@ -355,168 +336,5 @@ export default function OrganizationDetailsPage() {
         onConfirm={handleDelete}
       />
     </div>
-  )
-}
-
-function EditOrganizationDialog({
-  open,
-  onOpenChange,
-  organization,
-  onSaved,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  organization: OrganizationDetails["organization"]
-  onSaved: () => void
-}) {
-  const params = useParams<{ org: string }>()
-  const [name, setName] = React.useState(organization.name)
-  const [code, setCode] = React.useState(organization.code ?? "")
-  const [email, setEmail] = React.useState(organization.email)
-  const [phone, setPhone] = React.useState(organization.phone)
-  const [address, setAddress] = React.useState(organization.addressLine1)
-  const [enabledModules, setEnabledModules] = React.useState<EntitlementModule[]>(organization.enabledModules)
-  const [validFrom, setValidFrom] = React.useState(organization.validFrom?.slice(0, 10) ?? "")
-  const [validUntil, setValidUntil] = React.useState(organization.validUntil?.slice(0, 10) ?? "")
-  const [gracePeriodDays, setGracePeriodDays] = React.useState(String(organization.gracePeriodDays))
-  const [recycleBinRetentionDays, setRecycleBinRetentionDays] = React.useState(String(organization.recycleBinRetentionDays))
-  const [submitting, setSubmitting] = React.useState(false)
-
-  function toggleModule(moduleKey: EntitlementModule) {
-    setEnabledModules((prev) =>
-      prev.includes(moduleKey) ? prev.filter((m) => m !== moduleKey) : [...prev, moduleKey]
-    )
-  }
-
-  React.useEffect(() => {
-    if (open) {
-      setName(organization.name)
-      setCode(organization.code ?? "")
-      setEmail(organization.email)
-      setPhone(organization.phone)
-      setAddress(organization.addressLine1)
-      setEnabledModules(organization.enabledModules)
-      setValidFrom(organization.validFrom?.slice(0, 10) ?? "")
-      setValidUntil(organization.validUntil?.slice(0, 10) ?? "")
-      setGracePeriodDays(String(organization.gracePeriodDays))
-      setRecycleBinRetentionDays(String(organization.recycleBinRetentionDays))
-    }
-  }, [open, organization])
-
-  async function handleSave() {
-    if (!name.trim()) {
-      toast.error("Name is required")
-      return
-    }
-    setSubmitting(true)
-    try {
-      await apiClient.put(`/organizations/${params.org}`, {
-        name,
-        code: code || undefined,
-        email,
-        phone,
-        addressLine1: address,
-        enabledModules,
-        validFrom: validFrom || undefined,
-        validUntil: validUntil || undefined,
-        gracePeriodDays: gracePeriodDays ? Number(gracePeriodDays) : undefined,
-        recycleBinRetentionDays: recycleBinRetentionDays ? Number(recycleBinRetentionDays) : undefined,
-      })
-      toast.success("Organization updated")
-      onOpenChange(false)
-      onSaved()
-    } catch (err) {
-      toast.error(apiErrorMessage(err, "Could not update organization"))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="full">
-        <DialogHeader>
-          <DialogTitle>Edit organization</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="org-name">Name</Label>
-            <Input id="org-name" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="org-code">Code</Label>
-            <Input id="org-code" value={code} onChange={(e) => setCode(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="org-email">Email</Label>
-            <Input id="org-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="org-phone">Phone</Label>
-            <Input id="org-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="org-address">Address</Label>
-            <Textarea id="org-address" value={address} onChange={(e) => setAddress(e.target.value)} />
-          </div>
-
-          <div className="border-t pt-4">
-            <p className="mb-3 text-sm font-medium">Validity period</p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="org-valid-from">Valid from</Label>
-                <Input id="org-valid-from" type="date" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="org-valid-until">Valid until</Label>
-                <Input id="org-valid-until" type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="org-grace-days">Grace period (days)</Label>
-                <Input
-                  id="org-grace-days"
-                  type="number"
-                  min={0}
-                  value={gracePeriodDays}
-                  onChange={(e) => setGracePeriodDays(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="org-retention-days">Recycle Bin retention (days)</Label>
-                <Input
-                  id="org-retention-days"
-                  type="number"
-                  min={30}
-                  max={180}
-                  value={recycleBinRetentionDays}
-                  onChange={(e) => setRecycleBinRetentionDays(e.target.value)}
-                />
-              </div>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Leave &quot;Valid until&quot; blank for no expiry. Recycle Bin retention applies to deleted data inside
-              this organization (30-180 days).
-            </p>
-          </div>
-
-          <div className="border-t pt-4">
-            <p className="mb-3 text-sm font-medium">Enabled modules</p>
-            <div className="grid grid-cols-2 gap-2">
-              {ENTITLEMENT_MODULES.map((moduleKey) => (
-                <label key={moduleKey} className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={enabledModules.includes(moduleKey)} onCheckedChange={() => toggleModule(moduleKey)} />
-                  {MODULE_LABELS[moduleKey]}
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button onClick={handleSave} disabled={submitting}>
-            {submitting ? "Saving..." : "Save changes"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }

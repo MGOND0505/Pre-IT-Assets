@@ -307,7 +307,7 @@ export default function RootPage() {
       header: "Action",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => router.push(`/${row.original.slug}/organization?edit=1`)}>
+          <Button variant="outline" size="sm" onClick={() => router.push(`/${row.original.slug}/organization/edit`)}>
             Edit
           </Button>
           <Button variant="outline" size="sm" onClick={() => setModuleAccessTarget(row.original)}>
@@ -828,7 +828,7 @@ function EditRetentionDialog({
 /** A Sub-Super Admin's own narrow edit surface for an organization they hold a grant for - core
  * identity/contact fields only (name/code/email/phone/address), mirroring EditRetentionDialog's
  * shape. Governance fields (module access, subscription validity, grace period) stay reachable
- * only through the Super Admin's own EditOrganizationDialog ([org]/organization/page.tsx). */
+ * only through the Super Admin's own edit page ([org]/organization/edit/page.tsx). */
 function EditGrantedOrgDetailsDialog({
   open,
   onOpenChange,
