@@ -108,18 +108,26 @@ export default function TasksPage() {
       accessorKey: "taskId",
       header: "Task",
       cell: ({ row }) => (
-        <span title={row.original.taskId} className="block min-w-[90px] max-w-[110px] whitespace-normal break-words">
+        <Link
+          href={toOrgHref(`/tasks/${row.original._id}`)}
+          title={row.original.taskId}
+          className="block min-w-[90px] max-w-[110px] whitespace-normal break-words text-primary hover:underline"
+        >
           {row.original.taskId}
-        </span>
+        </Link>
       ),
     },
     {
       accessorKey: "title",
       header: "Title",
       cell: ({ row }) => (
-        <span title={row.original.title} className="block min-w-[180px] max-w-[280px] whitespace-normal break-words">
+        <Link
+          href={toOrgHref(`/tasks/${row.original._id}`)}
+          title={row.original.title}
+          className="block min-w-[180px] max-w-[280px] whitespace-normal break-words hover:underline"
+        >
           {row.original.title}
-        </span>
+        </Link>
       ),
     },
     {
