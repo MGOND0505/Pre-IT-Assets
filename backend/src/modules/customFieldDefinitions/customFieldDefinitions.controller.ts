@@ -15,7 +15,9 @@ export const getCustomFieldDefinition = asyncHandler(async (req: Request, res: R
 });
 
 export const createCustomFieldDefinition = asyncHandler(async (req: Request, res: Response) => {
-  const definition = await customFieldDefinitionsService.createCustomFieldDefinition(req.body, req.organization!._id);
+  const definition = await customFieldDefinitionsService.createCustomFieldDefinition(req.body, req.organization!._id, {
+    role: req.user!.role,
+  });
 
   await logAction({
     req,
@@ -33,7 +35,9 @@ export const updateCustomFieldDefinition = asyncHandler(async (req: Request, res
   const before = await customFieldDefinitionsService.getCustomFieldDefinitionById(req.params.id, req.organization!._id);
   const oldValue = { label: before.label, type: before.type, options: before.options, required: before.required, order: before.order, status: before.status };
 
-  const definition = await customFieldDefinitionsService.updateCustomFieldDefinition(req.params.id, req.body, req.organization!._id);
+  const definition = await customFieldDefinitionsService.updateCustomFieldDefinition(req.params.id, req.body, req.organization!._id, {
+    role: req.user!.role,
+  });
 
   await logAction({
     req,
@@ -49,7 +53,9 @@ export const updateCustomFieldDefinition = asyncHandler(async (req: Request, res
 });
 
 export const deleteCustomFieldDefinition = asyncHandler(async (req: Request, res: Response) => {
-  const definition = await customFieldDefinitionsService.deleteCustomFieldDefinition(req.params.id, req.user!.id, req.organization!._id);
+  const definition = await customFieldDefinitionsService.deleteCustomFieldDefinition(req.params.id, req.user!.id, req.organization!._id, {
+    role: req.user!.role,
+  });
 
   await logAction({
     req,
@@ -71,7 +77,9 @@ export const listDeletedCustomFieldDefinitions = asyncHandler(async (req: Reques
 });
 
 export const restoreCustomFieldDefinition = asyncHandler(async (req: Request, res: Response) => {
-  const definition = await customFieldDefinitionsService.restoreCustomFieldDefinition(req.params.id, req.organization!._id);
+  const definition = await customFieldDefinitionsService.restoreCustomFieldDefinition(req.params.id, req.organization!._id, {
+    role: req.user!.role,
+  });
 
   await logAction({ req, action: "RESTORE", module: "CustomFieldDefinition", recordId: definition.id, recordLabel: definition.label });
 

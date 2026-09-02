@@ -23,8 +23,8 @@ import {
 } from "@/components/custom-fields/custom-field-definition-form-dialog"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { can } from "@/lib/permissions"
-import type { CustomFieldModule, CustomFieldType } from "@/lib/use-lookup-options"
+import { can, canConfigureAssetStructure } from "@/lib/permissions"
+import { useAssetCategoryOptions, type CustomFieldModule, type CustomFieldType } from "@/lib/use-lookup-options"
 
 type Paginated = { items: CustomFieldDefinition[]; total: number; page: number; totalPages: number }
 
@@ -44,6 +44,8 @@ const TYPE_LABELS: Record<CustomFieldType, string> = {
 
 export default function CustomFieldsPage() {
   const { user, loading: authLoading } = useAuth()
+  const { items: categories } = useAssetCategoryOptions()
+  const categoryNameById = React.useMemo(() => new Map(categories.map((c) => [c._id, c.name])), [categories])
   const [module, setModule] = React.useState<CustomFieldModule>("assets")
   const [data, setData] = React.useState<Paginated | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -52,9 +54,12 @@ export default function CustomFieldsPage() {
   const [pendingDelete, setPendingDelete] = React.useState<CustomFieldDefinition | null>(null)
 
   const canView = can(user, "customFields", "view")
-  const canCreate = can(user, "customFields", "create")
-  const canWrite = can(user, "customFields", "update")
-  const canDelete = can(user, "customFields", "delete")
+  // Only module "assets" is restricted to Super Admin/Sub-Super Admin - Licenses/Helpdesk custom
+  // fields keep the normal isAdmin/Team-Member-grant behavior, matching the backend's own
+  // per-module check in customFieldDefinitions.service.ts#assertCanConfigureIfAssetsModule.
+  const canCreate = module === "assets" ? canConfigureAssetStructure(user, "customFields", "create") : can(user, "customFields", "create")
+  const canWrite = module === "assets" ? canConfigureAssetStructure(user, "customFields", "update") : can(user, "customFields", "update")
+  const canDelete = module === "assets" ? canConfigureAssetStructure(user, "customFields", "delete") : can(user, "customFields", "delete")
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -116,6 +121,16 @@ export default function CustomFieldsPage() {
       header: "Key",
       cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.key}</span>,
     },
+    ...(module === "assets"
+      ? [
+          {
+            id: "assetType",
+            header: "Asset Type",
+            cell: ({ row }: { row: { original: CustomFieldDefinition } }) =>
+              row.original.category ? (categoryNameById.get(row.original.category) ?? "-") : "All asset types",
+          } as ColumnDef<CustomFieldDefinition, unknown>,
+        ]
+      : []),
     {
       accessorKey: "type",
       header: "Type",

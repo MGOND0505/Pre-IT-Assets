@@ -84,8 +84,14 @@ export function useHelpdeskPriorityOptions() {
 
 /** Active custom field definitions for one module, sorted by their configured `order` - powers
  * <CustomFieldsSection>. Same "fail quiet, empty list" shape as every other lookup hook here (a
- * form without any custom fields defined should render unchanged, not show an error). */
-export function useCustomFieldDefinitionOptions(module: CustomFieldModule) {
+ * form without any custom fields defined should render unchanged, not show an error).
+ *
+ * `categoryId`, module "assets" only: when provided, only definitions APPLICABLE to that Asset
+ * Type are returned (org-wide definitions plus that category's own scoped ones - see the
+ * backend's `applicableToCategory` query param) - a category-scoped field like "UPS Capacity"
+ * must never appear on a Laptop's form. Omitted/blank (e.g. no category chosen yet) returns every
+ * org-wide definition only, so the form still renders sensibly before a category is picked. */
+export function useCustomFieldDefinitionOptions(module: CustomFieldModule, categoryId?: string) {
   const [items, setItems] = React.useState<CustomFieldDefinitionOption[]>([])
   const [loading, setLoading] = React.useState(true)
 
@@ -93,12 +99,20 @@ export function useCustomFieldDefinitionOptions(module: CustomFieldModule) {
     setLoading(true)
     apiClient
       .get<ApiEnvelope<Paginated<CustomFieldDefinitionOption>>>("/custom-field-definitions", {
-        params: { module, status: "Active", limit: 100 },
+        params: {
+          module,
+          status: "Active",
+          limit: 100,
+          // No category chosen yet -> `category: ""` (exact-match filter, org-wide definitions
+          // only). A category chosen -> `applicableToCategory` (org-wide + that category's own).
+          // These two params are mutually exclusive server-side - never send both.
+          ...(module === "assets" ? (categoryId ? { applicableToCategory: categoryId } : { category: "" }) : {}),
+        },
       })
       .then((res) => setItems([...res.data.data.items].sort((a, b) => a.order - b.order)))
       .catch(() => setItems([]))
       .finally(() => setLoading(false))
-  }, [module])
+  }, [module, categoryId])
 
   return { items, loading }
 }

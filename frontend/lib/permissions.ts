@@ -18,6 +18,7 @@ export const PERMISSION_MODULES = [
   "roles",
   "knowledgeBase",
   "aiAssistant",
+  "assetCategories",
 ] as const
 export type PermissionModule = (typeof PERMISSION_MODULES)[number]
 
@@ -93,6 +94,10 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
   roles: ["view", "create", "update", "delete"],
   knowledgeBase: ["view", "create", "update", "delete"],
   aiAssistant: ["view"],
+  // Configuring Asset Categories/Types - Super Admin/Sub-Super Admin only, see the backend's
+  // matching comment in config/permissions.ts. "view" is deliberately absent (listing categories
+  // for dropdowns is intentionally ungated - every user needs it regardless of this permission).
+  assetCategories: ["create", "update", "delete", "import"],
 }
 
 // Record<PermissionModule | EntitlementModule, string> (not just PermissionModule) because
@@ -118,6 +123,7 @@ export const MODULE_LABELS: Record<PermissionModule | EntitlementModule, string>
   knowledgeBase: "Knowledge Base",
   aiAssistant: "AI Assistant",
   recycleBin: "Recycle Bin",
+  assetCategories: "Asset Categories & Types",
 }
 
 type ModulePermissions = { [action in PermissionAction]: boolean }
@@ -158,4 +164,18 @@ export function can(user: PermissionAware, moduleKey: PermissionModule, action: 
   if (!user) return false
   if (user.isAdmin) return true
   return Boolean(user.permissions[moduleKey]?.[action])
+}
+
+type RoleAware = { role: string; permissions: PermissionsShape } | null | undefined
+
+// Mirrors the backend's requireAssetConfigAccess() - deliberately NOT can(): Org Admin's isAdmin
+// bypass and a Team Member's granted permission must never pass here, only Super Admin
+// (unconditional) or Sub-Super Admin (their per-org grant, already merged into `user.permissions`
+// - see auth-context.tsx). Gates the Asset Categories/Types admin UI and, for module "assets",
+// the custom-field admin UI.
+export function canConfigureAssetStructure(user: RoleAware, moduleKey: PermissionModule, action: PermissionAction): boolean {
+  if (!user) return false
+  if (user.role === "superAdmin") return true
+  if (user.role === "subSuperAdmin") return Boolean(user.permissions[moduleKey]?.[action])
+  return false
 }

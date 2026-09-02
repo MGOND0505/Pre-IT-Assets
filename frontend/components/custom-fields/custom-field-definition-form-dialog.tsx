@@ -17,11 +17,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
-import type { CustomFieldModule, CustomFieldType } from "@/lib/use-lookup-options"
+import { useAssetCategoryOptions, type CustomFieldModule, type CustomFieldType } from "@/lib/use-lookup-options"
+
+const NONE = "__none__"
 
 export type CustomFieldDefinition = {
   _id: string
   module: CustomFieldModule
+  // Only ever meaningful for module "assets" - which Asset Type (AssetCategory) this field is
+  // scoped to. null/absent = applies to every asset in the org regardless of type.
+  category?: string | null
   label: string
   key: string
   type: CustomFieldType
@@ -62,11 +67,14 @@ export function CustomFieldDefinitionFormDialog({
   const open = isControlled ? controlledOpen : internalOpen
   const setOpen = isControlled ? onOpenChange! : setInternalOpen
 
+  const { items: categories } = useAssetCategoryOptions()
+
   const [label, setLabel] = React.useState(definition?.label ?? "")
   const [type, setType] = React.useState<CustomFieldType>(definition?.type ?? "text")
   const [optionsText, setOptionsText] = React.useState((definition?.options ?? []).join(", "))
   const [required, setRequired] = React.useState(definition?.required ?? false)
   const [order, setOrder] = React.useState(String(definition?.order ?? 0))
+  const [category, setCategory] = React.useState(definition?.category ?? "")
   const [submitting, setSubmitting] = React.useState(false)
 
   React.useEffect(() => {
@@ -76,6 +84,7 @@ export function CustomFieldDefinitionFormDialog({
       setOptionsText((definition?.options ?? []).join(", "))
       setRequired(definition?.required ?? false)
       setOrder(String(definition?.order ?? 0))
+      setCategory(definition?.category ?? "")
     }
   }, [open, definition])
 
@@ -101,6 +110,7 @@ export function CustomFieldDefinitionFormDialog({
         options: type === "select" ? options : [],
         required,
         order: Number(order) || 0,
+        ...(module === "assets" ? { category: category || null } : {}),
       }
       if (isEdit && definition) {
         await apiClient.put(`/custom-field-definitions/${definition._id}`, payload)
@@ -134,6 +144,28 @@ export function CustomFieldDefinitionFormDialog({
             <div className="flex flex-col gap-2">
               <Label>Key</Label>
               <p className="text-sm text-muted-foreground">{definition.key}</p>
+            </div>
+          )}
+          {module === "assets" && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="cf-category">Asset Type</Label>
+              <Select value={category || NONE} onValueChange={(v) => setCategory(v === NONE ? "" : (v ?? ""))}>
+                <SelectTrigger id="cf-category" className="w-full">
+                  <SelectValue placeholder="All asset types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>All asset types</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c._id} value={c._id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Leave as &quot;All asset types&quot; for a field every asset shows, or pick one Asset
+                Type so this field only appears on that type&apos;s assets.
+              </p>
             </div>
           )}
           <div className="flex flex-col gap-2">

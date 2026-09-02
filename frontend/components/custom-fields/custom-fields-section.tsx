@@ -91,14 +91,18 @@ function CustomFieldControl({
  */
 export function CustomFieldsSection({
   module,
+  categoryId,
   value,
   onChange,
 }: {
   module: CustomFieldModule
+  // module "assets" only - the asset's chosen Asset Type, so a category-scoped field like "UPS
+  // Capacity" only renders on assets of that type. Omitted = org-wide definitions only.
+  categoryId?: string
   value: Record<string, unknown>
   onChange: (value: Record<string, unknown>) => void
 }) {
-  const { items: definitions } = useCustomFieldDefinitionOptions(module)
+  const { items: definitions } = useCustomFieldDefinitionOptions(module, categoryId)
 
   if (definitions.length === 0) return <></>
 
@@ -124,12 +128,14 @@ export function CustomFieldsSection({
  */
 export function CustomFieldValuesList({
   module,
+  categoryId,
   values,
 }: {
   module: CustomFieldModule
+  categoryId?: string
   values: Record<string, unknown> | null | undefined
 }) {
-  const { items: definitions } = useCustomFieldDefinitionOptions(module)
+  const { items: definitions } = useCustomFieldDefinitionOptions(module, categoryId)
   const entries = Object.entries(values ?? {}).filter(([, v]) => v !== undefined && v !== null && v !== "")
 
   if (entries.length === 0) return <></>

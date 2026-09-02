@@ -178,8 +178,10 @@ export function AssetForm({
   const { items: departments } = useDepartmentOptions()
   const { items: users } = useUserOptions()
   // Gates the "Custom fields" tab's very existence, not just its contents - a form with none
-  // configured must look exactly like it did before this feature existed.
-  const { items: customFieldDefinitions } = useCustomFieldDefinitionOptions("assets")
+  // configured must look exactly like it did before this feature existed. Refetches whenever the
+  // chosen category changes, so a category-scoped field (e.g. "UPS Capacity") only ever shows up
+  // once that Asset Type is actually selected.
+  const { items: customFieldDefinitions } = useCustomFieldDefinitionOptions("assets", form.category)
   const hasCustomFields = customFieldDefinitions.length > 0
 
   function set<K extends keyof AssetFormValues>(field: K) {
@@ -529,6 +531,7 @@ export function AssetForm({
           <TabsContent value="customFields">
             <CustomFieldsSection
               module="assets"
+              categoryId={form.category}
               value={form.customFields}
               onChange={(customFields) => setForm((f) => ({ ...f, customFields }))}
             />

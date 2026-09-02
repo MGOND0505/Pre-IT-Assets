@@ -16,6 +16,7 @@ export const PERMISSION_MODULES = [
   "roles",
   "knowledgeBase",
   "aiAssistant",
+  "assetCategories",
 ] as const;
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];
 
@@ -114,6 +115,13 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
   // Read/query capability only, not a CRUD module - the AI Assistant never creates/updates/
   // deletes anything on its own (see the confirm-before-write ticket flow in ai-assistant.*).
   aiAssistant: ["view"],
+  // Configuring the Asset Master's structure itself (categories/asset types) - deliberately NOT
+  // gated through the normal authorize()/isAdmin bypass (see middleware/authorize.ts's
+  // requireAssetConfigAccess): Org Admin and Team Member never get "view" here because listing
+  // categories for dropdowns is intentionally left ungated in assetCategories.routes.ts (cross-
+  // module data every user needs regardless of this permission), so "view" would be a dead
+  // checkbox - only create/update/delete/import (Super Admin/Sub-Super Admin only) are meaningful.
+  assetCategories: ["create", "update", "delete", "import"],
 };
 
 type ModulePermissions = { [action in PermissionAction]: boolean };

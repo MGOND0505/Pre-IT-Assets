@@ -380,7 +380,7 @@ export default function AssetDetailPage() {
             </TabsContent>
 
             <TabsContent value="customFields">
-              <CustomFieldValuesList module="assets" values={asset.customFields} />
+              <CustomFieldValuesList module="assets" categoryId={asset.category?._id} values={asset.customFields} />
             </TabsContent>
 
             <TabsContent value="documents">

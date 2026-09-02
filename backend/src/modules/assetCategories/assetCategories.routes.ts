@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAdmin } from "../../middleware/authorize";
+import { requireAssetConfigAccess } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
 import { uploadSpreadsheet } from "../../utils/upload";
 import * as assetCategoriesController from "./assetCategories.controller";
@@ -21,24 +21,25 @@ import { listImportHistoryQuerySchema } from "../importHistory/importHistory.val
 export const assetCategoriesRouter = Router();
 
 // Mounted ahead of the generic "/:id" routes below, same ordering assets.routes.ts uses for its
-// own "/import/*" routes, so Express never mistakes "import" for an :id value. Admin-only like
-// every other write route in this module - no assetCategories permission module exists at all.
+// own "/import/*" routes, so Express never mistakes "import" for an :id value. Restricted to
+// Super Admin/Sub-Super Admin like every other write route in this module - see
+// requireAssetConfigAccess's own doc comment for why this is stricter than requireAdmin.
 assetCategoriesRouter.post(
   "/import/preview",
-  requireAdmin,
+  requireAssetConfigAccess("assetCategories", "import"),
   uploadSpreadsheet.single("file"),
   previewAssetCategoryImport
 );
 assetCategoriesRouter.post(
   "/import/confirm",
-  requireAdmin,
+  requireAssetConfigAccess("assetCategories", "import"),
   validate({ body: confirmAssetCategoryImportSchema }),
   confirmAssetCategoryImport
 );
-assetCategoriesRouter.get("/import/template", requireAdmin, downloadAssetCategoryTemplate);
+assetCategoriesRouter.get("/import/template", requireAssetConfigAccess("assetCategories", "import"), downloadAssetCategoryTemplate);
 assetCategoriesRouter.get(
   "/import/history",
-  requireAdmin,
+  requireAssetConfigAccess("assetCategories", "import"),
   validate({ query: listImportHistoryQuerySchema }),
   getAssetCategoryImportHistory
 );
@@ -54,7 +55,7 @@ assetCategoriesRouter.get(
 );
 assetCategoriesRouter.post(
   "/",
-  requireAdmin,
+  requireAssetConfigAccess("assetCategories", "create"),
   validate({ body: createAssetCategorySchema }),
   assetCategoriesController.createAssetCategory
 );
@@ -65,13 +66,13 @@ assetCategoriesRouter.get(
 );
 assetCategoriesRouter.put(
   "/:id",
-  requireAdmin,
+  requireAssetConfigAccess("assetCategories", "update"),
   validate({ params: assetCategoryIdParamsSchema, body: updateAssetCategorySchema }),
   assetCategoriesController.updateAssetCategory
 );
 assetCategoriesRouter.delete(
   "/:id",
-  requireAdmin,
+  requireAssetConfigAccess("assetCategories", "delete"),
   validate({ params: assetCategoryIdParamsSchema }),
   assetCategoriesController.deleteAssetCategory
 );

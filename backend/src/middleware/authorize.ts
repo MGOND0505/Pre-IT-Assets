@@ -72,3 +72,29 @@ export function requireSuperAdmin(req: Request, _res: Response, next: NextFuncti
 
   next();
 }
+
+/** Configuring the Asset Master's structure - asset categories/types (`assetCategories`) and the
+ * custom fields attached to them (`customFields`, when scoped to module "assets") - is restricted
+ * to Super Admin (unconditional) and Sub-Super Admin (only if their grant for the currently-
+ * resolved org includes this action). Deliberately stricter than authorize()/requireAdmin: Org
+ * Admin's blanket isAdmin bypass does NOT apply here and neither does any Team Member permission
+ * grant, per the IT Asset Type & Custom Field Management spec - only a platform-level role may
+ * ever touch this structure, even for an org's own Org Admin. Everything else about assets
+ * (creating/editing/viewing asset records themselves) is untouched by this - see authorize("assets", ...). */
+export function requireAssetConfigAccess(moduleKey: PermissionModule, action: PermissionAction) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return next(new ApiError(401, "Not authenticated"));
+    }
+
+    if (req.user.role === "superAdmin") {
+      return next();
+    }
+
+    if (req.user.role === "subSuperAdmin" && hasPermission(req.user, moduleKey, action)) {
+      return next();
+    }
+
+    return next(new ApiError(403, "Only a Super Admin or Sub-Super Admin can configure Asset Categories, Asset Types, or Asset custom fields"));
+  };
+}
