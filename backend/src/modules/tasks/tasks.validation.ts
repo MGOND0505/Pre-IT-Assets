@@ -47,3 +47,8 @@ export const taskIdParamsSchema = z.object({
 export const ticketIdParamsSchema = z.object({
   ticketId: z.string().min(1),
 });
+
+export const taskAttachmentParamsSchema = z.object({
+  id: z.string().min(1),
+  attachmentId: z.string().min(1),
+});

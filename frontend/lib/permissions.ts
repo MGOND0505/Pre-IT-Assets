@@ -89,7 +89,7 @@ export const MODULE_ACTIONS: Record<PermissionModule, readonly PermissionAction[
     "manageAttachments",
     "export",
   ],
-  tasks: ["view", "create", "update", "delete", "assign", "comment"],
+  tasks: ["view", "create", "update", "delete", "assign", "comment", "manageAttachments"],
   customFields: ["view", "create", "update", "delete"],
   roles: ["view", "create", "update", "delete"],
   knowledgeBase: ["view", "create", "update", "delete"],

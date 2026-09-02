@@ -7,10 +7,12 @@ export const UPLOAD_ROOT = path.join(__dirname, "../../uploads");
 export const ASSET_DOCUMENTS_DIR = path.join(UPLOAD_ROOT, "assets");
 export const BRANDING_DIR = path.join(UPLOAD_ROOT, "branding");
 export const TICKET_ATTACHMENTS_DIR = path.join(UPLOAD_ROOT, "helpdesk");
+export const TASK_ATTACHMENTS_DIR = path.join(UPLOAD_ROOT, "tasks");
 
 fs.mkdirSync(ASSET_DOCUMENTS_DIR, { recursive: true });
 fs.mkdirSync(BRANDING_DIR, { recursive: true });
 fs.mkdirSync(TICKET_ATTACHMENTS_DIR, { recursive: true });
+fs.mkdirSync(TASK_ATTACHMENTS_DIR, { recursive: true });
 
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
@@ -56,6 +58,30 @@ const ticketAttachmentStorage = multer.diskStorage({
 export const uploadTicketAttachment = multer({
   storage: ticketAttachmentStorage,
   limits: { fileSize: MAX_FILE_SIZE_BYTES },
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+      cb(new Error("Unsupported file type"));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+// Task attachments' own, much smaller limit - this feature's explicit requirement, distinct from
+// every other upload path's 10MB default.
+const MAX_TASK_ATTACHMENT_SIZE_BYTES = 500 * 1024; // 500KB
+
+const taskAttachmentStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, TASK_ATTACHMENTS_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `${crypto.randomUUID()}${ext}`);
+  },
+});
+
+export const uploadTaskAttachment = multer({
+  storage: taskAttachmentStorage,
+  limits: { fileSize: MAX_TASK_ATTACHMENT_SIZE_BYTES },
   fileFilter: (_req, file, cb) => {
     if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
       cb(new Error("Unsupported file type"));

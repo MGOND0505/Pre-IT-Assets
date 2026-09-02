@@ -1,13 +1,16 @@
 import { Router } from "express";
 import { authorize, requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
 import { validate } from "../../middleware/validate";
+import { uploadTaskAttachment } from "../../utils/upload";
 import * as tasksController from "./tasks.controller";
+import * as taskAttachmentsController from "./taskAttachments.controller";
 import {
   addTaskCommentSchema,
   assignTaskSchema,
   createTaskSchema,
   listTasksQuerySchema,
   setTaskStatusSchema,
+  taskAttachmentParamsSchema,
   taskIdParamsSchema,
   ticketIdParamsSchema,
   updateTaskSchema,
@@ -83,6 +86,32 @@ tasksRouter.get(
   authorize("tasks", "view"),
   validate({ params: taskIdParamsSchema }),
   tasksController.getAssignmentHistory
+);
+
+tasksRouter.get(
+  "/:id/attachments",
+  authorize("tasks", "view"),
+  validate({ params: taskIdParamsSchema }),
+  taskAttachmentsController.listAttachments
+);
+tasksRouter.post(
+  "/:id/attachments",
+  authorize("tasks", "manageAttachments"),
+  validate({ params: taskIdParamsSchema }),
+  uploadTaskAttachment.single("file"),
+  taskAttachmentsController.uploadAttachment
+);
+tasksRouter.get(
+  "/:id/attachments/:attachmentId/download",
+  authorize("tasks", "view"),
+  validate({ params: taskAttachmentParamsSchema }),
+  taskAttachmentsController.downloadAttachment
+);
+tasksRouter.delete(
+  "/:id/attachments/:attachmentId",
+  authorize("tasks", "manageAttachments"),
+  validate({ params: taskAttachmentParamsSchema }),
+  taskAttachmentsController.deleteAttachment
 );
 
 tasksRouter.get(
