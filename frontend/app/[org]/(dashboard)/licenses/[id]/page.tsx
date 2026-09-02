@@ -70,7 +70,6 @@ function toFormValues(license: License): LicenseFormValues {
     renewalDate: license.renewalDate?.slice(0, 10) ?? "",
     totalLicenses: String(license.totalLicenses),
     assignedUsers: license.assignedUsers.map((u) => u._id),
-    assets: license.assets.map((a) => a._id),
     department: license.department?._id ?? "",
     status: license.status,
     notes: license.notes,

@@ -11,9 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { CustomFieldsSection } from "@/components/custom-fields/custom-fields-section"
 import { apiClient, apiErrorMessage } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { can } from "@/lib/permissions"
 import {
-  useAssetOptions,
   useCustomFieldDefinitionOptions,
   useDepartmentOptions,
   useLicenseCategoryOptions,
@@ -38,7 +36,6 @@ export type LicenseFormValues = {
   renewalDate: string
   totalLicenses: string
   assignedUsers: string[]
-  assets: string[]
   department: string
   status: string
   notes: string
@@ -58,7 +55,6 @@ export const EMPTY_LICENSE_FORM: LicenseFormValues = {
   renewalDate: "",
   totalLicenses: "1",
   assignedUsers: [],
-  assets: [],
   department: "",
   status: "Active",
   notes: "",
@@ -103,10 +99,6 @@ export function LicenseForm({
   const { items: vendors } = useVendorOptions()
   const { items: departments } = useDepartmentOptions()
   const { items: users } = useUserOptions()
-  // Gates the "Linked assets" section - GET /assets (which the picker needs) itself requires
-  // assets:view, so showing this to someone without it would just be a permanently-empty picker.
-  const canPickAssets = can(user, "assets", "view")
-  const { items: assetOptions } = useAssetOptions()
   // Tagging a license to employee(s) is Org Admin/Super Admin only - mirrors asset-form.tsx's own
   // canAssignEmployee. Backend re-enforces this regardless
   // (licenses.controller.ts#stripAssignedUsersUnlessAdmin).
@@ -130,13 +122,6 @@ export function LicenseForm({
       assignedUsers: f.assignedUsers.includes(userId)
         ? f.assignedUsers.filter((id) => id !== userId)
         : [...f.assignedUsers, userId],
-    }))
-  }
-
-  function toggleAsset(assetId: string) {
-    setForm((f) => ({
-      ...f,
-      assets: f.assets.includes(assetId) ? f.assets.filter((id) => id !== assetId) : [...f.assets, assetId],
     }))
   }
 
@@ -322,31 +307,6 @@ export function LicenseForm({
           <Field label="Notes" id="lic-notes" value={form.notes} onChange={set("notes")} />
         </div>
       </section>
-
-      {canPickAssets && (
-        <>
-          <Separator />
-          <section className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label>Linked assets ({form.assets.length})</Label>
-              <p className="text-xs text-muted-foreground">
-                Which assets this license is installed on - shown on each linked asset&apos;s own
-                Software tab. Not capped by total licenses (a volume/per-device license can cover
-                many machines).
-              </p>
-              <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border p-2">
-                {assetOptions.length === 0 && <p className="text-sm text-muted-foreground">No assets found.</p>}
-                {assetOptions.map((a) => (
-                  <label key={a._id} className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted">
-                    <input type="checkbox" checked={form.assets.includes(a._id)} onChange={() => toggleAsset(a._id)} />
-                    {a.assetId} - {a.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </section>
-        </>
-      )}
 
       {hasCustomFields && (
         <>
