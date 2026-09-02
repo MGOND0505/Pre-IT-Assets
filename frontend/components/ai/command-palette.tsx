@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Search, CornerDownLeft, ArrowUp, ArrowDown } from "lucide-react"
+import { Search, CornerDownLeft, ArrowUp, ArrowDown, Sparkles, Loader2 } from "lucide-react"
 
 import { Dialog, DialogPortal, DialogOverlay } from "@/components/ui/dialog"
 import { isNavGroup, navConfig, type NavLeaf } from "@/lib/nav-config"
@@ -12,6 +12,16 @@ import { useOrgHref } from "@/lib/use-org-href"
 import { apiClient, type ApiEnvelope } from "@/lib/api-client"
 import { SEARCH_RESULT_HREF, SEARCH_RESULT_ICON, SEARCH_RESULT_LABEL, type SearchResult } from "@/lib/search-results"
 import { cn } from "@/lib/utils"
+
+type AiChatResponse = { conversationId: string; reply: string }
+
+/** A query that reads like a natural-language question/request rather than a short keyword -
+ * the AI answer is only worth the extra round-trip (and, once a model is loaded, the extra
+ * latency) for something the literal multi-token search below can't really answer anyway, e.g.
+ * "which laptops are overdue for return" vs. just "dell laptop". */
+function looksLikeNaturalLanguage(query: string): boolean {
+  return query.trim().split(/\s+/).length >= 3
+}
 
 type FlatEntry = { label: string; group?: string; href: string; absolute?: boolean }
 
@@ -92,6 +102,45 @@ export function CommandPalette() {
     return () => clearTimeout(timer)
   }, [query])
 
+  // A natural-language answer layer alongside the literal keyword search above - reuses the
+  // existing RBAC-scoped AI Assistant chat endpoint as-is (same permission gate, same tool-calling
+  // safety) rather than building a second, parallel search pipeline. Hidden entirely for a user
+  // without aiAssistant.view, and silently absent (not an error toast) if Ollama isn't reachable -
+  // this is a bonus layer on top of a search bar that already works fully without it.
+  const canUseAi = can(user, "aiAssistant", "view")
+  const [aiReply, setAiReply] = React.useState<string | null>(null)
+  const [aiLoading, setAiLoading] = React.useState(false)
+  const [aiFailed, setAiFailed] = React.useState(false)
+  const aiConversationId = React.useRef<string | undefined>(undefined)
+
+  React.useEffect(() => {
+    const q = query.trim()
+    if (!canUseAi || !looksLikeNaturalLanguage(q)) {
+      setAiReply(null)
+      setAiFailed(false)
+      setAiLoading(false)
+      return
+    }
+    setAiLoading(true)
+    setAiFailed(false)
+    const timer = setTimeout(async () => {
+      try {
+        const res = await apiClient.post<ApiEnvelope<AiChatResponse>>("/ai-assistant/chat", {
+          message: q,
+          conversationId: aiConversationId.current,
+        })
+        aiConversationId.current = res.data.data.conversationId
+        setAiReply(res.data.data.reply)
+      } catch {
+        setAiReply(null)
+        setAiFailed(true)
+      } finally {
+        setAiLoading(false)
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [query, canUseAi])
+
   // Pages and data results share one flat, keyboard-navigable list (pages first, then results)
   // so ArrowUp/ArrowDown/Enter behave the same regardless of which section the match is in.
   const combined = React.useMemo(
@@ -133,7 +182,12 @@ export function CommandPalette() {
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
-        if (!next) setQuery("")
+        if (!next) {
+          setQuery("")
+          setAiReply(null)
+          setAiFailed(false)
+          aiConversationId.current = undefined
+        }
       }}
     >
       <DialogPortal>
@@ -167,6 +221,23 @@ export function CommandPalette() {
             />
             <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">Esc</kbd>
           </div>
+
+          {canUseAi && looksLikeNaturalLanguage(query) && (
+            <div className="border-b bg-muted/30 px-4 py-3">
+              <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-primary">
+                <Sparkles className="size-3.5" /> AI Assistant
+              </div>
+              {aiLoading ? (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin" /> Thinking...
+                </div>
+              ) : aiReply ? (
+                <p className="text-sm whitespace-pre-wrap">{aiReply}</p>
+              ) : aiFailed ? (
+                <p className="text-xs text-muted-foreground">AI Assistant is unavailable right now.</p>
+              ) : null}
+            </div>
+          )}
 
           <div className="max-h-96 overflow-y-auto p-2">
             {combined.length === 0 ? (

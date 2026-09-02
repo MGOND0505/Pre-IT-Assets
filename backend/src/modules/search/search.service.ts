@@ -49,7 +49,25 @@ function canView(ctx: SearchContext, entitlement: EntitlementModule | null, perm
 }
 
 export async function searchOrganization(ctx: SearchContext, rawQuery: string): Promise<SearchResult[]> {
-  const rx = { $regex: escapeRegex(rawQuery), $options: "i" };
+  // Splits the query into whitespace-separated tokens so a multi-word phrase like "dell laptop"
+  // or "john ticket" matches records where each token appears somewhere across the searched
+  // fields, even if no single field contains the whole phrase - the previous single-regex-
+  // against-the-whole-query behavior only ever matched a literal exact phrase, which is why a
+  // natural-language-style multi-word query silently returned nothing. A single-word query has
+  // exactly one token, so it behaves exactly as before.
+  const tokens = rawQuery
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => ({ $regex: escapeRegex(token), $options: "i" }));
+
+  // Every token must match SOMEWHERE across the given fields (each token itself matches ANY of
+  // those fields) - an AND-of-ORs, so "dell laptop" requires both words present (in either
+  // order, across either field) rather than needing one field to contain the literal phrase.
+  function matchesAllTokens(fields: string[]) {
+    return { $and: tokens.map((rx) => ({ $or: fields.map((field) => ({ [field]: rx })) })) };
+  }
+
   const lookups: Promise<SearchResult[]>[] = [];
 
   if (canView(ctx, "assets", "assets")) {
@@ -62,7 +80,7 @@ export async function searchOrganization(ctx: SearchContext, rawQuery: string): 
         organization: ctx.organizationId,
         isDeleted: false,
         ...(canViewAllAssets ? {} : { assignedUser: ctx.userId }),
-        $or: [{ name: rx }, { assetId: rx }, { serialNumber: rx }, { serviceTag: rx }, { imei: rx }],
+        ...matchesAllTokens(["name", "assetId", "serialNumber", "serviceTag", "imei"]),
       })
         .select("name assetId")
         .limit(RESULTS_PER_TYPE)
@@ -78,7 +96,7 @@ export async function searchOrganization(ctx: SearchContext, rawQuery: string): 
       License.find({
         organization: ctx.organizationId,
         isDeleted: false,
-        $or: [{ softwareName: rx }, { productName: rx }, { publisher: rx }, { licenseId: rx }],
+        ...matchesAllTokens(["softwareName", "productName", "publisher", "licenseId"]),
       })
         .select("softwareName licenseId")
         .limit(RESULTS_PER_TYPE)
@@ -94,7 +112,7 @@ export async function searchOrganization(ctx: SearchContext, rawQuery: string): 
       Ticket.find({
         organization: ctx.organizationId,
         isDeleted: false,
-        $or: [{ subject: rx }, { ticketId: rx }],
+        ...matchesAllTokens(["subject", "ticketId"]),
       })
         .select("subject ticketId")
         .limit(RESULTS_PER_TYPE)
@@ -110,7 +128,7 @@ export async function searchOrganization(ctx: SearchContext, rawQuery: string): 
       Task.find({
         organization: ctx.organizationId,
         isDeleted: false,
-        $or: [{ title: rx }, { taskId: rx }],
+        ...matchesAllTokens(["title", "taskId"]),
       })
         .select("title taskId")
         .limit(RESULTS_PER_TYPE)
@@ -126,7 +144,7 @@ export async function searchOrganization(ctx: SearchContext, rawQuery: string): 
       Vendor.find({
         organization: ctx.organizationId,
         isDeleted: false,
-        $or: [{ name: rx }, { contactPerson: rx }, { email: rx }],
+        ...matchesAllTokens(["name", "contactPerson", "email"]),
       })
         .select("name service")
         .limit(RESULTS_PER_TYPE)
@@ -139,7 +157,7 @@ export async function searchOrganization(ctx: SearchContext, rawQuery: string): 
 
   if (canView(ctx, "departments", "departments")) {
     lookups.push(
-      Department.find({ organization: ctx.organizationId, isDeleted: false, name: rx })
+      Department.find({ organization: ctx.organizationId, isDeleted: false, ...matchesAllTokens(["name"]) })
         .select("name")
         .limit(RESULTS_PER_TYPE)
         .lean()
@@ -154,7 +172,7 @@ export async function searchOrganization(ctx: SearchContext, rawQuery: string): 
       Location.find({
         organization: ctx.organizationId,
         isDeleted: false,
-        $or: [{ name: rx }, { city: rx }, { state: rx }],
+        ...matchesAllTokens(["name", "city", "state"]),
       })
         .select("name city")
         .limit(RESULTS_PER_TYPE)
@@ -170,7 +188,7 @@ export async function searchOrganization(ctx: SearchContext, rawQuery: string): 
       User.find({
         organization: ctx.organizationId,
         isDeleted: false,
-        $or: [{ name: rx }, { email: rx }, { employeeId: rx }],
+        ...matchesAllTokens(["name", "email", "employeeId"]),
       })
         .select("name email")
         .limit(RESULTS_PER_TYPE)
