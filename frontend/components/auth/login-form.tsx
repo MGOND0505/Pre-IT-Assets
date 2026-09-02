@@ -29,10 +29,12 @@ export function LoginForm({ orgSlug, portal }: { orgSlug?: string; portal?: "emp
   const searchParams = useSearchParams()
   const { refresh } = useAuth()
   const { branding } = useBranding()
-  // Org-scoped login (orgAdmin/teamMember) follows that org's own captchaEnabled toggle. The
-  // flat login (superAdmin/subSuperAdmin - no org to hold a toggle) has no per-org home for this,
-  // so it requires CAPTCHA unconditionally whenever the server has it configured at all - fetched
-  // from a small flat, unauthenticated endpoint since /public/branding is itself org-scoped.
+  // CAPTCHA is required on every login attempt, org-scoped or flat, with no per-org opt-out
+  // (see auth.service.ts#resolveLoginCaptchaStatus) - unlike forgot-password-form.tsx, which
+  // still follows each org's own configurable captchaEnabled toggle. Org-scoped login sources
+  // its site key from /public/branding's unconditional loginCaptchaSiteKey field; the flat login
+  // (superAdmin/subSuperAdmin - no org to hold that response) has no per-org home for this, so it
+  // fetches from a small flat, unauthenticated endpoint instead.
   const [flatCaptchaSiteKey, setFlatCaptchaSiteKey] = React.useState<string | null>(null)
   React.useEffect(() => {
     if (orgSlug) return
@@ -42,7 +44,7 @@ export function LoginForm({ orgSlug, portal }: { orgSlug?: string; portal?: "emp
       .catch(() => setFlatCaptchaSiteKey(null))
   }, [orgSlug])
 
-  const captchaSiteKey = orgSlug ? (branding.captchaEnabled ? branding.captchaSiteKey : null) : flatCaptchaSiteKey
+  const captchaSiteKey = orgSlug ? branding.loginCaptchaSiteKey : flatCaptchaSiteKey
   const captchaRequired = Boolean(captchaSiteKey)
   const [captchaToken, setCaptchaToken] = React.useState<string | null>(null)
   const [submitting, setSubmitting] = React.useState(false)

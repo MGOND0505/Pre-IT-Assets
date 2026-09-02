@@ -26,10 +26,11 @@ async function assertCaptchaSolved(organizationId: string | null, captchaToken: 
 }
 
 /** null = CAPTCHA not required for this attempt. true/false = required, and whether the
- * supplied token actually verified. Applies to every role with no exception: org-scoped
- * accounts (orgAdmin/teamMember) follow their own org's configurable captchaEnabled toggle;
- * the org-agnostic flat login (superAdmin/subSuperAdmin - no org to hold a toggle) requires it
- * unconditionally whenever the server has Turnstile configured at all. */
+ * supplied token actually verified. Used by forgotPassword/resetPassword only - org-scoped
+ * accounts (orgAdmin/teamMember) follow their own org's configurable captchaEnabled toggle for
+ * THOSE flows; the org-agnostic flat versions (superAdmin/subSuperAdmin - no org to hold a
+ * toggle) require it unconditionally whenever the server has Turnstile configured at all.
+ * login() below uses resolveLoginCaptchaStatus instead, which is unconditional for every role. */
 async function resolveCaptchaStatus(
   organizationId: string | null,
   captchaToken: string | undefined,
@@ -42,6 +43,17 @@ async function resolveCaptchaStatus(
   }
   const settings = await getSettings(organizationId);
   if (!settings.captchaEnabled) return null;
+  return Boolean(captchaToken) && (await verifyTurnstileToken(captchaToken!, remoteIp));
+}
+
+/** Login-specific CAPTCHA gate: required on EVERY login attempt, org-scoped or flat, with no
+ * per-org opt-out - unlike resolveCaptchaStatus above (still used by forgotPassword/
+ * resetPassword, which keep following each org's own captchaEnabled toggle, unchanged). null
+ * only when the server has no Turnstile key configured anywhere (env or platform-settings
+ * override) - nothing to verify a token against in that case. */
+async function resolveLoginCaptchaStatus(captchaToken: string | undefined, remoteIp?: string): Promise<boolean | null> {
+  const { secretKey } = await getEffectiveTurnstileKeys();
+  if (!secretKey) return null;
   return Boolean(captchaToken) && (await verifyTurnstileToken(captchaToken!, remoteIp));
 }
 
@@ -72,7 +84,7 @@ export async function login(
 ) {
   const normalizedEmail = email.toLowerCase().trim();
   const organizationId = await resolveLoginOrganizationId(orgSlug);
-  const captchaVerified = await resolveCaptchaStatus(organizationId, captchaToken, req.ip);
+  const captchaVerified = await resolveLoginCaptchaStatus(captchaToken, req.ip);
 
   if (captchaVerified === false) {
     await LoginHistory.create({

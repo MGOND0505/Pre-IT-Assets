@@ -9,6 +9,10 @@ export type Branding = {
   sidebarColor: string
   appBackgroundColor: string
   passwordPolicy: PasswordPolicy
+  // Unconditional whenever the server has Turnstile configured - login requires CAPTCHA on
+  // every attempt, with no per-org opt-out. See login-form.tsx.
+  loginCaptchaSiteKey: string | null
+  // The org's own configurable toggle - used only by forgot-password-form.tsx.
   captchaEnabled: boolean
   captchaSiteKey: string | null
 }
@@ -18,6 +22,7 @@ const DEFAULT_BRANDING: Branding = {
   sidebarColor: "",
   appBackgroundColor: "",
   passwordPolicy: BASELINE_POLICY,
+  loginCaptchaSiteKey: null,
   captchaEnabled: false,
   captchaSiteKey: null,
 }

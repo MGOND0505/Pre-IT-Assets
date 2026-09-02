@@ -13,6 +13,7 @@ import { NotificationLog } from "../../models/NotificationLog";
 import * as settingsService from "./settings.service";
 import type { ISystemSettings } from "../../models/SystemSettings";
 import { env } from "../../config/env";
+import { getEffectiveTurnstileKeys } from "../platformSettings/platformSettings.service";
 
 /** Secret fields that must never be echoed back to the client verbatim - only whether one is set. */
 const SECRET_FIELDS = ["smtpPassword", "m365ClientSecret", "googleServiceAccountPrivateKey"] as const;
@@ -60,6 +61,10 @@ export const getSettings = asyncHandler(async (req: Request, res: Response) => {
  * server) - three pre-login consumers, one payload, no extra route. */
 export const getBranding = asyncHandler(async (req: Request, res: Response) => {
   const settings = await settingsService.getSettings(req.organization!._id);
+  // Unconditional, unlike captchaSiteKey below - login requires CAPTCHA for every org, every
+  // attempt, with no per-org opt-out (see auth.service.ts#resolveLoginCaptchaStatus). Only null
+  // when the server has no Turnstile key configured anywhere (env or platform-settings override).
+  const { siteKey: loginCaptchaSiteKey } = await getEffectiveTurnstileKeys();
   ok(
     res,
     {
@@ -74,6 +79,8 @@ export const getBranding = asyncHandler(async (req: Request, res: Response) => {
         requireSpecialChar: settings.passwordRequireSpecialChar,
         historyLimit: settings.passwordHistoryLimit,
       },
+      loginCaptchaSiteKey: loginCaptchaSiteKey || null,
+      // Still the org's own configurable toggle - unchanged, used only by forgot-password.
       captchaEnabled: settings.captchaEnabled && Boolean(env.TURNSTILE_SITE_KEY),
       captchaSiteKey: settings.captchaEnabled ? (env.TURNSTILE_SITE_KEY ?? null) : null,
     },
