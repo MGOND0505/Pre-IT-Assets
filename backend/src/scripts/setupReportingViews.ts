@@ -18,23 +18,6 @@ function str(field: string) {
   return { $ifNull: [field, ""] };
 }
 
-const SOFTWARE_FIELDS: Record<string, unknown> = {
-  "Microsoft Office": str("$microsoftOffice"),
-  "Microsoft Project": str("$microsoftProject"),
-  "Power BI": str("$powerBi"),
-  AutoCAD: str("$autoCad"),
-  ZWCAD: str("$zwCad"),
-  Photoshop: str("$photoshop"),
-  "Creative Cloud Pro": str("$creativeCloudPro"),
-  Illustrator: str("$illustrator"),
-  "Acrobat Pro": str("$acrobatPro"),
-  "SketchUp Pro": str("$sketchUpPro"),
-  "RocketReach Pro": str("$rocketReachPro"),
-  "D5 Render": str("$d5Render"),
-  Zoom: str("$zoomLicense"),
-  Canva: str("$canvaLicense"),
-};
-
 const LOOKUPS = [
   { from: "assetcategories", localField: "category", as: "categoryDoc" },
   { from: "locations", localField: "location", as: "locationDoc" },
@@ -53,11 +36,6 @@ function lookupStages() {
     { $unwind: { path: `$${l.as}`, preserveNullAndEmptyArrays: true } },
   ]);
 }
-
-/** "Yes" / "Licensed" / "Y" / "True" (any case) all count as a positive flag - everything else (including blank) does not. */
-const TRUTHY_EXPR = (field: string) => ({
-  $in: [{ $toLower: { $trim: { input: { $ifNull: [field, ""] } } } }, ["yes", "y", "licensed", "true", "1"]],
-});
 
 const ASSET_REPORT_PIPELINE = [
   { $match: { isDeleted: false } },
@@ -102,29 +80,15 @@ const ASSET_REPORT_PIPELINE = [
         ],
       },
       // directoryMembership/encryptionStatus/securityAgentStatus/patchStatus/complianceStatus/
-      // lastSecurityCheck were removed from the Asset Master per your request - antivirusStatus
-      // (enum) and operatingSystemLicense are the only remaining security-adjacent signals, so the
-      // compliance heuristic below is now a 2-signal score instead of 3.
+      // lastSecurityCheck/operatingSystemLicense were removed from the Asset Master per your
+      // request - antivirusStatus is the only security-adjacent signal left, so the compliance
+      // heuristic below is now a single-signal (0 or 100) score instead of a blended one.
       hasAntivirus: { $eq: ["$antivirusStatus", "Installed"] },
-      isOsLicensed: TRUTHY_EXPR("$operatingSystemLicense"),
     },
   },
   {
     $addFields: {
-      // Simple heuristic: share of the 2 remaining security signals present, 0-100.
-      complianceScore: {
-        $round: [
-          {
-            $multiply: [
-              {
-                $divide: [{ $sum: [{ $toInt: "$hasAntivirus" }, { $toInt: "$isOsLicensed" }] }, 2],
-              },
-              100,
-            ],
-          },
-          0,
-        ],
-      },
+      complianceScore: { $cond: ["$hasAntivirus", 100, 0] },
       needsHardwareReview: {
         $and: [{ $ifNull: ["$ageYears", false] }, { $gte: ["$ageYears", 4] }],
       },
@@ -151,27 +115,9 @@ const ASSET_REPORT_PIPELINE = [
       adapterSerialNumber: str("$adapterSerialNumber"),
       operatingSystem: str("$operatingSystem"),
       osVersion: str("$osVersion"),
-      operatingSystemLicense: str("$operatingSystemLicense"),
-      isOsLicensed: 1,
       domainName: str("$domainName"),
       antivirusStatus: str("$antivirusStatus"),
       hasAntivirus: 1,
-      emailLicense: str("$emailLicense"),
-      canvaLicense: str("$canvaLicense"),
-      microsoftOffice: str("$microsoftOffice"),
-      microsoftProject: str("$microsoftProject"),
-      powerBi: str("$powerBi"),
-      autoCad: str("$autoCad"),
-      zwCad: str("$zwCad"),
-      photoshop: str("$photoshop"),
-      creativeCloudPro: str("$creativeCloudPro"),
-      illustrator: str("$illustrator"),
-      acrobatPro: str("$acrobatPro"),
-      sketchUpPro: str("$sketchUpPro"),
-      rocketReachPro: str("$rocketReachPro"),
-      d5Render: str("$d5Render"),
-      zoomLicense: str("$zoomLicense"),
-      sharedFolderAccess: str("$sharedFolderAccess"),
       status: str("$status"),
       condition: str("$condition"),
       repairHistory: str("$repairHistory"),
@@ -218,53 +164,6 @@ const ASSET_REPORT_PIPELINE = [
   },
 ];
 
-const LICENSE_USAGE_PIPELINE = [
-  { $match: { isDeleted: false } },
-  ...lookupStages(),
-  {
-    $project: {
-      _id: 1,
-      organization: { $toString: "$organization" },
-      organizationName: str("$organizationDoc.name"),
-      assetId: str("$assetId"),
-      status: str("$status"),
-      location: str("$locationDoc.name"),
-      department: str("$departmentDoc.name"),
-      assignedUserName: str("$assignedUserDoc.name"),
-      assignedUserEmployeeId: str("$assignedUserDoc.employeeId"),
-      software: SOFTWARE_FIELDS,
-    },
-  },
-  {
-    $project: {
-      organization: 1,
-      organizationName: 1,
-      assetId: 1,
-      status: 1,
-      location: 1,
-      department: 1,
-      assignedUserName: 1,
-      assignedUserEmployeeId: 1,
-      software: { $objectToArray: "$software" },
-    },
-  },
-  { $unwind: "$software" },
-  {
-    $project: {
-      organization: 1,
-      organizationName: 1,
-      assetId: 1,
-      status: 1,
-      location: 1,
-      department: 1,
-      assignedUserName: 1,
-      assignedUserEmployeeId: 1,
-      softwareName: "$software.k",
-      hasLicense: TRUTHY_EXPR("$software.v"),
-    },
-  },
-];
-
 async function createView(db: mongoose.mongo.Db, name: string, viewOn: string, pipeline: unknown[]) {
   const existing = await db.listCollections({ name }).toArray();
   if (existing.length > 0) {
@@ -280,12 +179,19 @@ async function run() {
   const db = mongoose.connection.db!;
 
   await createView(db, "v_asset_report", "assets", ASSET_REPORT_PIPELINE);
-  await createView(db, "v_license_usage", "assets", LICENSE_USAGE_PIPELINE);
+
+  // v_license_usage was built entirely from the 14 per-product software fields (Microsoft Office,
+  // AutoCAD, Photoshop, ...) that were just removed from the Asset Master - there's no source data
+  // left to build it from, so it's dropped rather than recreated empty. Rebuild it (as a real
+  // license-tracking view) once a dedicated software/license entity exists for assets.
+  const existingLicenseUsageView = await db.listCollections({ name: "v_license_usage" }).toArray();
+  if (existingLicenseUsageView.length > 0) {
+    await db.dropCollection("v_license_usage");
+    console.log('Dropped "v_license_usage" - its source fields no longer exist on Asset.');
+  }
 
   const assetCount = await db.collection("v_asset_report").countDocuments();
-  const licenseRowCount = await db.collection("v_license_usage").countDocuments();
   console.log(`v_asset_report: ${assetCount} rows`);
-  console.log(`v_license_usage: ${licenseRowCount} rows`);
 
   await mongoose.disconnect();
 }

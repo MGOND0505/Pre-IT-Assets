@@ -57,25 +57,8 @@ export type AssetFormValues = {
   adapterSerialNumber: string
   operatingSystem: string
   osVersion: string
-  operatingSystemLicense: string
   domainName: string
   antivirusStatus: string
-  emailLicense: string
-  canvaLicense: string
-  microsoftOffice: string
-  microsoftProject: string
-  powerBi: string
-  autoCad: string
-  zwCad: string
-  photoshop: string
-  creativeCloudPro: string
-  illustrator: string
-  acrobatPro: string
-  sketchUpPro: string
-  rocketReachPro: string
-  d5Render: string
-  zoomLicense: string
-  sharedFolderAccess: string
   purchaseDate: string
   purchaseCost: string
   quantity: string
@@ -131,25 +114,8 @@ export const EMPTY_ASSET_FORM: AssetFormValues = {
   adapterSerialNumber: "",
   operatingSystem: "",
   osVersion: "",
-  operatingSystemLicense: "",
   domainName: "",
   antivirusStatus: "Unknown",
-  emailLicense: "",
-  canvaLicense: "",
-  microsoftOffice: "",
-  microsoftProject: "",
-  powerBi: "",
-  autoCad: "",
-  zwCad: "",
-  photoshop: "",
-  creativeCloudPro: "",
-  illustrator: "",
-  acrobatPro: "",
-  sketchUpPro: "",
-  rocketReachPro: "",
-  d5Render: "",
-  zoomLicense: "",
-  sharedFolderAccess: "",
   purchaseDate: "",
   purchaseCost: "",
   quantity: "",
@@ -294,7 +260,6 @@ export function AssetForm({
           <TabsTrigger value="assetLocation" className="shrink-0">Location</TabsTrigger>
           <TabsTrigger value="hardware" className="shrink-0">Hardware</TabsTrigger>
           <TabsTrigger value="security" className="shrink-0">Security</TabsTrigger>
-          <TabsTrigger value="software" className="shrink-0">OS &amp; software licenses</TabsTrigger>
           <TabsTrigger value="purchase" className="shrink-0">Purchase &amp; vendor</TabsTrigger>
           <TabsTrigger value="condition" className="shrink-0">Condition</TabsTrigger>
           {hasCustomFields && <TabsTrigger value="customFields" className="shrink-0">Custom fields</TabsTrigger>}
@@ -473,6 +438,8 @@ export function AssetForm({
             <Field label="Hostname" id="asset-hostname" value={form.hostname} onChange={set("hostname")} />
             <Field label="MAC address" id="asset-mac" value={form.macAddress} onChange={set("macAddress")} />
             <Field label="Adapter serial number" id="asset-adapter-serial" value={form.adapterSerialNumber} onChange={set("adapterSerialNumber")} />
+            <Field label="Operating system" id="asset-os" value={form.operatingSystem} onChange={set("operatingSystem")} />
+            <Field label="OS version" id="asset-os-version" value={form.osVersion} onChange={set("osVersion")} />
           </div>
         </TabsContent>
 
@@ -494,30 +461,6 @@ export function AssetForm({
                 </SelectContent>
               </Select>
             </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="software">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Operating system" id="asset-os" value={form.operatingSystem} onChange={set("operatingSystem")} />
-            <Field label="OS version" id="asset-os-version" value={form.osVersion} onChange={set("osVersion")} />
-            <Field label="OS license" id="asset-os-license" value={form.operatingSystemLicense} onChange={set("operatingSystemLicense")} />
-            <Field label="Email license" id="asset-email-license" value={form.emailLicense} onChange={set("emailLicense")} />
-            <Field label="Canva license" id="asset-canva" value={form.canvaLicense} onChange={set("canvaLicense")} />
-            <Field label="Microsoft Office" id="asset-ms-office" value={form.microsoftOffice} onChange={set("microsoftOffice")} />
-            <Field label="Microsoft Project" id="asset-ms-project" value={form.microsoftProject} onChange={set("microsoftProject")} />
-            <Field label="Power BI" id="asset-power-bi" value={form.powerBi} onChange={set("powerBi")} />
-            <Field label="AutoCAD" id="asset-autocad" value={form.autoCad} onChange={set("autoCad")} />
-            <Field label="ZWCAD" id="asset-zwcad" value={form.zwCad} onChange={set("zwCad")} />
-            <Field label="Photoshop" id="asset-photoshop" value={form.photoshop} onChange={set("photoshop")} />
-            <Field label="Creative Cloud Pro" id="asset-cc-pro" value={form.creativeCloudPro} onChange={set("creativeCloudPro")} />
-            <Field label="Illustrator" id="asset-illustrator" value={form.illustrator} onChange={set("illustrator")} />
-            <Field label="Acrobat Pro" id="asset-acrobat" value={form.acrobatPro} onChange={set("acrobatPro")} />
-            <Field label="SketchUp Pro" id="asset-sketchup" value={form.sketchUpPro} onChange={set("sketchUpPro")} />
-            <Field label="RocketReach Pro" id="asset-rocketreach" value={form.rocketReachPro} onChange={set("rocketReachPro")} />
-            <Field label="D5 Render" id="asset-d5-render" value={form.d5Render} onChange={set("d5Render")} />
-            <Field label="Zoom license" id="asset-zoom" value={form.zoomLicense} onChange={set("zoomLicense")} />
-            <Field label="Shared folder access" id="asset-shared-folder" value={form.sharedFolderAccess} onChange={set("sharedFolderAccess")} />
           </div>
         </TabsContent>
 

@@ -49,25 +49,8 @@ type Asset = {
   adapterSerialNumber: string
   operatingSystem: string
   osVersion: string
-  operatingSystemLicense: string
   domainName: string
   antivirusStatus: string
-  emailLicense: string
-  canvaLicense: string
-  microsoftOffice: string
-  microsoftProject: string
-  powerBi: string
-  autoCad: string
-  zwCad: string
-  photoshop: string
-  creativeCloudPro: string
-  illustrator: string
-  acrobatPro: string
-  sketchUpPro: string
-  rocketReachPro: string
-  d5Render: string
-  zoomLicense: string
-  sharedFolderAccess: string
   purchaseDate: string | null
   purchaseCost: number | null
   quantity: number | null
@@ -103,7 +86,6 @@ const TAB_VALUES = [
   "assetLocation",
   "hardware",
   "security",
-  "software",
   "financial",
   "condition",
   "customFields",
@@ -186,25 +168,8 @@ function toFormValues(asset: Asset): AssetFormValues {
     adapterSerialNumber: asset.adapterSerialNumber,
     operatingSystem: asset.operatingSystem,
     osVersion: asset.osVersion,
-    operatingSystemLicense: asset.operatingSystemLicense,
     domainName: asset.domainName,
     antivirusStatus: asset.antivirusStatus,
-    emailLicense: asset.emailLicense,
-    canvaLicense: asset.canvaLicense,
-    microsoftOffice: asset.microsoftOffice,
-    microsoftProject: asset.microsoftProject,
-    powerBi: asset.powerBi,
-    autoCad: asset.autoCad,
-    zwCad: asset.zwCad,
-    photoshop: asset.photoshop,
-    creativeCloudPro: asset.creativeCloudPro,
-    illustrator: asset.illustrator,
-    acrobatPro: asset.acrobatPro,
-    sketchUpPro: asset.sketchUpPro,
-    rocketReachPro: asset.rocketReachPro,
-    d5Render: asset.d5Render,
-    zoomLicense: asset.zoomLicense,
-    sharedFolderAccess: asset.sharedFolderAccess,
     purchaseDate: asset.purchaseDate?.slice(0, 10) ?? "",
     purchaseCost: asset.purchaseCost?.toString() ?? "",
     quantity: asset.quantity?.toString() ?? "",
@@ -321,7 +286,6 @@ export default function AssetDetailPage() {
               <TabsTrigger value="assetLocation">Location</TabsTrigger>
               <TabsTrigger value="hardware">Hardware</TabsTrigger>
               <TabsTrigger value="security">Security</TabsTrigger>
-              <TabsTrigger value="software">Software licenses</TabsTrigger>
               <TabsTrigger value="financial">
                 Financial
                 {financialNeedsAttention && needsAttentionDot("#fab219")}
@@ -388,6 +352,8 @@ export default function AssetDetailPage() {
                 <Row label="Hostname" value={asset.hostname} />
                 <Row label="MAC address" value={asset.macAddress} />
                 <Row label="Adapter serial number" value={asset.adapterSerialNumber} />
+                <Row label="Operating system" value={asset.operatingSystem} />
+                <Row label="OS version" value={asset.osVersion} />
               </div>
             </TabsContent>
 
@@ -395,30 +361,6 @@ export default function AssetDetailPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Row label="Domain name" value={asset.domainName} />
                 <Row label="Antivirus status" value={asset.antivirusStatus} />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="software">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <Row label="Operating system" value={asset.operatingSystem} />
-                <Row label="OS version" value={asset.osVersion} />
-                <Row label="OS license" value={asset.operatingSystemLicense} />
-                <Row label="Email license" value={asset.emailLicense} />
-                <Row label="Canva license" value={asset.canvaLicense} />
-                <Row label="Microsoft Office" value={asset.microsoftOffice} />
-                <Row label="Microsoft Project" value={asset.microsoftProject} />
-                <Row label="Power BI" value={asset.powerBi} />
-                <Row label="AutoCAD" value={asset.autoCad} />
-                <Row label="ZWCAD" value={asset.zwCad} />
-                <Row label="Photoshop" value={asset.photoshop} />
-                <Row label="Creative Cloud Pro" value={asset.creativeCloudPro} />
-                <Row label="Illustrator" value={asset.illustrator} />
-                <Row label="Acrobat Pro" value={asset.acrobatPro} />
-                <Row label="SketchUp Pro" value={asset.sketchUpPro} />
-                <Row label="RocketReach Pro" value={asset.rocketReachPro} />
-                <Row label="D5 Render" value={asset.d5Render} />
-                <Row label="Zoom license" value={asset.zoomLicense} />
-                <Row label="Shared folder access" value={asset.sharedFolderAccess} />
               </div>
             </TabsContent>
 

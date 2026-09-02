@@ -73,7 +73,6 @@ export interface IAsset {
   // "11 Pro") - see migrateAssetFieldsPhase3.ts. Never guessed: an unparseable original value
   // stays whole in operatingSystem with this left blank.
   osVersion: string;
-  operatingSystemLicense: string;
   CPU: string;
   ram: string;
   storage: string;
@@ -81,22 +80,6 @@ export interface IAsset {
   adapterSerialNumber: string;
   domainName: string;
   antivirusStatus: AssetAntivirusStatus;
-  emailLicense: string;
-  canvaLicense: string;
-  microsoftOffice: string;
-  microsoftProject: string;
-  powerBi: string;
-  autoCad: string;
-  zwCad: string;
-  photoshop: string;
-  creativeCloudPro: string;
-  illustrator: string;
-  acrobatPro: string;
-  sketchUpPro: string;
-  rocketReachPro: string;
-  d5Render: string;
-  zoomLicense: string;
-  sharedFolderAccess: string;
   purchaseDate: Date | null;
   purchaseCost: number | null;
   quantity: number | null;
@@ -155,7 +138,6 @@ const assetSchema = new Schema<IAsset>(
     macAddress: { type: String, default: "" },
     operatingSystem: { type: String, default: "" },
     osVersion: { type: String, default: "" },
-    operatingSystemLicense: { type: String, default: "" },
     CPU: { type: String, default: "" },
     ram: { type: String, default: "" },
     storage: { type: String, default: "" },
@@ -163,22 +145,6 @@ const assetSchema = new Schema<IAsset>(
     adapterSerialNumber: { type: String, default: "" },
     domainName: { type: String, default: "" },
     antivirusStatus: { type: String, enum: ASSET_ANTIVIRUS_STATUSES, default: "Unknown" },
-    emailLicense: { type: String, default: "" },
-    canvaLicense: { type: String, default: "" },
-    microsoftOffice: { type: String, default: "" },
-    microsoftProject: { type: String, default: "" },
-    powerBi: { type: String, default: "" },
-    autoCad: { type: String, default: "" },
-    zwCad: { type: String, default: "" },
-    photoshop: { type: String, default: "" },
-    creativeCloudPro: { type: String, default: "" },
-    illustrator: { type: String, default: "" },
-    acrobatPro: { type: String, default: "" },
-    sketchUpPro: { type: String, default: "" },
-    rocketReachPro: { type: String, default: "" },
-    d5Render: { type: String, default: "" },
-    zoomLicense: { type: String, default: "" },
-    sharedFolderAccess: { type: String, default: "" },
     purchaseDate: { type: Date, default: null },
     purchaseCost: { type: Number, default: null },
     quantity: { type: Number, default: null },
