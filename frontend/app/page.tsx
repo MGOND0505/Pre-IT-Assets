@@ -323,8 +323,8 @@ export default function RootPage() {
       header: "Action",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => router.push(`/${row.original.slug}/organization`)}>
-            View
+          <Button variant="outline" size="sm" onClick={() => router.push(`/${row.original.slug}/organization?edit=1`)}>
+            Edit
           </Button>
           <Button variant="outline" size="sm" onClick={() => setModuleAccessTarget(row.original)}>
             <LayoutGrid className="size-3.5" />

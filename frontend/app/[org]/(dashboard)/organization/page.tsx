@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import {
   Boxes,
@@ -79,6 +79,7 @@ function tabClass(active: boolean) {
 export default function OrganizationDetailsPage() {
   const params = useParams<{ org: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useAuth()
   const [data, setData] = React.useState<OrganizationDetails | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -102,6 +103,16 @@ export default function OrganizationDetailsPage() {
   React.useEffect(() => {
     if (user?.role === "superAdmin") load()
   }, [user, load])
+
+  // Lets the organizations list's "Edit" row action (app/page.tsx) deep-link straight into the
+  // edit dialog instead of landing here and requiring a second click - strips the param right
+  // after so a refresh or Cancel doesn't keep reopening it.
+  React.useEffect(() => {
+    if (data && searchParams.get("edit")) {
+      setEditOpen(true)
+      router.replace(`/${params.org}/organization`)
+    }
+  }, [data, searchParams, router, params.org])
 
   async function handleSuspendToggle() {
     if (!data) return
