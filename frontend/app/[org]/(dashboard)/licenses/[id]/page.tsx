@@ -4,6 +4,8 @@ import * as React from "react"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 
+import Link from "next/link"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -33,6 +35,7 @@ type License = {
   renewalDate: string | null
   totalLicenses: number
   assignedUsers: { _id: string; name: string; email: string }[]
+  assets: { _id: string; assetId: string; name: string }[]
   costPerLicense: number | null
   totalCost: number | null
   department: RefOption
@@ -71,6 +74,7 @@ function toFormValues(license: License): LicenseFormValues {
     renewalDate: license.renewalDate?.slice(0, 10) ?? "",
     totalLicenses: String(license.totalLicenses),
     assignedUsers: license.assignedUsers.map((u) => u._id),
+    assets: license.assets.map((a) => a._id),
     costPerLicense: license.costPerLicense?.toString() ?? "",
     totalCost: license.totalCost?.toString() ?? "",
     department: license.department?._id ?? "",
@@ -195,6 +199,26 @@ export default function LicenseDetailPage() {
               {license.assignedUsers.map((u) => (
                 <li key={u._id} className="rounded-md border p-2 text-sm">
                   {u.name} ({u.email})
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
+          <h3 className="mb-3 text-sm font-semibold text-muted-foreground">Linked assets</h3>
+          {license.assets.length === 0 ? (
+            <p className="text-sm text-muted-foreground">This license isn&apos;t linked to any assets yet - edit it to add some.</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {license.assets.map((a) => (
+                <li key={a._id} className="rounded-md border p-2 text-sm">
+                  <Link href={toOrgHref(`/assets/${a._id}`)} className="text-primary hover:underline">
+                    {a.assetId}
+                  </Link>{" "}
+                  - {a.name}
                 </li>
               ))}
             </ul>

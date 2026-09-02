@@ -14,6 +14,7 @@ import { AssetCriticalityBadge, type AssetCriticality } from "@/components/asset
 import { AssetForm, type AssetFormValues } from "@/components/assets/asset-form"
 import { AssetDocumentsTab } from "@/components/assets/asset-documents-tab"
 import { AssetHistoryTab } from "@/components/assets/asset-history-tab"
+import { AssetSoftwareTab } from "@/components/assets/asset-software-tab"
 import { CustomFieldValuesList } from "@/components/custom-fields/custom-fields-section"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
@@ -84,6 +85,7 @@ const TAB_VALUES = [
   "financial",
   "condition",
   "customFields",
+  "software",
   "documents",
   "history",
 ] as const
@@ -203,6 +205,7 @@ export default function AssetDetailPage() {
 
   const canView = can(user, "assets", "view")
   const canWrite = can(user, "assets", "update")
+  const canViewLicenses = can(user, "licenses", "view")
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -293,6 +296,7 @@ export default function AssetDetailPage() {
                 {conditionNeedsAttention && needsAttentionDot("#d03b3b")}
               </TabsTrigger>
               {hasCustomFieldValues(asset.customFields) && <TabsTrigger value="customFields">Custom fields</TabsTrigger>}
+              {canViewLicenses && <TabsTrigger value="software">Software</TabsTrigger>}
               <TabsTrigger value="documents">Documents</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
@@ -394,6 +398,12 @@ export default function AssetDetailPage() {
             <TabsContent value="customFields">
               <CustomFieldValuesList module="assets" categoryId={asset.category?._id} values={asset.customFields} />
             </TabsContent>
+
+            {canViewLicenses && (
+              <TabsContent value="software">
+                <AssetSoftwareTab assetId={asset._id} />
+              </TabsContent>
+            )}
 
             <TabsContent value="documents">
               <AssetDocumentsTab assetId={asset._id} />

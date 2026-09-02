@@ -10,6 +10,7 @@ const POPULATE_FIELDS = [
   { path: "vendor", select: "name" },
   { path: "department", select: "name" },
   { path: "assignedUsers", select: "name email employeeId" },
+  { path: "assets", select: "assetId name" },
 ];
 
 type RequestingUser = { id: string; isAdmin: boolean; permissions: { licenses: { update: boolean } } };
@@ -33,6 +34,7 @@ type ListInput = {
   status?: string;
   category?: string;
   vendor?: string;
+  asset?: string;
   includeDeleted?: boolean;
 };
 
@@ -50,6 +52,7 @@ export async function listLicenses(organizationId: string, input: ListInput, req
   if (input.status) filter.status = input.status;
   if (input.category) filter.category = input.category;
   if (input.vendor) filter.vendor = input.vendor;
+  if (input.asset) filter.assets = input.asset;
   if (input.search) {
     const search = escapeRegex(input.search);
     filter.$or = [

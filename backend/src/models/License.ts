@@ -28,6 +28,10 @@ export interface ILicense {
   renewalDate: Date | null;
   totalLicenses: number;
   assignedUsers: Types.ObjectId[];
+  // Which physical/virtual assets this license is installed on - the Assets module's "Software"
+  // tab surfaces this in reverse (every license naming a given asset). Not capped by
+  // totalLicenses the way assignedUsers is - a Volume/Per Device license can cover many machines.
+  assets: Types.ObjectId[];
   costPerLicense: number | null;
   totalCost: number | null;
   department: Types.ObjectId | null;
@@ -60,6 +64,7 @@ const licenseSchema = new Schema<ILicense>(
     renewalDate: { type: Date, default: null },
     totalLicenses: { type: Number, default: 1, min: 1 },
     assignedUsers: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    assets: [{ type: Schema.Types.ObjectId, ref: "Asset" }],
     costPerLicense: { type: Number, default: null },
     totalCost: { type: Number, default: null },
     department: { type: Schema.Types.ObjectId, ref: "Department", default: null },

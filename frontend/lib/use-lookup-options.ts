@@ -20,6 +20,24 @@ function useLookup<T>(endpoint: string, limit = 100) {
   return { items, loading }
 }
 
+// Same shape as useLookup, minus the "status: Active" param - Asset's own status enum (In Stock /
+// Assigned / Under Repair / ...) has no "Active" value, so reusing useLookup as-is would fail the
+// backend's listAssetsQuerySchema validation and silently return an empty list.
+function useLookupWithoutStatusFilter<T>(endpoint: string, limit = 100) {
+  const [items, setItems] = React.useState<T[]>([])
+  const [loading, setLoading] = React.useState(true)
+
+  React.useEffect(() => {
+    apiClient
+      .get<ApiEnvelope<Paginated<T>>>(endpoint, { params: { limit } })
+      .then((res) => setItems(res.data.data.items))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false))
+  }, [endpoint, limit])
+
+  return { items, loading }
+}
+
 export type AssetCategoryOption = {
   _id: string
   name: string
@@ -54,6 +72,7 @@ export type HelpdeskPriorityOption = {
   slaResponseMinutes: number
   slaResolutionMinutes: number
 }
+export type AssetOption = { _id: string; assetId: string; name: string }
 export type CustomFieldModule = "assets" | "licenses" | "helpdesk" | "vendors"
 export type CustomFieldType = "text" | "number" | "date" | "select" | "checkbox"
 export type CustomFieldDefinitionOption = {
@@ -70,6 +89,9 @@ export type CustomFieldDefinitionOption = {
 
 export function useAssetCategoryOptions() {
   return useLookup<AssetCategoryOption>("/asset-categories")
+}
+export function useAssetOptions() {
+  return useLookupWithoutStatusFilter<AssetOption>("/assets")
 }
 export function useLicenseCategoryOptions() {
   return useLookup<LicenseCategoryOption>("/license-categories")

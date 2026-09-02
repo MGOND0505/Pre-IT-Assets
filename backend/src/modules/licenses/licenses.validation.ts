@@ -16,6 +16,7 @@ export const createLicenseSchema = z.object({
   renewalDate: z.coerce.date().optional(),
   totalLicenses: z.coerce.number().int().min(1).optional(),
   assignedUsers: z.array(objectId).optional(),
+  assets: z.array(objectId).optional(),
   costPerLicense: z.coerce.number().nonnegative().optional(),
   totalCost: z.coerce.number().nonnegative().optional(),
   department: objectId.optional(),
@@ -37,6 +38,9 @@ export const listLicensesQuerySchema = z.object({
   status: z.enum(LICENSE_STATUSES).optional(),
   category: objectId.optional(),
   vendor: objectId.optional(),
+  // Powers the Assets module's Software tab: GET /licenses?asset=<id> - "every license whose
+  // assets array contains this one asset."
+  asset: objectId.optional(),
 });
 
 export const licenseIdParamsSchema = z.object({
