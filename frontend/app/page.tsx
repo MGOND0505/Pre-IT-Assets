@@ -292,22 +292,6 @@ export default function RootPage() {
       ),
     },
     {
-      id: "subscription",
-      header: "Subscription",
-      cell: ({ row }) => (
-        <div className="flex flex-col gap-0.5">
-          <Badge variant={row.original.subscriptionState === "Active" ? "default" : "outline"}>
-            {SUBSCRIPTION_LABELS[row.original.subscriptionState]}
-          </Badge>
-          {row.original.validUntil && (
-            <span className="text-xs text-muted-foreground">
-              Until {new Date(row.original.validUntil).toLocaleDateString()}
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
       id: "moduleAccess",
       header: "Module Access",
       cell: ({ row }) => (
