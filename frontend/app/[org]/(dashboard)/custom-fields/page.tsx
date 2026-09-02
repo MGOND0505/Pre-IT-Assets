@@ -1,12 +1,14 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { type ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { MagneticButton } from "@/components/ui/magnetic-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,14 +19,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DataTable } from "@/components/common/data-table"
 import { Pagination } from "@/components/common/pagination"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
-import {
-  CustomFieldDefinitionFormDialog,
-  type CustomFieldDefinition,
-} from "@/components/custom-fields/custom-field-definition-form-dialog"
+import { type CustomFieldDefinition } from "@/components/custom-fields/custom-field-definition-form"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { can, canConfigureAssetStructure } from "@/lib/permissions"
 import { useAssetCategoryOptions, type CustomFieldModule, type CustomFieldType } from "@/lib/use-lookup-options"
+import { useOrgHref } from "@/lib/use-org-href"
 
 type Paginated = { items: CustomFieldDefinition[]; total: number; page: number; totalPages: number }
 
@@ -48,6 +48,7 @@ const TYPE_LABELS: Record<CustomFieldType, string> = {
 }
 
 export default function CustomFieldsPage() {
+  const toOrgHref = useOrgHref()
   const { user, loading: authLoading } = useAuth()
   const { items: categories } = useAssetCategoryOptions()
   const categoryNameById = React.useMemo(() => new Map(categories.map((c) => [c._id, c.name])), [categories])
@@ -55,7 +56,6 @@ export default function CustomFieldsPage() {
   const [data, setData] = React.useState<Paginated | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [page, setPage] = React.useState(1)
-  const [editing, setEditing] = React.useState<CustomFieldDefinition | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<CustomFieldDefinition | null>(null)
 
   const canView = can(user, "customFields", "view")
@@ -171,7 +171,11 @@ export default function CustomFieldsPage() {
             }
           />
           <DropdownMenuContent align="end">
-            {canWrite && <DropdownMenuItem onClick={() => setEditing(row.original)}>Edit</DropdownMenuItem>}
+            {canWrite && (
+              <DropdownMenuItem render={<Link href={toOrgHref(`/custom-fields/${row.original._id}/edit`)} />}>
+                Edit
+              </DropdownMenuItem>
+            )}
             {canWrite && (
               <DropdownMenuItem onClick={() => toggleStatus(row.original)}>
                 {row.original.status === "Active" ? "Mark Inactive" : "Mark Active"}
@@ -202,7 +206,11 @@ export default function CustomFieldsPage() {
             Define extra fields to capture on Assets, Licenses, and Helpdesk tickets.
           </p>
         </div>
-        {canCreate && <CustomFieldDefinitionFormDialog module={module} onSaved={load} />}
+        {canCreate && (
+          <MagneticButton>
+            <Button render={<Link href={toOrgHref(`/custom-fields/add?module=${module}`)} />}>Add custom field</Button>
+          </MagneticButton>
+        )}
       </div>
 
       <Tabs value={module} onValueChange={(v) => setModule((v as CustomFieldModule) ?? "assets")}>
@@ -226,19 +234,6 @@ export default function CustomFieldsPage() {
           </TabsContent>
         ))}
       </Tabs>
-
-      {editing && (
-        <CustomFieldDefinitionFormDialog
-          module={editing.module}
-          definition={editing}
-          open
-          onOpenChange={(open) => !open && setEditing(null)}
-          onSaved={() => {
-            load()
-            setEditing(null)
-          }}
-        />
-      )}
 
       {pendingDelete && (
         <ConfirmDialog
