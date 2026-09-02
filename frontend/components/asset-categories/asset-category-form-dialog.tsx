@@ -40,7 +40,7 @@ export const ASSET_CORE_FIELD_OPTIONS: { key: string; label: string }[] = [
   { key: "adapterSerialNumber", label: "Adapter serial number" },
   { key: "operatingSystem", label: "Operating system" },
   { key: "osVersion", label: "OS version" },
-  { key: "operatingSystemLicense", label: "OS license" },
+  { key: "remarks", label: "Remarks" },
   { key: "domainName", label: "Domain name" },
   { key: "antivirusStatus", label: "Antivirus status" },
 ]

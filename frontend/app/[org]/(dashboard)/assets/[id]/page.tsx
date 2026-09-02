@@ -51,18 +51,13 @@ type Asset = {
   osVersion: string
   domainName: string
   antivirusStatus: string
+  remarks: string
   purchaseDate: string | null
   purchaseCost: number | null
-  quantity: number | null
   vendor: RefOption
-  purchaseOrderNumber: string
   invoiceNumber: string
-  currency: string
   contractNumber: string
-  costCenter: string
-  budgetCode: string
   depreciationMethod: string
-  depreciationStartDate: string | null
   warrantyStartDate: string | null
   warrantyEndDate: string | null
   warrantyProvider: string
@@ -170,18 +165,13 @@ function toFormValues(asset: Asset): AssetFormValues {
     osVersion: asset.osVersion,
     domainName: asset.domainName,
     antivirusStatus: asset.antivirusStatus,
+    remarks: asset.remarks,
     purchaseDate: asset.purchaseDate?.slice(0, 10) ?? "",
     purchaseCost: asset.purchaseCost?.toString() ?? "",
-    quantity: asset.quantity?.toString() ?? "",
     vendor: asset.vendor?._id ?? "",
-    purchaseOrderNumber: asset.purchaseOrderNumber,
     invoiceNumber: asset.invoiceNumber,
-    currency: asset.currency,
     contractNumber: asset.contractNumber,
-    costCenter: asset.costCenter,
-    budgetCode: asset.budgetCode,
     depreciationMethod: asset.depreciationMethod,
-    depreciationStartDate: asset.depreciationStartDate?.slice(0, 10) ?? "",
     warrantyStartDate: asset.warrantyStartDate?.slice(0, 10) ?? "",
     warrantyEndDate: asset.warrantyEndDate?.slice(0, 10) ?? "",
     warrantyProvider: asset.warrantyProvider,
@@ -354,6 +344,7 @@ export default function AssetDetailPage() {
                 <Row label="Adapter serial number" value={asset.adapterSerialNumber} />
                 <Row label="Operating system" value={asset.operatingSystem} />
                 <Row label="OS version" value={asset.osVersion} />
+                <Row label="Remarks" value={asset.remarks} />
               </div>
             </TabsContent>
 
@@ -368,15 +359,9 @@ export default function AssetDetailPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Row label="Purchase date" value={formatDate(asset.purchaseDate)} />
                 <Row label="Purchase cost" value={asset.purchaseCost != null ? `₹${asset.purchaseCost}` : "-"} />
-                <Row label="Quantity" value={asset.quantity ?? "-"} />
                 <Row label="Vendor" value={asset.vendor?.name} />
-                <Row label="Purchase order number" value={asset.purchaseOrderNumber} />
                 <Row label="Invoice number" value={asset.invoiceNumber} />
-                <Row label="Currency" value={asset.currency} />
-                <Row label="Cost center" value={asset.costCenter} />
-                <Row label="Budget code" value={asset.budgetCode} />
                 <Row label="Depreciation method" value={asset.depreciationMethod} />
-                <Row label="Depreciation start date" value={formatDate(asset.depreciationStartDate)} />
                 <Row label="Contract number" value={asset.contractNumber} />
                 <Row label="Warranty start" value={formatDate(asset.warrantyStartDate)} />
                 <Row label="Warranty end" value={formatDate(asset.warrantyEndDate)} />

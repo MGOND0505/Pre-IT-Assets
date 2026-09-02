@@ -40,6 +40,14 @@ export type AssetDepreciationMethod = (typeof ASSET_DEPRECIATION_METHODS)[number
 export const ASSET_ANTIVIRUS_STATUSES = ["Installed", "Not Installed", "Outdated", "Unknown"] as const;
 export type AssetAntivirusStatus = (typeof ASSET_ANTIVIRUS_STATUSES)[number];
 
+// The dropdown's real options - "" (unset) is handled separately below since it's a valid but
+// non-selectable state (never shown as a dropdown item), not one of the four real choices.
+export const ASSET_OPERATING_SYSTEMS = ["Windows", "macOS", "Linux", "Windows Server", "Other"] as const;
+export type AssetOperatingSystem = (typeof ASSET_OPERATING_SYSTEMS)[number] | "";
+// Mongoose's enum validator checks every value including the default, so "" (unset) must be
+// listed explicitly here even though it's never offered as a dropdown choice in the UI.
+const ASSET_OPERATING_SYSTEMS_SCHEMA = [...ASSET_OPERATING_SYSTEMS, ""] as const;
+
 export interface IAsset {
   organization: Types.ObjectId;
   assetId: string;
@@ -67,7 +75,7 @@ export interface IAsset {
   serialNumber: string;
   hostname: string;
   macAddress: string;
-  operatingSystem: string;
+  operatingSystem: AssetOperatingSystem;
   // Free-text version/edition detail parsed out of the legacy operatingSystem blob where it could
   // be split with confidence (e.g. "Windows 11 Pro" -> operatingSystem "Windows", osVersion
   // "11 Pro") - see migrateAssetFieldsPhase3.ts. Never guessed: an unparseable original value
@@ -80,18 +88,15 @@ export interface IAsset {
   adapterSerialNumber: string;
   domainName: string;
   antivirusStatus: AssetAntivirusStatus;
+  // Free-text technical notes about this asset's hardware - distinct from `description` (the
+  // general asset summary) and `condition`/`repairHistory` (physical-condition specific).
+  remarks: string;
   purchaseDate: Date | null;
   purchaseCost: number | null;
-  quantity: number | null;
   vendor: Types.ObjectId | null;
-  purchaseOrderNumber: string;
   invoiceNumber: string;
-  currency: string;
   contractNumber: string;
-  costCenter: string;
-  budgetCode: string;
   depreciationMethod: AssetDepreciationMethod;
-  depreciationStartDate: Date | null;
   warrantyStartDate: Date | null;
   warrantyEndDate: Date | null;
   warrantyProvider: string;
@@ -136,7 +141,7 @@ const assetSchema = new Schema<IAsset>(
     serialNumber: { type: String, default: "", index: true },
     hostname: { type: String, default: "" },
     macAddress: { type: String, default: "" },
-    operatingSystem: { type: String, default: "" },
+    operatingSystem: { type: String, enum: ASSET_OPERATING_SYSTEMS_SCHEMA, default: "" },
     osVersion: { type: String, default: "" },
     CPU: { type: String, default: "" },
     ram: { type: String, default: "" },
@@ -145,18 +150,13 @@ const assetSchema = new Schema<IAsset>(
     adapterSerialNumber: { type: String, default: "" },
     domainName: { type: String, default: "" },
     antivirusStatus: { type: String, enum: ASSET_ANTIVIRUS_STATUSES, default: "Unknown" },
+    remarks: { type: String, default: "" },
     purchaseDate: { type: Date, default: null },
     purchaseCost: { type: Number, default: null },
-    quantity: { type: Number, default: null },
     vendor: { type: Schema.Types.ObjectId, ref: "Vendor", default: null },
-    purchaseOrderNumber: { type: String, default: "" },
     invoiceNumber: { type: String, default: "" },
-    currency: { type: String, default: "" },
     contractNumber: { type: String, default: "" },
-    costCenter: { type: String, default: "" },
-    budgetCode: { type: String, default: "" },
     depreciationMethod: { type: String, enum: ASSET_DEPRECIATION_METHODS, default: "None" },
-    depreciationStartDate: { type: Date, default: null },
     warrantyStartDate: { type: Date, default: null },
     warrantyEndDate: { type: Date, default: null },
     warrantyProvider: { type: String, default: "" },

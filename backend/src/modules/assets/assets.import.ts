@@ -429,7 +429,6 @@ function diffAgainstExisting(mapped: MappedFields, existing: ExistingAsset): str
     changed.push("warrantyEndDate");
   }
   if (!isBlank(mapped.purchaseCost) && parseNumberOrNull(mapped.purchaseCost) !== existing.purchaseCost) changed.push("purchaseCost");
-  if (!isBlank(mapped.quantity) && parseNumberOrNull(mapped.quantity) !== existing.quantity) changed.push("quantity");
   if (!isBlank(mapped.processor) && normalize(mapped.processor) !== normalize(existing.CPU)) changed.push("CPU");
   // The now-homeless legacy fields (see MERGE_INTO_DESCRIPTION_FIELDS) never directly overwrite
   // description - they only ever APPEND - so this flags "description" as changed independently of
@@ -621,7 +620,6 @@ async function buildPartialPayload(mapped: MappedFields, organizationId: string,
   if (!isBlank(mapped.criticality)) payload.criticality = mapCriticality(mapped.criticality);
   if (!isBlank(mapped.purchaseDate)) payload.purchaseDate = parseDateOrUndefined(mapped.purchaseDate) ?? null;
   if (!isBlank(mapped.purchaseCost)) payload.purchaseCost = parseNumberOrNull(mapped.purchaseCost);
-  if (!isBlank(mapped.quantity)) payload.quantity = parseNumberOrNull(mapped.quantity);
   if (!isBlank(mapped.warrantyEnd)) payload.warrantyEndDate = parseDateOrUndefined(mapped.warrantyEnd) ?? null;
   if (!isBlank(mapped.processor)) payload.CPU = mapped.processor;
 
@@ -690,7 +688,6 @@ export const confirmAssetImport = asyncHandler(async (req: Request, res: Respons
           criticality: mapCriticality(row.mapped.criticality),
           purchaseDate: parseDateOrUndefined(row.mapped.purchaseDate) ?? null,
           purchaseCost: parseNumberOrNull(row.mapped.purchaseCost),
-          quantity: parseNumberOrNull(row.mapped.quantity),
           warrantyEndDate: parseDateOrUndefined(row.mapped.warrantyEnd) ?? null,
           CPU: row.mapped.processor,
           location: location ? String(location._id) : null,

@@ -29,6 +29,7 @@ const NONE = "__none__"
 const ASSET_ASSIGNMENT_STATUSES = ["Unassigned", "Assigned", "Shared", "Pool", "Temporary"] as const
 const ASSET_DEPRECIATION_METHODS = ["Straight-Line", "None"] as const
 const ASSET_ANTIVIRUS_STATUSES = ["Installed", "Not Installed", "Outdated", "Unknown"] as const
+const ASSET_OPERATING_SYSTEMS = ["Windows", "macOS", "Linux", "Windows Server", "Other"] as const
 
 export type AssetFormValues = {
   _id?: string
@@ -59,18 +60,13 @@ export type AssetFormValues = {
   osVersion: string
   domainName: string
   antivirusStatus: string
+  remarks: string
   purchaseDate: string
   purchaseCost: string
-  quantity: string
   vendor: string
-  purchaseOrderNumber: string
   invoiceNumber: string
-  currency: string
   contractNumber: string
-  costCenter: string
-  budgetCode: string
   depreciationMethod: string
-  depreciationStartDate: string
   warrantyStartDate: string
   warrantyEndDate: string
   warrantyProvider: string
@@ -116,18 +112,13 @@ export const EMPTY_ASSET_FORM: AssetFormValues = {
   osVersion: "",
   domainName: "",
   antivirusStatus: "Unknown",
+  remarks: "",
   purchaseDate: "",
   purchaseCost: "",
-  quantity: "",
   vendor: "",
-  purchaseOrderNumber: "",
   invoiceNumber: "",
-  currency: "",
   contractNumber: "",
-  costCenter: "",
-  budgetCode: "",
   depreciationMethod: "None",
-  depreciationStartDate: "",
   warrantyStartDate: "",
   warrantyEndDate: "",
   warrantyProvider: "",
@@ -215,9 +206,7 @@ export function AssetForm({
         ...form,
         assetId: form.assetId || undefined,
         purchaseCost: form.purchaseCost ? Number(form.purchaseCost) : undefined,
-        quantity: form.quantity ? Number(form.quantity) : undefined,
         purchaseDate: form.purchaseDate || undefined,
-        depreciationStartDate: form.depreciationStartDate || undefined,
         warrantyStartDate: form.warrantyStartDate || undefined,
         warrantyEndDate: form.warrantyEndDate || undefined,
         contractStartDate: form.contractStartDate || undefined,
@@ -438,8 +427,26 @@ export function AssetForm({
             <Field label="Hostname" id="asset-hostname" value={form.hostname} onChange={set("hostname")} />
             <Field label="MAC address" id="asset-mac" value={form.macAddress} onChange={set("macAddress")} />
             <Field label="Adapter serial number" id="asset-adapter-serial" value={form.adapterSerialNumber} onChange={set("adapterSerialNumber")} />
-            <Field label="Operating system" id="asset-os" value={form.operatingSystem} onChange={set("operatingSystem")} />
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="asset-os">Operating system</Label>
+              <Select value={form.operatingSystem || NONE} onValueChange={(v) => setSelect("operatingSystem")(v === NONE ? "" : v)}>
+                <SelectTrigger id="asset-os" className="w-full">
+                  <SelectValue placeholder="Select an operating system" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Unspecified</SelectItem>
+                  {ASSET_OPERATING_SYSTEMS.map((os) => (
+                    <SelectItem key={os} value={os}>
+                      {os}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Field label="OS version" id="asset-os-version" value={form.osVersion} onChange={set("osVersion")} />
+            <div className="col-span-2">
+              <Field label="Remarks" id="asset-remarks" value={form.remarks} onChange={set("remarks")} />
+            </div>
           </div>
         </TabsContent>
 
@@ -468,7 +475,6 @@ export function AssetForm({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Purchase date" id="asset-purchase-date" type="date" value={form.purchaseDate} onChange={set("purchaseDate")} />
             <Field label="Purchase cost" id="asset-purchase-cost" type="number" value={form.purchaseCost} onChange={set("purchaseCost")} />
-            <Field label="Quantity" id="asset-quantity" type="number" value={form.quantity} onChange={set("quantity")} />
             <div className="flex flex-col gap-2">
               <Label htmlFor="asset-vendor">Vendor</Label>
               <Select value={form.vendor} onValueChange={setSelect("vendor")}>
@@ -484,11 +490,7 @@ export function AssetForm({
                 </SelectContent>
               </Select>
             </div>
-            <Field label="Purchase order number" id="asset-po" value={form.purchaseOrderNumber} onChange={set("purchaseOrderNumber")} />
             <Field label="Invoice number" id="asset-invoice" value={form.invoiceNumber} onChange={set("invoiceNumber")} />
-            <Field label="Currency" id="asset-currency" value={form.currency} onChange={set("currency")} />
-            <Field label="Cost center" id="asset-cost-center" value={form.costCenter} onChange={set("costCenter")} />
-            <Field label="Budget code" id="asset-budget-code" value={form.budgetCode} onChange={set("budgetCode")} />
             <div className="flex flex-col gap-2">
               <Label htmlFor="asset-depreciation-method">Depreciation method</Label>
               <Select value={form.depreciationMethod} onValueChange={setSelect("depreciationMethod")}>
@@ -504,7 +506,6 @@ export function AssetForm({
                 </SelectContent>
               </Select>
             </div>
-            <Field label="Depreciation start date" id="asset-depreciation-start" type="date" value={form.depreciationStartDate} onChange={set("depreciationStartDate")} />
             <Field label="Contract number" id="asset-contract-number" value={form.contractNumber} onChange={set("contractNumber")} />
             <Field label="Warranty start" id="asset-warranty-start" type="date" value={form.warrantyStartDate} onChange={set("warrantyStartDate")} />
             <Field label="Warranty end" id="asset-warranty-end" type="date" value={form.warrantyEndDate} onChange={set("warrantyEndDate")} />
