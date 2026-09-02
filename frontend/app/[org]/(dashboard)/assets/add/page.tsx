@@ -1,6 +1,6 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AssetForm, EMPTY_ASSET_FORM } from "@/components/assets/asset-form"
@@ -11,9 +11,14 @@ import { useOrgHref } from "@/lib/use-org-href"
 export default function AddAssetPage() {
   const router = useRouter()
   const toOrgHref = useOrgHref()
+  const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
 
   const canCreate = can(user, "assets", "create")
+  // Lets the category tree's per-category "+" quick-add jump straight here with the category
+  // already chosen - a plain "/assets/add" visit (the page's normal top-level entry) still opens
+  // with nothing preset, exactly as before.
+  const presetCategory = searchParams.get("category") ?? ""
 
   if (authLoading) return null
   if (!canCreate) {
@@ -32,7 +37,7 @@ export default function AddAssetPage() {
         </CardHeader>
         <CardContent>
           <AssetForm
-            initial={EMPTY_ASSET_FORM}
+            initial={presetCategory ? { ...EMPTY_ASSET_FORM, category: presetCategory } : EMPTY_ASSET_FORM}
             onSaved={(assetId) => router.push(toOrgHref(`/assets/${assetId}`))}
             onCancel={() => router.push(toOrgHref("/assets"))}
           />

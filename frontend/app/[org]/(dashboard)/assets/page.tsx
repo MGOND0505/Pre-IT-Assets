@@ -377,6 +377,7 @@ export default function AssetsPage() {
             setPage(1)
             setCategorySelection(next)
           }}
+          buildAddAssetHref={canCreate ? (categoryId) => toOrgHref(`/assets/add?category=${categoryId}`) : undefined}
         />
 
         <div className="flex min-w-0 flex-1 flex-col gap-6">

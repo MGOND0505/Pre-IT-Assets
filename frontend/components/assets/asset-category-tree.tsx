@@ -1,8 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { ChevronDown, ChevronRight } from "lucide-react"
+import Link from "next/link"
+import { ChevronDown, ChevronRight, Plus } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { ASSET_CATEGORY_GROUPS } from "@/components/asset-categories/asset-category-form-dialog"
 import type { AssetCategoryOption } from "@/lib/use-lookup-options"
@@ -45,6 +48,51 @@ function NavRow({
   )
 }
 
+function CategoryRow({
+  category,
+  active,
+  onSelect,
+  addHref,
+}: {
+  category: AssetCategoryOption
+  active: boolean
+  onSelect: () => void
+  addHref: string | null
+}) {
+  return (
+    <div className="flex items-center gap-0.5 pl-7">
+      <button
+        type="button"
+        onClick={onSelect}
+        className={cn(
+          "min-w-0 flex-1 truncate rounded-md px-2 py-1.5 text-left text-sm transition-colors",
+          active ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        {category.name}
+      </button>
+      {addHref && (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6 shrink-0"
+                aria-label={`Add asset in ${category.name}`}
+                render={<Link href={addHref} />}
+              >
+                <Plus className="size-3.5" />
+              </Button>
+            }
+          />
+          <TooltipContent>Add asset in {category.name}</TooltipContent>
+        </Tooltip>
+      )}
+    </div>
+  )
+}
+
 // Category-based nav: "All Assets" + each of the 5 groups (expandable), listing that group's
 // categories - clicking any node filters assets/page.tsx's list via the group/category query
 // params assets.service.ts#listAssets now understands. A category not yet assigned a real group
@@ -54,10 +102,14 @@ export function AssetCategoryTree({
   categories,
   selection,
   onChange,
+  buildAddAssetHref,
 }: {
   categories: AssetCategoryOption[]
   selection: AssetCategorySelection
   onChange: (next: AssetCategorySelection) => void
+  // Returns the org-scoped "add asset preset to this category" URL, or null when the current user
+  // can't create assets at all - omitting it entirely hides every category row's quick-add button.
+  buildAddAssetHref?: (categoryId: string) => string
 }) {
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>(() =>
     Object.fromEntries(ASSET_CATEGORY_GROUPS.map((g) => [g, true]))
@@ -105,12 +157,12 @@ export function AssetCategoryTree({
             </div>
             {isExpanded &&
               groupCategories.map((c) => (
-                <NavRow
+                <CategoryRow
                   key={c._id}
-                  label={c.name}
-                  indent
+                  category={c}
                   active={selection.category === c._id}
-                  onClick={() => onChange({ group: null, category: c._id })}
+                  onSelect={() => onChange({ group: null, category: c._id })}
+                  addHref={buildAddAssetHref ? buildAddAssetHref(c._id) : null}
                 />
               ))}
           </div>
