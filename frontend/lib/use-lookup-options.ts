@@ -20,7 +20,15 @@ function useLookup<T>(endpoint: string, limit = 100) {
   return { items, loading }
 }
 
-export type AssetCategoryOption = { _id: string; name: string; prefix: string; group: string }
+export type AssetCategoryOption = {
+  _id: string
+  name: string
+  prefix: string
+  group: string
+  // null = uncurated (show every Hardware/Security core field, the pre-redesign default);
+  // an array (possibly empty) = an explicit curated list from Asset Category management.
+  visibleCoreFields: string[] | null
+}
 export type LicenseCategoryOption = { _id: string; name: string }
 export type VendorOption = { _id: string; name: string }
 export type LocationOption = { _id: string; name: string }

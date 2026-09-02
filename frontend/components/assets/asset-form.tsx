@@ -184,6 +184,16 @@ export function AssetForm({
   const { items: customFieldDefinitions } = useCustomFieldDefinitionOptions("assets", form.category)
   const hasCustomFields = customFieldDefinitions.length > 0
 
+  // Hardware/Security core fields a category didn't curate in are hidden from the form -
+  // `visibleCoreFields: null` (the uncurated default) shows every field, matching pre-redesign
+  // behavior for any category nobody has configured yet.
+  const selectedCategory = categories.find((c) => c._id === form.category)
+  const visibleCoreFields = selectedCategory?.visibleCoreFields ?? null
+  function isCoreFieldVisible(key: string): boolean {
+    return visibleCoreFields === null || visibleCoreFields.includes(key)
+  }
+  const hasVisibleSecurityFields = isCoreFieldVisible("domainName") || isCoreFieldVisible("antivirusStatus")
+
   function set<K extends keyof AssetFormValues>(field: K) {
     return (value: string) => setForm((f) => ({ ...f, [field]: value }))
   }
@@ -250,7 +260,7 @@ export function AssetForm({
           <TabsTrigger value="assignment" className="shrink-0">Assignment</TabsTrigger>
           <TabsTrigger value="assetLocation" className="shrink-0">Location</TabsTrigger>
           <TabsTrigger value="hardware" className="shrink-0">Hardware</TabsTrigger>
-          <TabsTrigger value="security" className="shrink-0">Security</TabsTrigger>
+          {hasVisibleSecurityFields && <TabsTrigger value="security" className="shrink-0">Security</TabsTrigger>}
           <TabsTrigger value="purchase" className="shrink-0">Purchase &amp; vendor</TabsTrigger>
           <TabsTrigger value="condition" className="shrink-0">Condition</TabsTrigger>
           {hasCustomFields && <TabsTrigger value="customFields" className="shrink-0">Custom fields</TabsTrigger>}
@@ -422,56 +432,83 @@ export function AssetForm({
             <Field label="Manufacturer" id="asset-manufacturer" value={form.manufacturer} onChange={set("manufacturer")} />
             <Field label="Model" id="asset-model" value={form.model} onChange={set("model")} />
             <Field label="Serial number" id="asset-serial" value={form.serialNumber} onChange={set("serialNumber")} />
-            <Field label="CPU" id="asset-cpu" value={form.CPU} onChange={set("CPU")} />
-            <Field label="RAM" id="asset-ram" value={form.ram} onChange={set("ram")} />
-            <Field label="Storage" id="asset-storage" value={form.storage} onChange={set("storage")} />
-            <Field label="Display" id="asset-display" value={form.display} onChange={set("display")} />
-            <Field label="Hostname" id="asset-hostname" value={form.hostname} onChange={set("hostname")} />
-            <Field label="MAC address" id="asset-mac" value={form.macAddress} onChange={set("macAddress")} />
-            <Field label="Adapter serial number" id="asset-adapter-serial" value={form.adapterSerialNumber} onChange={set("adapterSerialNumber")} />
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="asset-os">Operating system</Label>
-              <Select value={form.operatingSystem || NONE} onValueChange={(v) => setSelect("operatingSystem")(v === NONE ? "" : v)}>
-                <SelectTrigger id="asset-os" className="w-full">
-                  <SelectValue placeholder="Select an operating system" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>Unspecified</SelectItem>
-                  {ASSET_OPERATING_SYSTEMS.map((os) => (
-                    <SelectItem key={os} value={os}>
-                      {os}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Field label="OS version" id="asset-os-version" value={form.osVersion} onChange={set("osVersion")} />
-            <div className="col-span-2">
-              <Field label="Remarks" id="asset-remarks" value={form.remarks} onChange={set("remarks")} />
-            </div>
+            {isCoreFieldVisible("CPU") && <Field label="CPU" id="asset-cpu" value={form.CPU} onChange={set("CPU")} />}
+            {isCoreFieldVisible("ram") && <Field label="RAM" id="asset-ram" value={form.ram} onChange={set("ram")} />}
+            {isCoreFieldVisible("storage") && (
+              <Field label="Storage" id="asset-storage" value={form.storage} onChange={set("storage")} />
+            )}
+            {isCoreFieldVisible("display") && (
+              <Field label="Display" id="asset-display" value={form.display} onChange={set("display")} />
+            )}
+            {isCoreFieldVisible("hostname") && (
+              <Field label="Hostname" id="asset-hostname" value={form.hostname} onChange={set("hostname")} />
+            )}
+            {isCoreFieldVisible("macAddress") && (
+              <Field label="MAC address" id="asset-mac" value={form.macAddress} onChange={set("macAddress")} />
+            )}
+            {isCoreFieldVisible("adapterSerialNumber") && (
+              <Field
+                label="Adapter serial number"
+                id="asset-adapter-serial"
+                value={form.adapterSerialNumber}
+                onChange={set("adapterSerialNumber")}
+              />
+            )}
+            {isCoreFieldVisible("operatingSystem") && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="asset-os">Operating system</Label>
+                <Select value={form.operatingSystem || NONE} onValueChange={(v) => setSelect("operatingSystem")(v === NONE ? "" : v)}>
+                  <SelectTrigger id="asset-os" className="w-full">
+                    <SelectValue placeholder="Select an operating system" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>Unspecified</SelectItem>
+                    {ASSET_OPERATING_SYSTEMS.map((os) => (
+                      <SelectItem key={os} value={os}>
+                        {os}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {isCoreFieldVisible("osVersion") && (
+              <Field label="OS version" id="asset-os-version" value={form.osVersion} onChange={set("osVersion")} />
+            )}
+            {isCoreFieldVisible("remarks") && (
+              <div className="col-span-2">
+                <Field label="Remarks" id="asset-remarks" value={form.remarks} onChange={set("remarks")} />
+              </div>
+            )}
           </div>
         </TabsContent>
 
-        <TabsContent value="security">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Domain name" id="asset-domain-name" value={form.domainName} onChange={set("domainName")} />
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="asset-antivirus-status">Antivirus status</Label>
-              <Select value={form.antivirusStatus} onValueChange={setSelect("antivirusStatus")}>
-                <SelectTrigger id="asset-antivirus-status" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ASSET_ANTIVIRUS_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        {hasVisibleSecurityFields && (
+          <TabsContent value="security">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {isCoreFieldVisible("domainName") && (
+                <Field label="Domain name" id="asset-domain-name" value={form.domainName} onChange={set("domainName")} />
+              )}
+              {isCoreFieldVisible("antivirusStatus") && (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="asset-antivirus-status">Antivirus status</Label>
+                  <Select value={form.antivirusStatus} onValueChange={setSelect("antivirusStatus")}>
+                    <SelectTrigger id="asset-antivirus-status" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ASSET_ANTIVIRUS_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
-          </div>
-        </TabsContent>
+          </TabsContent>
+        )}
 
         <TabsContent value="purchase">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

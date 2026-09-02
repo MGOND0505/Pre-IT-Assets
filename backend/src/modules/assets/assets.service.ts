@@ -20,7 +20,7 @@ import {
 } from "../../services/alerts/assetChangeAlerts";
 
 const POPULATE_FIELDS = [
-  { path: "category", select: "name prefix group" },
+  { path: "category", select: "name prefix group visibleCoreFields" },
   { path: "vendor", select: "name" },
   { path: "location", select: "name city" },
   { path: "department", select: "name" },

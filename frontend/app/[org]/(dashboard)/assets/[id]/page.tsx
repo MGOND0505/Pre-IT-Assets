@@ -27,7 +27,7 @@ type Asset = {
   assetId: string
   assetTag: string
   name: string
-  category: (RefOption & { prefix?: string }) | null
+  category: (RefOption & { prefix?: string; visibleCoreFields?: string[] | null }) | null
   assetType: string
   assetSubType: string
   ownershipType: AssetOwnershipType
@@ -249,6 +249,14 @@ export default function AssetDetailPage() {
   const conditionNeedsAttention = hasConditionIssue(asset)
   const financialNeedsAttention = hasWarrantyIssue(asset)
 
+  // Mirrors asset-form.tsx's isCoreFieldVisible - null (uncurated) shows every Hardware/Security
+  // field, matching every category nobody has explicitly configured yet.
+  const visibleCoreFields = asset.category?.visibleCoreFields ?? null
+  function isCoreFieldVisible(key: string): boolean {
+    return visibleCoreFields === null || visibleCoreFields.includes(key)
+  }
+  const hasVisibleSecurityFields = isCoreFieldVisible("domainName") || isCoreFieldVisible("antivirusStatus")
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -275,7 +283,7 @@ export default function AssetDetailPage() {
               <TabsTrigger value="assignment">Assignment</TabsTrigger>
               <TabsTrigger value="assetLocation">Location</TabsTrigger>
               <TabsTrigger value="hardware">Hardware</TabsTrigger>
-              <TabsTrigger value="security">Security</TabsTrigger>
+              {hasVisibleSecurityFields && <TabsTrigger value="security">Security</TabsTrigger>}
               <TabsTrigger value="financial">
                 Financial
                 {financialNeedsAttention && needsAttentionDot("#fab219")}
@@ -335,25 +343,29 @@ export default function AssetDetailPage() {
                 <Row label="Manufacturer" value={asset.manufacturer} />
                 <Row label="Model" value={asset.model} />
                 <Row label="Serial number" value={asset.serialNumber} />
-                <Row label="CPU" value={asset.CPU} />
-                <Row label="RAM" value={asset.ram} />
-                <Row label="Storage" value={asset.storage} />
-                <Row label="Display" value={asset.display} />
-                <Row label="Hostname" value={asset.hostname} />
-                <Row label="MAC address" value={asset.macAddress} />
-                <Row label="Adapter serial number" value={asset.adapterSerialNumber} />
-                <Row label="Operating system" value={asset.operatingSystem} />
-                <Row label="OS version" value={asset.osVersion} />
-                <Row label="Remarks" value={asset.remarks} />
+                {isCoreFieldVisible("CPU") && <Row label="CPU" value={asset.CPU} />}
+                {isCoreFieldVisible("ram") && <Row label="RAM" value={asset.ram} />}
+                {isCoreFieldVisible("storage") && <Row label="Storage" value={asset.storage} />}
+                {isCoreFieldVisible("display") && <Row label="Display" value={asset.display} />}
+                {isCoreFieldVisible("hostname") && <Row label="Hostname" value={asset.hostname} />}
+                {isCoreFieldVisible("macAddress") && <Row label="MAC address" value={asset.macAddress} />}
+                {isCoreFieldVisible("adapterSerialNumber") && (
+                  <Row label="Adapter serial number" value={asset.adapterSerialNumber} />
+                )}
+                {isCoreFieldVisible("operatingSystem") && <Row label="Operating system" value={asset.operatingSystem} />}
+                {isCoreFieldVisible("osVersion") && <Row label="OS version" value={asset.osVersion} />}
+                {isCoreFieldVisible("remarks") && <Row label="Remarks" value={asset.remarks} />}
               </div>
             </TabsContent>
 
-            <TabsContent value="security">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <Row label="Domain name" value={asset.domainName} />
-                <Row label="Antivirus status" value={asset.antivirusStatus} />
-              </div>
-            </TabsContent>
+            {hasVisibleSecurityFields && (
+              <TabsContent value="security">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {isCoreFieldVisible("domainName") && <Row label="Domain name" value={asset.domainName} />}
+                  {isCoreFieldVisible("antivirusStatus") && <Row label="Antivirus status" value={asset.antivirusStatus} />}
+                </div>
+              </TabsContent>
+            )}
 
             <TabsContent value="financial">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
