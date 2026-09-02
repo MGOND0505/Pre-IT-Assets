@@ -40,7 +40,16 @@ export const getLicense = asyncHandler(async (req: Request, res: Response) => {
   ok(res, license, "License");
 });
 
+/** Tagging a license to employee(s) (assignedUsers) is restricted to Org Admin/Super Admin - no
+ * permissions.licenses.* bypass here, even for a Team Member holding licenses:update. Stripped
+ * here so a direct API call can't set it either - mirrors assets.controller.ts's own
+ * stripAssignedUserUnlessAdmin. */
+function stripAssignedUsersUnlessAdmin(req: Request): void {
+  if (!req.user!.isAdmin) delete req.body.assignedUsers;
+}
+
 export const createLicense = asyncHandler(async (req: Request, res: Response) => {
+  stripAssignedUsersUnlessAdmin(req);
   req.body.customFields = await validateCustomFieldValues(req.body.customFields, "licenses", req.organization!._id);
   const license = await licensesService.createLicense(req.organization!._id, req.body, req.user!.id);
 
@@ -57,6 +66,7 @@ export const createLicense = asyncHandler(async (req: Request, res: Response) =>
 });
 
 export const updateLicense = asyncHandler(async (req: Request, res: Response) => {
+  stripAssignedUsersUnlessAdmin(req);
   req.body.customFields = await validateCustomFieldValues(req.body.customFields, "licenses", req.organization!._id);
   const license = await licensesService.updateLicense(req.organization!._id, req.params.id, req.body);
 

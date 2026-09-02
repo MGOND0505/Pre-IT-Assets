@@ -107,6 +107,10 @@ export function LicenseForm({
   // assets:view, so showing this to someone without it would just be a permanently-empty picker.
   const canPickAssets = can(user, "assets", "view")
   const { items: assetOptions } = useAssetOptions()
+  // Tagging a license to employee(s) is Org Admin/Super Admin only - mirrors asset-form.tsx's own
+  // canAssignEmployee. Backend re-enforces this regardless
+  // (licenses.controller.ts#stripAssignedUsersUnlessAdmin).
+  const canAssignEmployee = Boolean(user?.isAdmin)
   // Gates the "Custom fields" section's very existence, not just its contents - a form with none
   // configured must look exactly like it did before this feature existed.
   const { items: customFieldDefinitions } = useCustomFieldDefinitionOptions("licenses")
@@ -289,19 +293,30 @@ export function LicenseForm({
           <Label>
             Assigned users ({form.assignedUsers.length}/{form.totalLicenses || 1})
           </Label>
-          <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border p-2">
-            {users.length === 0 && <p className="text-sm text-muted-foreground">No users found.</p>}
-            {users.map((u) => (
-              <label key={u._id} className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted">
-                <input
-                  type="checkbox"
-                  checked={form.assignedUsers.includes(u._id)}
-                  onChange={() => toggleAssignedUser(u._id)}
-                />
-                {u.name} ({u.email})
-              </label>
-            ))}
-          </div>
+          {canAssignEmployee ? (
+            <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border p-2">
+              {users.length === 0 && <p className="text-sm text-muted-foreground">No users found.</p>}
+              {users.map((u) => (
+                <label key={u._id} className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted">
+                  <input
+                    type="checkbox"
+                    checked={form.assignedUsers.includes(u._id)}
+                    onChange={() => toggleAssignedUser(u._id)}
+                  />
+                  {u.name} ({u.email})
+                </label>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-md border bg-muted/50 p-2 text-sm text-muted-foreground">
+              {form.assignedUsers.length === 0
+                ? "Unassigned"
+                : form.assignedUsers
+                    .map((id) => users.find((u) => u._id === id)?.name ?? "Assigned")
+                    .join(", ")}
+              <span className="block text-xs">Only an Org Admin can tag this license to an employee.</span>
+            </div>
+          )}
         </div>
         <div className="col-span-2">
           <Field label="Notes" id="lic-notes" value={form.notes} onChange={set("notes")} />

@@ -34,7 +34,7 @@ type License = {
   expiryDate: string | null
   renewalDate: string | null
   totalLicenses: number
-  assignedUsers: { _id: string; name: string; email: string }[]
+  assignedUsers: { _id: string; name: string; email: string; employeeId?: string }[]
   assets: { _id: string; assetId: string; name: string }[]
   department: RefOption
   status: "Active" | "Expired" | "Cancelled"
@@ -186,7 +186,8 @@ export default function LicenseDetailPage() {
             <ul className="flex flex-col gap-2">
               {license.assignedUsers.map((u) => (
                 <li key={u._id} className="rounded-md border p-2 text-sm">
-                  {u.name} ({u.email})
+                  {u.name}
+                  {u.employeeId ? ` (${u.employeeId})` : ""} - {u.email}
                 </li>
               ))}
             </ul>

@@ -48,8 +48,16 @@ function stripAssetIdUnlessAuthorized(req: Request): void {
   if (!canEditAssetId) delete req.body.assetId;
 }
 
+/** Tagging an asset to an employee (assignedUser) is restricted to Org Admin/Super Admin - unlike
+ * every other Asset field, there is no permissions.assets.* bypass for a Team Member here, even
+ * one holding assets:update. Stripped here so a direct API call can't set it either. */
+function stripAssignedUserUnlessAdmin(req: Request): void {
+  if (!req.user!.isAdmin) delete req.body.assignedUser;
+}
+
 export const createAsset = asyncHandler(async (req: Request, res: Response) => {
   stripAssetIdUnlessAuthorized(req);
+  stripAssignedUserUnlessAdmin(req);
   req.body.customFields = await validateCustomFieldValues(
     req.body.customFields,
     "assets",
@@ -72,6 +80,7 @@ export const createAsset = asyncHandler(async (req: Request, res: Response) => {
 
 export const updateAsset = asyncHandler(async (req: Request, res: Response) => {
   stripAssetIdUnlessAuthorized(req);
+  stripAssignedUserUnlessAdmin(req);
   const before = await assetsService.getAssetById(req.params.id, req.organization!._id);
   const oldValue = before.toObject();
 

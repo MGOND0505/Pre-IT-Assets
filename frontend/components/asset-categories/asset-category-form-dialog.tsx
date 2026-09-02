@@ -60,6 +60,8 @@ const ASSET_LIST_COLUMN_COMMON_OPTIONS: { key: string; label: string }[] = [
   { key: "location", label: "Location" },
   { key: "department", label: "Department" },
   { key: "assignedUser", label: "Assigned to" },
+  { key: "employeeName", label: "Employee Name" },
+  { key: "employeeId", label: "Employee ID" },
   { key: "vendor", label: "Vendor" },
   { key: "purchaseDate", label: "Purchase date" },
   { key: "warrantyEndDate", label: "Warranty end" },

@@ -23,7 +23,7 @@ type License = {
   softwareName: string
   vendor: { _id: string; name: string } | null
   totalLicenses: number
-  assignedUsers: { _id: string; name: string }[]
+  assignedUsers: { _id: string; name: string; employeeId?: string }[]
   expiryDate: string | null
   status: "Active" | "Expired" | "Cancelled"
 }
@@ -80,6 +80,32 @@ export default function LicensesPage() {
           {row.original.licenseId}
         </Link>
       ),
+    },
+    {
+      id: "employeeName",
+      header: "Employee Name",
+      meta: { hideBelow: "md" },
+      cell: ({ row }) => {
+        const names = row.original.assignedUsers.map((u) => u.name).join(", ")
+        return (
+          <span title={names} className="block min-w-[100px] max-w-[160px] whitespace-normal break-words">
+            {names || "Unassigned"}
+          </span>
+        )
+      },
+    },
+    {
+      id: "employeeId",
+      header: "Employee ID",
+      meta: { hideBelow: "lg" },
+      cell: ({ row }) => {
+        const ids = row.original.assignedUsers.map((u) => u.employeeId).filter(Boolean).join(", ")
+        return (
+          <span title={ids} className="block min-w-[80px] max-w-[130px] whitespace-normal break-words">
+            {ids || "-"}
+          </span>
+        )
+      },
     },
     {
       accessorKey: "softwareName",

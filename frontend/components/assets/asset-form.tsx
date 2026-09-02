@@ -171,6 +171,11 @@ export function AssetForm({
 
   const { user } = useAuth()
   const canEditAssetId = can(user, "assets", "editAssetId")
+  // Tagging an asset to an employee is Org Admin/Super Admin only - no assets:update bypass, even
+  // for a Team Member who can otherwise edit everything else on this form. Backend re-enforces
+  // this regardless (assets.controller.ts#stripAssignedUserUnlessAdmin) - this is just so the
+  // control isn't shown as editable to someone whose change would silently be dropped.
+  const canAssignEmployee = Boolean(user?.isAdmin)
 
   const { items: categories } = useAssetCategoryOptions()
   const { items: vendors } = useVendorOptions()
@@ -352,19 +357,26 @@ export function AssetForm({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="col-span-2 flex flex-col gap-2">
               <Label htmlFor="asset-assigned-user">Assigned to (system user)</Label>
-              <Select value={form.assignedUser || NONE} onValueChange={(v) => setSelect("assignedUser")(v === NONE ? "" : v)}>
-                <SelectTrigger id="asset-assigned-user" className="w-full">
-                  <SelectValue placeholder="Unassigned" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>Unassigned</SelectItem>
-                  {users.map((u) => (
-                    <SelectItem key={u._id} value={u._id}>
-                      {u.name} ({u.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {canAssignEmployee ? (
+                <Select value={form.assignedUser || NONE} onValueChange={(v) => setSelect("assignedUser")(v === NONE ? "" : v)}>
+                  <SelectTrigger id="asset-assigned-user" className="w-full">
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>Unassigned</SelectItem>
+                    {users.map((u) => (
+                      <SelectItem key={u._id} value={u._id}>
+                        {u.name} ({u.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="rounded-md border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                  {form.assignedUser ? users.find((u) => u._id === form.assignedUser)?.name ?? "Assigned" : "Unassigned"}
+                  {" - only an Org Admin can tag this asset to an employee."}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 Employee ID, name, email and designation are shown from the selected user&apos;s
                 profile - they are no longer entered separately here.

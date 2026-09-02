@@ -53,7 +53,7 @@ type Asset = {
   location: RefOption
   department: RefOption
   vendor: RefOption
-  assignedUser: (RefOption & { email?: string }) | null
+  assignedUser: (RefOption & { email?: string; employeeId?: string }) | null
   purchaseDate: string | null
   warrantyEndDate: string | null
 }
@@ -148,6 +148,23 @@ const ASSET_COLUMN_BUILDERS: Record<string, () => ColumnDef<Asset, unknown>> = {
       </span>
     ),
   }),
+  employeeName: () => ({
+    id: "employeeName",
+    header: "Employee Name",
+    cell: ({ row }) => (
+      <span
+        title={row.original.assignedUser?.name}
+        className="block min-w-[100px] max-w-[150px] whitespace-normal break-words"
+      >
+        {row.original.assignedUser?.name ?? "Unassigned"}
+      </span>
+    ),
+  }),
+  employeeId: () => ({
+    id: "employeeId",
+    header: "Employee ID",
+    cell: ({ row }) => row.original.assignedUser?.employeeId || "-",
+  }),
   purchaseDate: () => ({
     id: "purchaseDate",
     header: "Purchase date",
@@ -176,7 +193,17 @@ const ASSET_COLUMN_BUILDERS: Record<string, () => ColumnDef<Asset, unknown>> = {
 
 // The list's standard column set, used whenever the list isn't filtered to exactly one category,
 // or that category never curated its own listColumns (null - the uncurated default).
-const DEFAULT_LIST_COLUMN_KEYS = ["category", "manufacturer", "model", "location", "ownershipType", "criticality", "status"]
+const DEFAULT_LIST_COLUMN_KEYS = [
+  "employeeName",
+  "employeeId",
+  "category",
+  "manufacturer",
+  "model",
+  "location",
+  "ownershipType",
+  "criticality",
+  "status",
+]
 
 export default function AssetsPage() {
   const router = useRouter()
