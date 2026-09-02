@@ -5,6 +5,7 @@ import { ApiError } from "../../utils/ApiError";
 import { logAction } from "../audit/audit.service";
 import * as tasksService from "./tasks.service";
 import * as taskCommentsService from "./taskComments.service";
+import * as assignmentHistoryService from "./assignmentHistory.service";
 import { notifyTaskEvent } from "./taskNotifications";
 
 function idOf(ref: unknown): string | null {
@@ -103,7 +104,7 @@ export const setTaskStatus = asyncHandler(async (req: Request, res: Response) =>
 
 export const assignTask = asyncHandler(async (req: Request, res: Response) => {
   const before = await tasksService.getTaskById(req.params.id, req.organization!._id);
-  const task = await tasksService.assignTask(req.params.id, req.body.assigneeId, req.organization!._id);
+  const task = await tasksService.assignTask(req.params.id, req.body.assigneeId, req.organization!._id, req.user!.id);
 
   await logAction({
     req,
@@ -152,6 +153,18 @@ export const restoreTask = asyncHandler(async (req: Request, res: Response) => {
   await logAction({ req, action: "RESTORE", module: "Task", recordId: task.id, recordLabel: task.taskId });
 
   ok(res, task, "Task restored");
+});
+
+export const getAssignmentHistory = asyncHandler(async (req: Request, res: Response) => {
+  await tasksService.getTaskByIdForRequester(req.params.id, req.organization!._id, requestingUserFrom(req)); // 404s for someone else's task
+
+  const canViewHistory = req.user!.isAdmin || req.user!.permissions.tasks.assign || req.user!.permissions.tasks.update;
+  if (!canViewHistory) {
+    throw new ApiError(403, "You do not have permission to view this task's assignment history");
+  }
+
+  const history = await assignmentHistoryService.listTaskAssignmentHistory(req.params.id, req.organization!._id);
+  ok(res, history, "Assignment history");
 });
 
 export const listComments = asyncHandler(async (req: Request, res: Response) => {

@@ -136,6 +136,7 @@ export async function createTask(input: CreateInput, organizationId: string, cre
         description: input.description ?? "",
         assignedTo: input.assignedTo,
         assignedBy: createdBy,
+        assignedDate: new Date(),
         dueDate: input.dueDate ?? null,
         priority: input.priority ?? "Medium",
         ticket: input.ticket ?? null,
@@ -179,12 +180,17 @@ export async function setTaskStatus(id: string, status: TaskStatus, remark: stri
   return getTaskById(id, organizationId);
 }
 
-export async function assignTask(id: string, assigneeId: string, organizationId: string) {
+export async function assignTask(id: string, assigneeId: string, organizationId: string, assignedBy: string) {
   const task = await getTaskById(id, organizationId);
   const assignee = await User.findOne({ _id: assigneeId, organization: organizationId });
   if (!assignee) throw new ApiError(404, "Assignee not found");
 
   task.assignedTo = assignee._id as never;
+  // Both must move together on every (re)assignment, not just the first one - previously only
+  // assignedTo was ever touched here, leaving assignedBy/assignedDate stale after the initial
+  // create.
+  task.assignedBy = assignedBy as never;
+  task.assignedDate = new Date();
   await task.save();
   return getTaskById(id, organizationId);
 }

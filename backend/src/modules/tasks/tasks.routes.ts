@@ -79,6 +79,13 @@ tasksRouter.post(
 );
 
 tasksRouter.get(
+  "/:id/assignment-history",
+  authorize("tasks", "view"),
+  validate({ params: taskIdParamsSchema }),
+  tasksController.getAssignmentHistory
+);
+
+tasksRouter.get(
   "/:id/comments",
   authorize("tasks", "view"),
   validate({ params: taskIdParamsSchema }),

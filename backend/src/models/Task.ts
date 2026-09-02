@@ -13,6 +13,10 @@ export interface ITask {
   description: string;
   assignedTo: Types.ObjectId;
   assignedBy: Types.ObjectId | null;
+  // When the CURRENT assignedTo/assignedBy pair took effect - set on create and again on every
+  // reassignment (see tasks.service.ts#assignTask). Distinct from createdDate, which never
+  // changes after creation.
+  assignedDate: Date | null;
   dueDate: Date | null;
   priority: TaskPriority;
   status: TaskStatus;
@@ -40,6 +44,7 @@ const taskSchema = new Schema<ITask>(
     description: { type: String, default: "" },
     assignedTo: { type: Schema.Types.ObjectId, ref: "User", required: true },
     assignedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    assignedDate: { type: Date, default: null },
     dueDate: { type: Date, default: null, index: true },
     priority: { type: String, enum: TASK_PRIORITIES, default: "Medium" },
     status: { type: String, enum: TASK_STATUSES, default: "To Do", index: true },
