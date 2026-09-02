@@ -40,6 +40,7 @@ export const ENTITLEMENT_MODULES = [
   "customFields",
   "recycleBin",
   "auditLogs",
+  "fileUpload",
 ] as const
 export type EntitlementModule = (typeof ENTITLEMENT_MODULES)[number]
 
@@ -124,6 +125,7 @@ export const MODULE_LABELS: Record<PermissionModule | EntitlementModule, string>
   aiAssistant: "AI Assistant",
   recycleBin: "Recycle Bin",
   assetCategories: "Asset Categories & Types",
+  fileUpload: "File Upload",
 }
 
 type ModulePermissions = { [action in PermissionAction]: boolean }
@@ -178,4 +180,15 @@ export function canConfigureAssetStructure(user: RoleAware, moduleKey: Permissio
   if (user.role === "superAdmin") return true
   if (user.role === "subSuperAdmin") return Boolean(user.permissions[moduleKey]?.[action])
   return false
+}
+
+type ModuleAware = { role: string; organization: { enabledModules: EntitlementModule[] } | null } | null | undefined
+
+// Mirrors the backend's requireModuleEnabled(): superAdmin always passes, everyone else needs the
+// currently-viewed org to actually have the module entitled. Same bypass rule sidebar-nav.tsx and
+// employee-dashboard.tsx already inline per-module - this is the shared version for new call sites.
+export function hasModule(user: ModuleAware, moduleKey: EntitlementModule): boolean {
+  if (!user) return false
+  if (user.role === "superAdmin") return true
+  return Boolean(user.organization?.enabledModules.includes(moduleKey))
 }

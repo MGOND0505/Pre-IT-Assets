@@ -18,7 +18,7 @@ import { AssetSoftwareTab } from "@/components/assets/asset-software-tab"
 import { CustomFieldValuesList } from "@/components/custom-fields/custom-fields-section"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { can } from "@/lib/permissions"
+import { can, hasModule } from "@/lib/permissions"
 import { useOrgHref } from "@/lib/use-org-href"
 
 type RefOption = { _id: string; name: string } | null
@@ -206,6 +206,7 @@ export default function AssetDetailPage() {
   const canView = can(user, "assets", "view")
   const canWrite = can(user, "assets", "update")
   const canViewLicenses = can(user, "licenses", "view")
+  const canUseFileUpload = hasModule(user, "fileUpload")
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -297,7 +298,7 @@ export default function AssetDetailPage() {
               </TabsTrigger>
               {hasCustomFieldValues(asset.customFields) && <TabsTrigger value="customFields">Custom fields</TabsTrigger>}
               {canViewLicenses && <TabsTrigger value="software">Software</TabsTrigger>}
-              <TabsTrigger value="documents">Documents</TabsTrigger>
+              {canUseFileUpload && <TabsTrigger value="documents">Documents</TabsTrigger>}
               <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
 
@@ -405,9 +406,11 @@ export default function AssetDetailPage() {
               </TabsContent>
             )}
 
-            <TabsContent value="documents">
-              <AssetDocumentsTab assetId={asset._id} />
-            </TabsContent>
+            {canUseFileUpload && (
+              <TabsContent value="documents">
+                <AssetDocumentsTab assetId={asset._id} />
+              </TabsContent>
+            )}
 
             <TabsContent value="history">
               <AssetHistoryTab assetId={asset._id} />

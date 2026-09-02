@@ -113,12 +113,14 @@ assetsRouter.delete(
 assetsRouter.get(
   "/:id/documents",
   authorize("assets", "view"),
+  requireModuleEnabled("fileUpload"),
   validate({ params: assetIdParamsSchema }),
   assetDocumentsController.listDocuments
 );
 assetsRouter.post(
   "/:id/documents",
   authorize("assets", "update"),
+  requireModuleEnabled("fileUpload"),
   validate({ params: assetIdParamsSchema }),
   uploadAssetDocument.single("file"),
   validate({ body: uploadAssetDocumentBodySchema }),
@@ -127,12 +129,14 @@ assetsRouter.post(
 assetsRouter.get(
   "/:id/documents/:docId/download",
   authorize("assets", "view"),
+  requireModuleEnabled("fileUpload"),
   validate({ params: assetDocumentParamsSchema }),
   assetDocumentsController.downloadDocument
 );
 assetsRouter.delete(
   "/:id/documents/:docId",
   authorize("assets", "update"),
+  requireModuleEnabled("fileUpload"),
   validate({ params: assetDocumentParamsSchema }),
   assetDocumentsController.deleteDocument
 );

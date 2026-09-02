@@ -14,7 +14,7 @@ import { TaskAssignmentHistory } from "@/components/tasks/task-assignment-histor
 import { TaskAttachmentsTab } from "@/components/tasks/task-attachments-tab"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { can } from "@/lib/permissions"
+import { can, hasModule } from "@/lib/permissions"
 import { useUserOptions } from "@/lib/use-lookup-options"
 import { useOrgHref } from "@/lib/use-org-href"
 
@@ -77,6 +77,7 @@ export default function TaskDetailPage() {
   const canUpdate = can(user, "tasks", "update")
   const canAssign = can(user, "tasks", "assign")
   const canComment = can(user, "tasks", "comment")
+  const canUseFileUpload = hasModule(user, "fileUpload")
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -208,7 +209,7 @@ export default function TaskDetailPage() {
 
           <TaskAssignmentHistory key={historyRefreshKey} taskId={task._id} />
 
-          <TaskAttachmentsTab taskId={task._id} />
+          {canUseFileUpload && <TaskAttachmentsTab taskId={task._id} />}
 
           <div className="flex flex-col gap-3">
             <h2 className="text-sm font-semibold text-muted-foreground">Comments</h2>

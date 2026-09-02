@@ -41,7 +41,11 @@ export type PermissionModule = (typeof PERMISSION_MODULES)[number];
  * bedrock admin surface. recycleBin is entitlement-only (it never joins PERMISSION_MODULES/
  * MODULE_ACTIONS/PermissionsShape - Recycle Bin stays Admin-only, not part of the granular
  * per-teamMember action matrix); it exists here purely so a Super Admin can gate whether an org's
- * own Admin may reach any module's /deleted, /:id/restore, /:id/purge routes at all. */
+ * own Admin may reach any module's /deleted, /:id/restore, /:id/purge routes at all. fileUpload
+ * is entitlement-only for the same reason as recycleBin - it gates whether per-record file
+ * attachments (Asset documents, Ticket attachments, Task attachments) are reachable at all for an
+ * org, without adding a new granular per-teamMember action; once enabled, the existing
+ * assets/helpdesk/tasks view/manageAttachments permissions still govern who can actually use it. */
 export const ENTITLEMENT_MODULES = [
   "assets",
   "licenses",
@@ -54,6 +58,7 @@ export const ENTITLEMENT_MODULES = [
   "customFields",
   "recycleBin",
   "auditLogs",
+  "fileUpload",
 ] as const;
 export type EntitlementModule = (typeof ENTITLEMENT_MODULES)[number];
 

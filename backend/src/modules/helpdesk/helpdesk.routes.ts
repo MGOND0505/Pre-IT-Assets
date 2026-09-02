@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { authorize, requireAdmin, requireModuleEnabled } from "../../middleware/authorize";
@@ -115,15 +116,30 @@ helpdeskRouter.get(
   validate({ params: ticketIdParamsSchema }),
   helpdeskController.listComments
 );
+// A comment's attachments ride along in the same multipart POST as its text - there is no
+// separate "upload" endpoint to gate the way assets/tasks have. A text-only comment must still
+// work regardless of fileUpload's state, so this only rejects (and cleans up the just-written
+// disk files) when files were actually attached; requireModuleEnabled itself can't express that
+// nuance since it runs before multer parses the body.
+function rejectAttachmentsIfFileUploadDisabled(req: Request, _res: Response, next: NextFunction) {
+  const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+  if (files.length === 0) return next();
+  if (req.user!.role === "superAdmin" || req.organization!.enabledModules.includes("fileUpload")) return next();
+  for (const file of files) fs.unlink(file.path, () => {});
+  next(new ApiError(403, "This module is not enabled for your organization"));
+}
+
 helpdeskRouter.post(
   "/:id/comments",
   authorize("helpdesk", "comment"),
   uploadTicketAttachment.array("attachments", 5),
+  rejectAttachmentsIfFileUploadDisabled,
   validate({ params: ticketIdParamsSchema, body: addCommentSchema }),
   helpdeskController.addComment
 );
 helpdeskRouter.get(
   "/:id/attachments/:storedName/download",
   authorize("helpdesk", "view"),
+  requireModuleEnabled("fileUpload"),
   helpdeskController.downloadAttachment
 );

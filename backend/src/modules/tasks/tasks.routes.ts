@@ -91,12 +91,14 @@ tasksRouter.get(
 tasksRouter.get(
   "/:id/attachments",
   authorize("tasks", "view"),
+  requireModuleEnabled("fileUpload"),
   validate({ params: taskIdParamsSchema }),
   taskAttachmentsController.listAttachments
 );
 tasksRouter.post(
   "/:id/attachments",
   authorize("tasks", "manageAttachments"),
+  requireModuleEnabled("fileUpload"),
   validate({ params: taskIdParamsSchema }),
   uploadTaskAttachment.single("file"),
   taskAttachmentsController.uploadAttachment
@@ -104,12 +106,14 @@ tasksRouter.post(
 tasksRouter.get(
   "/:id/attachments/:attachmentId/download",
   authorize("tasks", "view"),
+  requireModuleEnabled("fileUpload"),
   validate({ params: taskAttachmentParamsSchema }),
   taskAttachmentsController.downloadAttachment
 );
 tasksRouter.delete(
   "/:id/attachments/:attachmentId",
   authorize("tasks", "manageAttachments"),
+  requireModuleEnabled("fileUpload"),
   validate({ params: taskAttachmentParamsSchema }),
   taskAttachmentsController.deleteAttachment
 );

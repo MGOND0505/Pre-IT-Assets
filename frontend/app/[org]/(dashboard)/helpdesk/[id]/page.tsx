@@ -18,7 +18,7 @@ import { TaskList } from "@/components/tasks/task-list"
 import { CustomFieldValuesList } from "@/components/custom-fields/custom-fields-section"
 import { apiClient, apiErrorMessage, orgScopedApiUrl, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
-import { can } from "@/lib/permissions"
+import { can, hasModule } from "@/lib/permissions"
 import { useUserOptions } from "@/lib/use-lookup-options"
 import { useOrgHref } from "@/lib/use-org-href"
 
@@ -77,7 +77,7 @@ export default function TicketDetailPage() {
   const canReassign = can(user, "helpdesk", "reassign")
   const canComment = can(user, "helpdesk", "comment")
   const canInternalNote = can(user, "helpdesk", "internalNote")
-  const canAttach = can(user, "helpdesk", "manageAttachments")
+  const canAttach = can(user, "helpdesk", "manageAttachments") && hasModule(user, "fileUpload")
   const canClose = can(user, "helpdesk", "close")
   const canReopen = can(user, "helpdesk", "reopen")
 
@@ -235,7 +235,7 @@ export default function TicketDetailPage() {
                     </div>
                   </div>
                   <p className="text-sm whitespace-pre-wrap">{c.body}</p>
-                  {c.attachments.length > 0 && (
+                  {c.attachments.length > 0 && hasModule(user, "fileUpload") && (
                     <div className="flex flex-wrap gap-2">
                       {c.attachments.map((a) => (
                         <a
