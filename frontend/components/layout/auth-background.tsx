@@ -4,6 +4,7 @@ import { useBranding } from "@/lib/branding-context"
 import { isValidHexColor } from "@/lib/color-utils"
 import { cn } from "@/lib/utils"
 import { AppLogo } from "@/components/layout/app-logo"
+import { AvyntorCredit } from "@/components/layout/avyntor-credit"
 import { AiAssistantIcon } from "@/components/ai-assistant/ai-assistant-logo"
 
 export function AuthBackground({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -17,6 +18,7 @@ export function AuthBackground({ children, className }: { children: React.ReactN
     return (
       <div className={cn("flex min-h-dvh flex-col items-center justify-center gap-6 p-4", className)} style={style}>
         {children}
+        <AvyntorCredit />
       </div>
     )
   }
@@ -58,6 +60,7 @@ export function AuthBackground({ children, className }: { children: React.ReactN
 
       <div className={cn("relative flex flex-1 flex-col items-center justify-center gap-6 p-4", className)}>
         {children}
+        <AvyntorCredit />
       </div>
     </div>
   )

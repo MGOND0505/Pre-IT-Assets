@@ -3,6 +3,7 @@
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SidebarNav } from "@/components/layout/sidebar-nav"
 import { AppLogo } from "@/components/layout/app-logo"
+import { AvyntorCredit } from "@/components/layout/avyntor-credit"
 import { useBranding } from "@/lib/branding-context"
 import { isValidHexColor, sidebarOverrideVars } from "@/lib/color-utils"
 
@@ -21,6 +22,9 @@ export function Sidebar() {
       <ScrollArea className="min-h-0 flex-1">
         <SidebarNav />
       </ScrollArea>
+      <div className="flex shrink-0 items-center justify-center border-t border-sidebar-border px-4 py-3">
+        <AvyntorCredit variant="sidebar" />
+      </div>
     </div>
   )
 }
