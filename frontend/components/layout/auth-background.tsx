@@ -11,10 +11,12 @@ export function AuthBackground({
   children,
   className,
   showDeveloperCredit = true,
+  showDeveloperCreditIcon = true,
 }: {
   children: React.ReactNode
   className?: string
   showDeveloperCredit?: boolean
+  showDeveloperCreditIcon?: boolean
 }) {
   const { branding } = useBranding()
   const hasCustomBg = isValidHexColor(branding.appBackgroundColor)
@@ -26,7 +28,7 @@ export function AuthBackground({
     return (
       <div className={cn("flex min-h-dvh flex-col items-center justify-center gap-6 p-4", className)} style={style}>
         {children}
-        {showDeveloperCredit && <AvyntorCredit variant="prominent" />}
+        {showDeveloperCredit && <AvyntorCredit variant="prominent" showIcon={showDeveloperCreditIcon} />}
       </div>
     )
   }
@@ -68,7 +70,7 @@ export function AuthBackground({
 
       <div className={cn("relative flex flex-1 flex-col items-center justify-center gap-6 p-4", className)}>
         {children}
-        {showDeveloperCredit && <AvyntorCredit variant="prominent" />}
+        {showDeveloperCredit && <AvyntorCredit variant="prominent" showIcon={showDeveloperCreditIcon} />}
       </div>
     </div>
   )

@@ -29,7 +29,13 @@ const SUB_LABEL_SIZE = {
 // "Powered by" credit for this app's developer (Avyntor Technologies), distinct from each
 // organization's own configurable branding (logo/teamName/colors) elsewhere in the app - this
 // never changes per org. Logo + wordmark styling sourced directly from avyntor.com's own site.
-export function AvyntorCredit({ variant = "light" }: { variant?: keyof typeof VARIANT_CLASSES }) {
+export function AvyntorCredit({
+  variant = "light",
+  showIcon = true,
+}: {
+  variant?: keyof typeof VARIANT_CLASSES
+  showIcon?: boolean
+}) {
   return (
     <a
       href="https://avyntor.com"
@@ -37,7 +43,7 @@ export function AvyntorCredit({ variant = "light" }: { variant?: keyof typeof VA
       rel="noopener noreferrer"
       className={`inline-flex w-fit items-center gap-2 transition-colors ${LABEL_SIZE[variant]} ${VARIANT_CLASSES[variant]}`}
     >
-      <img src="/avyntor-logo.png" alt="" className={`${ICON_SIZE[variant]} shrink-0`} />
+      {showIcon && <img src="/avyntor-logo.png" alt="" className={`${ICON_SIZE[variant]} shrink-0`} />}
       <span>
         Powered by <span className="font-semibold">Avyntor</span>{" "}
         <span className={`font-mono tracking-[0.22em] ${SUB_LABEL_SIZE[variant]}`}>TECHNOLOGIES</span>
