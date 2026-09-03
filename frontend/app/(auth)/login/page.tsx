@@ -6,7 +6,7 @@ import { AuthBackground } from "@/components/layout/auth-background"
 
 export default function LoginPage() {
   return (
-    <AuthBackground>
+    <AuthBackground showDeveloperCredit={false}>
       <div className="lg:hidden">
         <AppLogo imgClassName="h-12 max-w-56 object-contain" textClassName="text-lg font-semibold tracking-tight" />
       </div>
