@@ -7,14 +7,7 @@ import { AuthBackground } from "@/components/layout/auth-background"
 export default function LoginPage() {
   return (
     <AuthBackground showDeveloperCreditIcon={false} developerCreditVariant="light">
-      <div className="lg:hidden">
-        <AppLogo imgClassName="h-12 max-w-56 object-contain" textClassName="text-lg font-semibold tracking-tight" />
-      </div>
-      {/* Desktop-only counterpart to the mobile block above - a per-org custom logo (uploaded via
-          Super Admin/Sub-Super Admin panel) shows here; renders nothing when none is set. */}
-      <div className="hidden lg:flex">
-        <AppLogo hideWhenNoLogo imgClassName="h-14 max-w-56 object-contain" textClassName="text-lg font-semibold tracking-tight" />
-      </div>
+      <AppLogo imgClassName="h-14 max-w-56 object-contain" textClassName="text-lg font-semibold tracking-tight" />
       <Card className="w-full max-w-sm shadow-soft-lg">
         <CardHeader>
           <CardTitle>Sign in</CardTitle>

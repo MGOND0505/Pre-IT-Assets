@@ -23,13 +23,7 @@ export default function EmployeeLoginPage() {
 
   return (
     <AuthBackground>
-      <div className="lg:hidden">
-        <AppLogo
-          imgClassName="h-12 max-w-56 object-contain"
-          textClassName="text-lg font-semibold tracking-tight"
-          forcePortal="employee"
-        />
-      </div>
+      <AppLogo imgClassName="h-14 max-w-56 object-contain" textClassName="text-lg font-semibold tracking-tight" />
       <Card className="w-full max-w-sm shadow-soft-lg">
         <CardHeader>
           <CardTitle>Employee Portal</CardTitle>
