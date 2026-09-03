@@ -114,8 +114,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Ignore - the client-side redirect below still logs the user out locally even if the
       // server call failed (e.g. rate-limited), and there's no user-facing recovery to offer.
     } finally {
-      setUser(null)
+      // Navigate first, then clear local state - this is a hard redirect (the whole app is about
+      // to unload and reload fresh anyway), and setUser(null) before it let the CURRENT page
+      // re-render with no user first (e.g. RootPage's `if (!user) return <LandingPage />`),
+      // flashing the wrong screen for a moment before the browser actually navigated away.
       window.location.href = currentOrgSlug ? `/${currentOrgSlug}/login` : "/login"
+      setUser(null)
     }
   }, [user])
 
