@@ -54,7 +54,13 @@ apiClient.interceptors.request.use((config) => {
 // pathname.includes("/login") misses it and would hard-redirect the Employee Portal login page
 // back to itself in an infinite loop on every unauthenticated /auth/me check.
 const LOGIN_ROUTE_SEGMENTS = new Set(["login", "employee-login"])
+// The bare "/" root is ALSO a public, pre-login page (the marketing landing page for a logged-out
+// visitor - see app/page.tsx) - mirrors proxy.ts's own isPublicPath. Without this, any 401 that
+// fires while on "/" (e.g. useBranding() calling /public/branding with no org prefix, which falls
+// through to the authenticated org-scoped catch-all and legitimately 401s) force-redirected away
+// from the landing page to /login before a visitor could even click its own "Log In" button.
 function isOnLoginRoute(pathname: string): boolean {
+  if (pathname === "/") return true
   const segments = pathname.split("/").filter(Boolean)
   return LOGIN_ROUTE_SEGMENTS.has(segments[segments.length - 1] ?? "")
 }

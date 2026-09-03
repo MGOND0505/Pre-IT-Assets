@@ -4,6 +4,13 @@
 const RESERVED_SLUGS = new Set([
   "login",
   "logout",
+  "forgot-password",
+  "reset-password",
+  "audit-logs",
+  "dashboard",
+  "security-settings",
+  "system-monitoring",
+  "users",
   "api",
   "system",
   "admin",
