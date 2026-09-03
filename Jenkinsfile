@@ -2,26 +2,33 @@ pipeline {
     agent any
 
     stages {
-        stage('Checkout') {
+        stage('Deploy to Live Server') {
             steps {
-                checkout scm
+                sshPublisher(publishers: [
+                    sshPublisherDesc(
+                        configName: 'Live-Server',
+                        transfers: [
+                            sshTransfer(
+                                cleanRemote: false,
+                                excludes: '',
+                                execCommand: '''
+                                    echo "Deploying to live server..."
+                                ''',
+                                execTimeout: 120000,
+                                flatten: false,
+                                makeEmptyDirs: false,
+                                noExec: false,
+                                remoteDirectory: '/home/ubuntu',
+                                removePrefix: '',
+                                sourceFiles: '**/*'
+                            )
+                        ],
+                        usePromotionTimestamp: false,
+                        useWorkspaceInPromotion: false,
+                        verbose: true
+                    )
+                ])
             }
-        }
-
-        stage('Verify') {
-            steps {
-                echo 'GitHub checkout successful'
-                echo 'Jenkinsfile loaded successfully'
-            }
-        }
-    }
-
-    post {
-        success {
-            echo 'Pipeline completed successfully'
-        }
-        failure {
-            echo 'Pipeline failed'
         }
     }
 }
