@@ -18,7 +18,7 @@ export function AuthBackground({ children, className }: { children: React.ReactN
     return (
       <div className={cn("flex min-h-dvh flex-col items-center justify-center gap-6 p-4", className)} style={style}>
         {children}
-        <AvyntorCredit />
+        <AvyntorCredit variant="prominent" />
       </div>
     )
   }
@@ -60,7 +60,7 @@ export function AuthBackground({ children, className }: { children: React.ReactN
 
       <div className={cn("relative flex flex-1 flex-col items-center justify-center gap-6 p-4", className)}>
         {children}
-        <AvyntorCredit />
+        <AvyntorCredit variant="prominent" />
       </div>
     </div>
   )
