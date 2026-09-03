@@ -134,7 +134,7 @@ export default function OrganizationDetailsPage() {
     { label: "Locations", href: "/locations" },
     { label: "Reports", href: "/reports" },
     { label: "Audit Logs", href: "/administration/audit-logs" },
-    { label: "Logo", href: "/administration/logo" },
+    { label: "Branding", href: "/administration/logo" },
     { label: "Settings", href: "/administration/settings" },
   ] as const
 

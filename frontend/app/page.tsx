@@ -434,7 +434,7 @@ export default function RootPage() {
             Edit Details
           </Button>
           <Button variant="outline" size="sm" onClick={() => setEditingLogo(row.original)}>
-            Logo
+            Branding
           </Button>
           <Button variant="outline" size="sm" onClick={() => setEditingRetention(row.original)}>
             Edit Retention
@@ -854,7 +854,6 @@ function EditGrantedOrgDetailsDialog({
   onSaved: () => void
 }) {
   const [name, setName] = React.useState(organization.name)
-  const [code, setCode] = React.useState(organization.code ?? "")
   const [email, setEmail] = React.useState(organization.email)
   const [phone, setPhone] = React.useState(organization.phone)
   const [address, setAddress] = React.useState(organization.addressLine1)
@@ -869,7 +868,6 @@ function EditGrantedOrgDetailsDialog({
     try {
       await apiClient.patch(`/my-organizations/${organization._id}/details`, {
         name,
-        code: code || undefined,
         email,
         phone,
         addressLine1: address,
@@ -893,10 +891,6 @@ function EditGrantedOrgDetailsDialog({
           <div className="flex flex-col gap-2">
             <Label htmlFor="granted-org-name">Name</Label>
             <Input id="granted-org-name" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="granted-org-code">Code</Label>
-            <Input id="granted-org-code" value={code} onChange={(e) => setCode(e.target.value)} />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="granted-org-email">Email</Label>
@@ -968,7 +962,7 @@ function EditGrantedOrgLogoDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Logo - {organization.name}</DialogTitle>
+          <DialogTitle>Branding - {organization.name}</DialogTitle>
         </DialogHeader>
         <OrgLogoUploadCard
           logoUrl={logoUrl}

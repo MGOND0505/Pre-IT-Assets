@@ -33,7 +33,6 @@ export type OrganizationDetails = {
 
 export type OrganizationDetailsFormValues = {
   name: string
-  code: string
   email: string
   phone: string
   address: string
@@ -47,7 +46,6 @@ export type OrganizationDetailsFormValues = {
 export function toOrganizationDetailsFormValues(org: OrganizationDetails): OrganizationDetailsFormValues {
   return {
     name: org.name,
-    code: org.code ?? "",
     email: org.email,
     phone: org.phone,
     address: org.addressLine1,
@@ -98,7 +96,6 @@ export function OrganizationDetailsForm({
     try {
       await apiClient.put(`/organizations/${idOrSlug}`, {
         name: form.name,
-        code: form.code || undefined,
         email: form.email,
         phone: form.phone,
         addressLine1: form.address,
@@ -122,10 +119,6 @@ export function OrganizationDetailsForm({
       <div className="flex flex-col gap-2">
         <Label htmlFor="org-name">Name</Label>
         <Input id="org-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="org-code">Code</Label>
-        <Input id="org-code" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="org-email">Email</Label>

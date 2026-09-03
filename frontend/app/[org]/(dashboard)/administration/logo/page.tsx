@@ -11,7 +11,7 @@ import { can } from "@/lib/permissions"
 
 type LogoSettings = { logoFileName: string }
 
-// A dedicated, single-purpose "Logo" surface for the Super Admin's per-organization tabs
+// A dedicated, single-purpose "Branding" surface for the Super Admin's per-organization tabs
 // (organization/page.tsx), alongside the existing general Administration > Settings page (whose
 // own Branding card - administration/settings/page.tsx - is untouched and still works the same
 // way for that org's own Admin/Team Member). Hits the same existing /settings/logo route.
@@ -65,14 +65,14 @@ export default function OrganizationLogoPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Logo</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Branding</h1>
         <p className="text-sm text-muted-foreground">
           Upload or replace this organization's logo. It appears in its sidebar and on its login page.
         </p>
       </div>
       <Card className="max-w-lg">
         <CardHeader>
-          <CardTitle>Logo</CardTitle>
+          <CardTitle>Branding</CardTitle>
           <CardDescription>Shown in this organization's sidebar and on its login page.</CardDescription>
         </CardHeader>
         <CardContent>
