@@ -1,7 +1,6 @@
 import type { ComponentType } from "react"
 import {
   LayoutDashboard,
-  Bell,
   Building2,
   Boxes,
   KeyRound,
@@ -82,7 +81,6 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
  */
 export const navConfig: NavEntry[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
-  { label: "Notifications", href: "/notifications", icon: Bell },
   {
     label: "AI Assistant",
     href: "/ai-assistant",
