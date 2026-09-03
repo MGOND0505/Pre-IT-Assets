@@ -5,6 +5,7 @@ import { env } from "../../config/env";
 import { ApiError } from "../../utils/ApiError";
 import { emptyPermissions, type PermissionsShape } from "../../config/permissions";
 import * as organizationsService from "../organizations/organizations.service";
+import * as settingsService from "../settings/settings.service";
 import { BASELINE_POLICY, validatePasswordAgainstPolicy, assertPasswordNotReused, pushPasswordHistory } from "../../utils/passwordPolicy";
 
 type OrgAccessInput = { organization: string; permissions: Partial<PermissionsShape> }[];
@@ -205,4 +206,34 @@ export async function updateGrantedOrganizationDetails(
   if (!hasGrant) throw new ApiError(403, "You do not have access to this organization");
 
   return organizationsService.updateOrganizationDetails(organizationId, input);
+}
+
+/** Lets a Sub-Super Admin upload/replace the logo for an organization they hold a grant for -
+ * same "any grant qualifies" check as updateGrantedOrganizationDetails/Retention above,
+ * deliberately NOT gated by that org's granular settings.update permission (unlike the org-scoped
+ * /api/:orgSlug/settings/logo route a Super Admin already uses for this same purpose). */
+export async function uploadGrantedOrganizationLogo(
+  userId: string,
+  organizationId: string,
+  file: { buffer: Buffer; mimetype: string }
+) {
+  const user = await User.findOne({ _id: userId, role: "subSuperAdmin" });
+  if (!user) throw new ApiError(403, "Not a Sub-Super Admin");
+
+  const hasGrant = user.orgAccess.some((grant) => String(grant.organization) === organizationId);
+  if (!hasGrant) throw new ApiError(403, "You do not have access to this organization");
+
+  return settingsService.saveLogoFile(organizationId, file);
+}
+
+/** Lets a Sub-Super Admin remove the logo for an organization they hold a grant for - see
+ * uploadGrantedOrganizationLogo's comment. */
+export async function removeGrantedOrganizationLogo(userId: string, organizationId: string) {
+  const user = await User.findOne({ _id: userId, role: "subSuperAdmin" });
+  if (!user) throw new ApiError(403, "Not a Sub-Super Admin");
+
+  const hasGrant = user.orgAccess.some((grant) => String(grant.organization) === organizationId);
+  if (!hasGrant) throw new ApiError(403, "You do not have access to this organization");
+
+  return settingsService.removeLogoFile(organizationId);
 }

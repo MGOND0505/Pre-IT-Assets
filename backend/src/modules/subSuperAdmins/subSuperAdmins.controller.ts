@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/response";
 import { logAction } from "../audit/audit.service";
+import { ApiError } from "../../utils/ApiError";
 import * as subSuperAdminsService from "./subSuperAdmins.service";
 
 export const createSubSuperAdmin = asyncHandler(async (req: Request, res: Response) => {
@@ -141,4 +142,34 @@ export const updateMyGrantedOrganizationDetails = asyncHandler(async (req: Reque
   });
 
   ok(res, org, "Organization details updated");
+});
+
+export const uploadMyGrantedOrganizationLogo = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.file) throw new ApiError(400, "No file uploaded");
+
+  const settings = await subSuperAdminsService.uploadGrantedOrganizationLogo(req.user!.id, req.params.id, req.file);
+
+  await logAction({
+    req,
+    action: "UPDATE",
+    module: "SystemSettings",
+    recordLabel: "Logo updated",
+    organizationId: req.params.id,
+  });
+
+  ok(res, settings, "Logo updated");
+});
+
+export const removeMyGrantedOrganizationLogo = asyncHandler(async (req: Request, res: Response) => {
+  const settings = await subSuperAdminsService.removeGrantedOrganizationLogo(req.user!.id, req.params.id);
+
+  await logAction({
+    req,
+    action: "UPDATE",
+    module: "SystemSettings",
+    recordLabel: "Logo removed",
+    organizationId: req.params.id,
+  });
+
+  ok(res, settings, "Logo removed");
 });

@@ -20,13 +20,14 @@ import {
 import { DataTable } from "@/components/common/data-table"
 import { Pagination } from "@/components/common/pagination"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
-import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
+import { apiClient, apiErrorMessage, publicLogoUrlForSlug, type ApiEnvelope } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
 import { AppLogo } from "@/components/layout/app-logo"
 import { SuperAdminShell } from "@/components/layout/super-admin-shell"
 import { FullPageLoader } from "@/components/layout/full-page-loader"
 import { CreateOrganizationDialog } from "@/components/organizations/create-organization-dialog"
 import { ModuleAccessPanel } from "@/components/organizations/module-access-panel"
+import { OrgLogoUploadCard } from "@/components/organizations/org-logo-upload-card"
 import { OrganizationsPagination } from "@/components/organizations/organizations-pagination"
 import { RequestAccessDialog } from "@/components/sub-super-admins/request-access-dialog"
 import { LandingPage } from "@/components/landing/landing-page"
@@ -137,6 +138,7 @@ export default function RootPage() {
   const [pendingRestore, setPendingRestore] = React.useState<OrganizationRow | null>(null)
   const [editingRetention, setEditingRetention] = React.useState<GrantedOrganization | null>(null)
   const [editingDetails, setEditingDetails] = React.useState<GrantedOrganization | null>(null)
+  const [editingLogo, setEditingLogo] = React.useState<GrantedOrganization | null>(null)
   const [editingOrgRetention, setEditingOrgRetention] = React.useState<OrganizationRow | null>(null)
   const [moduleAccessTarget, setModuleAccessTarget] = React.useState<OrganizationRow | null>(null)
   const [limit, setLimit] = React.useState(20)
@@ -431,6 +433,9 @@ export default function RootPage() {
           <Button variant="outline" size="sm" onClick={() => setEditingDetails(row.original)}>
             Edit Details
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setEditingLogo(row.original)}>
+            Logo
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setEditingRetention(row.original)}>
             Edit Retention
           </Button>
@@ -684,6 +689,14 @@ export default function RootPage() {
         />
       )}
 
+      {editingLogo && (
+        <EditGrantedOrgLogoDialog
+          open
+          onOpenChange={(open) => !open && setEditingLogo(null)}
+          organization={editingLogo}
+        />
+      )}
+
       {editingOrgRetention && (
         <EditOrgRetentionDialog
           open
@@ -903,6 +916,67 @@ function EditGrantedOrgDetailsDialog({
             {submitting ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** A Sub-Super Admin's own logo upload for an organization they hold a grant for - hits the new
+ * flat /my-organizations/:id/logo route (grant-checked, not gated by that org's settings.update
+ * permission - see subSuperAdmins.service.ts#uploadGrantedOrganizationLogo). This table (the
+ * root "/" page) has no org slug in the URL, so it can't use publicLogoUrl()'s window.location
+ * lookup - probes publicLogoUrlForSlug() directly the same way AppLogo probes its own URL. */
+function EditGrantedOrgLogoDialog({
+  open,
+  onOpenChange,
+  organization,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  organization: GrantedOrganization
+}) {
+  const [hasLogo, setHasLogo] = React.useState(false)
+  const [logoVersion, setLogoVersion] = React.useState(0)
+  const logoUrl = publicLogoUrlForSlug(organization.slug, `?v=${logoVersion}`)
+
+  React.useEffect(() => {
+    let cancelled = false
+    const probe = new window.Image()
+    probe.onload = () => { if (!cancelled) setHasLogo(true) }
+    probe.onerror = () => { if (!cancelled) setHasLogo(false) }
+    probe.src = logoUrl
+    return () => { cancelled = true }
+  }, [logoUrl])
+
+  async function handleUpload(file: File) {
+    const formData = new FormData()
+    formData.append("file", file)
+    await apiClient.post(`/my-organizations/${organization._id}/logo`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    setLogoVersion((v) => v + 1)
+    setHasLogo(true)
+  }
+
+  async function handleRemove() {
+    await apiClient.delete(`/my-organizations/${organization._id}/logo`)
+    setLogoVersion((v) => v + 1)
+    setHasLogo(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Logo - {organization.name}</DialogTitle>
+        </DialogHeader>
+        <OrgLogoUploadCard
+          logoUrl={logoUrl}
+          hasLogo={hasLogo}
+          canWrite
+          onUpload={handleUpload}
+          onRemove={handleRemove}
+        />
       </DialogContent>
     </Dialog>
   )

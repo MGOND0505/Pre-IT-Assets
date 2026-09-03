@@ -31,24 +31,6 @@ function maskSettings(settings: ISystemSettings & { toObject?: () => Record<stri
   return masked;
 }
 
-// SVG intentionally not accepted - see utils/upload.ts's uploadLogo comment (it's the one image
-// format that can execute script, and this file is served back publicly/unauthenticated below).
-// ".svg" stays in this list so removeExistingLogoFiles() still cleans up a logo an org uploaded
-// before this restriction existed, rather than leaving an orphaned file on disk.
-const LOGO_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".svg"];
-const MIME_TO_EXT: Record<string, string> = {
-  "image/png": ".png",
-  "image/jpeg": ".jpg",
-  "image/webp": ".webp",
-};
-
-function removeExistingLogoFiles(organizationId: string) {
-  for (const ext of LOGO_EXTENSIONS) {
-    const filePath = path.join(BRANDING_DIR, `logo-${organizationId}${ext}`);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  }
-}
-
 export const getSettings = asyncHandler(async (req: Request, res: Response) => {
   const settings = await settingsService.getSettings(req.organization!._id);
   ok(res, maskSettings(settings), "System settings");
@@ -197,15 +179,8 @@ export const getNotificationLogs = asyncHandler(async (req: Request, res: Respon
 export const uploadLogo = asyncHandler(async (req: Request, res: Response) => {
   if (!req.file) throw new ApiError(400, "No file uploaded");
 
-  const ext = MIME_TO_EXT[req.file.mimetype];
-  if (!ext) throw new ApiError(400, "Unsupported file type");
-
   const organizationId = req.organization!._id;
-  const fileName = `logo-${organizationId}${ext}`;
-  removeExistingLogoFiles(organizationId);
-  fs.writeFileSync(path.join(BRANDING_DIR, fileName), req.file.buffer);
-
-  const settings = await settingsService.setLogo(organizationId, fileName);
+  const settings = await settingsService.saveLogoFile(organizationId, req.file);
 
   await logAction({ req, action: "UPDATE", module: "SystemSettings", recordLabel: "Logo updated" });
 
@@ -214,8 +189,7 @@ export const uploadLogo = asyncHandler(async (req: Request, res: Response) => {
 
 export const removeLogo = asyncHandler(async (req: Request, res: Response) => {
   const organizationId = req.organization!._id;
-  removeExistingLogoFiles(organizationId);
-  const settings = await settingsService.clearLogo(organizationId);
+  const settings = await settingsService.removeLogoFile(organizationId);
 
   await logAction({ req, action: "UPDATE", module: "SystemSettings", recordLabel: "Logo removed" });
 

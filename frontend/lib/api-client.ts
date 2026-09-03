@@ -102,6 +102,14 @@ export function publicLogoUrl(extraQuery = ""): string | null {
   return url || null
 }
 
+/** Same as publicLogoUrl, but for callers with no org in the current URL at all (the Super
+ * Admin's own root "/" page previewing a GRANTED organization's logo by row, not the org whose
+ * dashboard is currently open) - takes the slug explicitly instead of reading it from
+ * window.location.pathname. */
+export function publicLogoUrlForSlug(slug: string, extraQuery = ""): string {
+  return `${API_ROOT}/${slug}/public/logo${extraQuery}`
+}
+
 /** Shape of zod's `.flatten()`, which the backend's validate() middleware attaches as the
  * envelope's `error` field on a 422 - see backend/src/middleware/validate.ts. */
 type ZodFlattenedError = { formErrors?: string[]; fieldErrors?: Record<string, string[] | undefined> }

@@ -13,6 +13,7 @@ export function AppLogo({
   textClassName = "text-sm font-semibold tracking-tight",
   showTeamNameWithLogo = true,
   forcePortal,
+  hideWhenNoLogo = false,
 }: {
   imgClassName?: string
   textClassName?: string
@@ -22,6 +23,11 @@ export function AppLogo({
    * it is (e.g. the dedicated /{org}/employee-login page) without waiting on `useAuth()`'s user,
    * which is always null pre-login. Ignored once a real logged-in user's own role is known. */
   forcePortal?: "admin" | "employee"
+  /** Renders nothing at all (instead of the team-name/fallback-text span) when there's no custom
+   * logo to show - for a spot that should only ever appear once an org actually has one (the
+   * always-visible slot above the Sign In card on login), rather than every other caller's "show
+   * SOMETHING branded" behavior (sidebar, topbar, the existing mobile-only login block). */
+  hideWhenNoLogo?: boolean
 }) {
   const { branding } = useBranding()
   const { user } = useAuth()
@@ -62,6 +68,8 @@ export function AppLogo({
       </span>
     )
   }
+
+  if (hideWhenNoLogo) return null
 
   return <span className={textClassName}>{branding.teamName || fallbackText}</span>
 }

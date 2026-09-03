@@ -1,8 +1,29 @@
+import fs from "node:fs";
+import path from "node:path";
 import { SystemSettings, type ISystemSettings } from "../../models/SystemSettings";
 import { BASELINE_POLICY, type PasswordPolicy } from "../../utils/passwordPolicy";
 import { ApiError } from "../../utils/ApiError";
 import { basicUserDefaultPermissions, type PermissionsShape } from "../../config/permissions";
 import { getEffectiveTurnstileKeys } from "../platformSettings/platformSettings.service";
+import { BRANDING_DIR } from "../../utils/upload";
+
+// SVG intentionally not accepted for new uploads (see utils/upload.ts's uploadLogo comment - it's
+// the one image format that can execute script, and this file is served back publicly/
+// unauthenticated). ".svg" stays in this cleanup list so removeExistingLogoFiles still removes a
+// logo an org uploaded before this restriction existed, rather than leaving an orphaned file.
+const LOGO_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".svg"];
+const MIME_TO_EXT: Record<string, string> = {
+  "image/png": ".png",
+  "image/jpeg": ".jpg",
+  "image/webp": ".webp",
+};
+
+function removeExistingLogoFiles(organizationId: string) {
+  for (const ext of LOGO_EXTENSIONS) {
+    const filePath = path.join(BRANDING_DIR, `logo-${organizationId}${ext}`);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  }
+}
 
 /** Defaults for fields added after the singleton was first created - schema defaults only
  * apply to brand-new documents, not ones already persisted without the field. */
@@ -163,4 +184,25 @@ export async function clearLogo(organizationId: string) {
   settings.logoFileName = "";
   await settings.save();
   return settings;
+}
+
+/** Shared file-handling for a logo upload, used by both the org-scoped
+ * /settings/logo route (settings.controller.ts) and the Sub-Super Admin's
+ * /my-organizations/:id/logo route (subSuperAdmins.service.ts) - keeps the actual disk I/O in
+ * one place so both callers can't drift apart on filename convention or cleanup behavior. */
+export async function saveLogoFile(organizationId: string, file: { buffer: Buffer; mimetype: string }) {
+  const ext = MIME_TO_EXT[file.mimetype];
+  if (!ext) throw new ApiError(400, "Unsupported file type");
+
+  const fileName = `logo-${organizationId}${ext}`;
+  removeExistingLogoFiles(organizationId);
+  fs.writeFileSync(path.join(BRANDING_DIR, fileName), file.buffer);
+
+  return setLogo(organizationId, fileName);
+}
+
+/** Shared file-handling for logo removal - see saveLogoFile's comment. */
+export async function removeLogoFile(organizationId: string) {
+  removeExistingLogoFiles(organizationId);
+  return clearLogo(organizationId);
 }

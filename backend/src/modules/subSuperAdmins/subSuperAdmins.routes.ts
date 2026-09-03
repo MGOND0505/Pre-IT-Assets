@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { validate } from "../../middleware/validate";
+import { uploadLogo } from "../../utils/upload";
 import * as subSuperAdminsController from "./subSuperAdmins.controller";
 import {
   createSubSuperAdminSchema,
@@ -71,4 +72,15 @@ myOrganizationsRouter.patch(
   "/:id/details",
   validate({ params: grantedOrganizationIdParamsSchema, body: updateGrantedOrganizationDetailsSchema }),
   subSuperAdminsController.updateMyGrantedOrganizationDetails
+);
+myOrganizationsRouter.post(
+  "/:id/logo",
+  validate({ params: grantedOrganizationIdParamsSchema }),
+  uploadLogo.single("file"),
+  subSuperAdminsController.uploadMyGrantedOrganizationLogo
+);
+myOrganizationsRouter.delete(
+  "/:id/logo",
+  validate({ params: grantedOrganizationIdParamsSchema }),
+  subSuperAdminsController.removeMyGrantedOrganizationLogo
 );
