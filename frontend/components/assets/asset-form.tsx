@@ -209,6 +209,21 @@ export function AssetForm({
     return (value: string | null) => setForm((f) => ({ ...f, [field]: value ?? "" }))
   }
 
+  // Keeps Assignment status in sync with the actual assignment action, without overriding a
+  // deliberately-chosen status like Shared/Pool/Temporary - only toggles between the two directly
+  // implied states (a user assigned -> Assigned; back to Unassigned -> Unassigned).
+  function handleAssignedUserChange(userId: string) {
+    setForm((f) => {
+      if (userId && f.assignmentStatus === "Unassigned") {
+        return { ...f, assignedUser: userId, assignmentStatus: "Assigned" }
+      }
+      if (!userId && f.assignmentStatus === "Assigned") {
+        return { ...f, assignedUser: userId, assignmentStatus: "Unassigned" }
+      }
+      return { ...f, assignedUser: userId }
+    })
+  }
+
   const isEdit = Boolean(form._id)
 
   function handleSubmit(e: React.FormEvent) {
@@ -370,7 +385,7 @@ export function AssetForm({
             <div className="col-span-2 flex flex-col gap-2">
               <Label htmlFor="asset-assigned-user">Assigned to (system user)</Label>
               {canAssignEmployee ? (
-                <Select value={form.assignedUser || NONE} onValueChange={(v) => setSelect("assignedUser")(v === NONE ? "" : v)}>
+                <Select value={form.assignedUser || NONE} onValueChange={(v) => handleAssignedUserChange(v === NONE ? "" : (v ?? ""))}>
                   <SelectTrigger id="asset-assigned-user" className="w-full">
                     <SelectValue placeholder="Unassigned" />
                   </SelectTrigger>
