@@ -16,5 +16,15 @@ export function setAuthCookie(res: Response, token: string) {
 }
 
 export function clearAuthCookie(res: Response) {
-  res.clearCookie(env.JWT_COOKIE_NAME, { path: "/" });
+  // Options here must match setAuthCookie's (minus maxAge) - browsers only clear a cookie when
+  // clearCookie's attributes are identical to the ones it was originally set with, per Express's
+  // own documented behavior. A mismatch (this used to only pass `path`) silently no-ops: the
+  // Set-Cookie header goes out, but the browser keeps the old cookie, so logout never actually
+  // clears the session client-side.
+  res.clearCookie(env.JWT_COOKIE_NAME, {
+    httpOnly: true,
+    secure: env.COOKIE_SECURE,
+    sameSite: "lax",
+    path: "/",
+  });
 }
