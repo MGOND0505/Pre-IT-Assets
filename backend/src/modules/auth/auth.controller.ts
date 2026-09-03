@@ -34,7 +34,11 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 
 export const logout = asyncHandler(async (req: Request, res: Response) => {
   if (req.user) {
-    const user = await User.findById(req.user.id).select("email organization tokenVersion");
+    // role must be selected too - User's pre("validate") hook checks it to decide whether
+    // organization is allowed/required (superAdmin/subSuperAdmin must NOT have one, everyone
+    // else must); with role missing from a partial projection it reads as undefined, fails that
+    // "system-level" check, and the save() below throws even for a real superAdmin/subSuperAdmin.
+    const user = await User.findById(req.user.id).select("email role organization tokenVersion");
     if (user) {
       await authService.recordLogout(req, user.id, user.email, user.organization ? String(user.organization) : null);
       // Without this, clearing the cookie only stops THIS browser from sending the token again -
