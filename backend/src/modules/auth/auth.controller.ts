@@ -34,11 +34,14 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 
 export const logout = asyncHandler(async (req: Request, res: Response) => {
   if (req.user) {
-    // role must be selected too - User's pre("validate") hook checks it to decide whether
-    // organization is allowed/required (superAdmin/subSuperAdmin must NOT have one, everyone
-    // else must); with role missing from a partial projection it reads as undefined, fails that
-    // "system-level" check, and the save() below throws even for a real superAdmin/subSuperAdmin.
-    const user = await User.findById(req.user.id).select("email role organization tokenVersion");
+    // No .select(...) restriction here - User's pre("validate") hook reads role, organization,
+    // AND orgAccess (among others) to decide what's allowed/required for this account's role, and
+    // it runs on every save() regardless of which fields were actually modified. A partial
+    // projection leaves whichever fields it omits as undefined, and the hook throws or crashes on
+    // those (e.g. "orgAdmin/teamMember must belong to an organization" when role was omitted, or
+    // a TypeError on orgAccess.length when that was) even for a perfectly valid account - so load
+    // the whole document rather than re-guessing which fields the hook happens to touch today.
+    const user = await User.findById(req.user.id);
     if (user) {
       await authService.recordLogout(req, user.id, user.email, user.organization ? String(user.organization) : null);
       // Without this, clearing the cookie only stops THIS browser from sending the token again -
