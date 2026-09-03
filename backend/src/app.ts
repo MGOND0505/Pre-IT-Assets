@@ -28,6 +28,15 @@ import { errorHandler } from "./middleware/errorHandler";
 
 export const app = express();
 
+// This app always sits behind exactly one reverse proxy (nginx in production, per
+// docker-compose.yml) - without this, Express falls back to the immediate socket peer for
+// req.ip, which behind a proxy is the proxy's own address for EVERY request. express-rate-limit
+// (and anything else keyed on req.ip - LoginHistory, audit logs) then can't tell users apart at
+// all: every visitor shares one single rate-limit bucket, and legitimate traffic gets 429'd once
+// the SHARED quota (not each user's own) is exhausted. Trusting exactly 1 hop makes Express read
+// the real client IP from X-Forwarded-For's first entry, which nginx sets correctly.
+app.set("trust proxy", 1);
+
 app.use(helmet());
 app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
 // The default 100kb limit is too small for the bulk import confirm step, which resends
