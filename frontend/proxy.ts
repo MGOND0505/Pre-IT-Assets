@@ -53,5 +53,13 @@ export function proxy(request: NextRequest) {
 export const config = {
   // This middleware's cookie-presence redirect is only a UX nicety for actual PAGE
   // navigations - the backend (a separate origin, called directly) has its own real auth check.
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // The old pattern only excluded 4 hardcoded paths, so any OTHER static file under public/
+  // (every logo image, favicon variants, etc.) fell through as if it were a protected page route -
+  // getOrgSlugFromPathname would parse its filename as an org slug and redirect it to
+  // "/<filename>/login", which is exactly why <img> tags for these assets rendered broken for any
+  // pre-auth visitor (no session cookie yet - which includes the login page itself). Excluding any
+  // path with a file extension (no app route in this project ever has a literal dot in it - org
+  // slugs are validated to lowercase letters/numbers/hyphens only) fixes every such asset at once,
+  // not just this one.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 }
