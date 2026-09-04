@@ -47,26 +47,21 @@ pipeline {
                         transfers: [
                             sshTransfer(
                                 cleanRemote: false,
-                                excludes: '',
+                                excludes: '**/.git/**, **/.scannerwork/**, **/node_modules/**',
                                 execCommand: '''
                                     echo "Starting application on live server..."
                                     cd /home/ubuntu/backend 2>/dev/null || cd /home/ubuntu
-                                    
-                                    # Install dependencies and start application in background
                                     npm install --production || true
                                     pkill -f "node" || true
                                     nohup npm start > app.log 2>&1 &
-                                    
-                                    # Wait for port 3000 to listen
                                     sleep 5
                                 ''',
                                 execTimeout: 120000,
                                 flatten: false,
                                 makeEmptyDirs: false,
-                                noExec: false,
-                                remoteDirectory: '/home/ubuntu',
+                                remoteDirectory: '',
                                 removePrefix: '',
-                                sourceFiles: '**/*'
+                                sourceFiles: 'backend/**, package*.json'
                             )
                         ],
                         usePromotionTimestamp: false,
@@ -80,13 +75,12 @@ pipeline {
         stage('OWASP ZAP DAST Scan') {
             steps {
                 sh '''
-                    # Jenkins container ke volumes ke sath bind mount karein
+                    # Jenkins volume ko direct /zap/wrk par mount karein
                     docker run -u 0 --rm --net=host \
-                      --volumes-from jenkins \
-                      -w ${WORKSPACE} \
+                      -v jenkins_home:/zap/wrk/:rw \
                       zaproxy/zap-stable zap-baseline.py \
-                      -t http://192.168.1.35:3000 \
-                      -r zap-report.html \
+                      -t http://129.121.102.233:3000 \
+                      -r workspace/IT-Asset-integration/zap-report.html \
                       -I || true
                 '''
                 publishHTML([
