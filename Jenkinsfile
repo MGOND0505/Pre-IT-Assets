@@ -2,6 +2,17 @@ pipeline {
     agent any
 
     stages {
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    def scannerHome = tool 'SonarScanner'
+                    withSonarQubeEnv('SonarQube-Server') {
+                        sh "${scannerHome}/bin/sonar-scanner"
+                    }
+                }
+            }
+        }
+
         stage('Deploy to Live Server') {
             steps {
                 sshPublisher(publishers: [
