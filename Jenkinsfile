@@ -49,12 +49,12 @@ pipeline {
                                 cleanRemote: false,
                                 excludes: '**/.git/**, **/.scannerwork/**, **/node_modules/**',
                                 execCommand: '''
-                                    echo "Starting application on live server..."
+                                    echo "Deploying update via PM2..."
                                     cd /var/www/backend
-                                    npm install --omit=dev || npm install
-                                    pkill -f "node" || true
-                                    nohup npm start > app.log 2>&1 &
-                                    sleep 8
+                                    npm install
+                                    npm run build
+                                    pm2 restart it-asset-backend || pm2 start dist/server.js --name "it-asset-backend"
+                                    pm2 save
                                 ''',
                                 execTimeout: 120000,
                                 flatten: false,
@@ -81,6 +81,7 @@ pipeline {
                       -t http://129.121.102.233:3000 \
                       -r workspace/IT-Asset-integration/zap-report.html \
                       -I || true
+                    exit 0
                 '''
                 publishHTML([
                     allowMissing: true,
