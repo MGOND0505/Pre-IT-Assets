@@ -6,7 +6,11 @@ ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
 COPY package*.json ./
 RUN npm ci
-COPY . .
+COPY tsconfig.json next.config.ts postcss.config.mjs eslint.config.mjs components.json proxy.ts ./
+COPY app ./app
+COPY components ./components
+COPY lib ./lib
+COPY public ./public
 RUN npm run build
 
 FROM node:22-alpine AS runtime
