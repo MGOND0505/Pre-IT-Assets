@@ -67,5 +67,26 @@ pipeline {
                 ])
             }
         }
+
+        stage('OWASP ZAP DAST Scan') {
+            steps {
+                sh '''
+                    docker run -u 0 --rm --net=host \
+                      -v ${WORKSPACE}:/zap/wrk/:rw \
+                      zaproxy/zap-stable zap-baseline.py \
+                      -t http://192.168.1.35:3000 \
+                      -r zap-report.html \
+                      -I || true
+                '''
+                publishHTML([
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: '.',
+                    reportFiles: 'zap-report.html',
+                    reportName: 'OWASP ZAP DAST Report'
+                ])
+            }
+        }
     }
 }
