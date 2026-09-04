@@ -50,11 +50,11 @@ pipeline {
                                 excludes: '**/.git/**, **/.scannerwork/**, **/node_modules/**',
                                 execCommand: '''
                                     echo "Starting application on live server..."
-                                    cd /home/ubuntu/backend 2>/dev/null || cd /home/ubuntu
-                                    npm install --production || true
+                                    cd /var/www/backend
+                                    npm install --omit=dev || npm install
                                     pkill -f "node" || true
                                     nohup npm start > app.log 2>&1 &
-                                    sleep 5
+                                    sleep 8
                                 ''',
                                 execTimeout: 120000,
                                 flatten: false,
@@ -75,7 +75,6 @@ pipeline {
         stage('OWASP ZAP DAST Scan') {
             steps {
                 sh '''
-                    # Jenkins volume ko direct /zap/wrk par mount karein
                     docker run -u 0 --rm --net=host \
                       -v jenkins_home:/zap/wrk/:rw \
                       zaproxy/zap-stable zap-baseline.py \
