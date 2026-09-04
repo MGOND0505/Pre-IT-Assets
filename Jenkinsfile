@@ -2,6 +2,14 @@ pipeline {
     agent any
 
     stages {
+        stage('Gitleaks Secret Scan') {
+            steps {
+                sh '''
+                    gitleaks detect --source=. --no-git --verbose --exit-code 0
+                '''
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 script {
