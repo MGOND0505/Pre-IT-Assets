@@ -50,7 +50,7 @@ pipeline {
                                 excludes: '**/.git/**, **/.scannerwork/**, **/node_modules/**',
                                 execCommand: '''
                                     echo "Starting application on live server..."
-                                    cd /home/ubuntu/backend 2>/dev/null || cd /home/ubuntu
+                                    cd /var/www/backend
                                     npm install --production || true
                                     pkill -f "node" || true
                                     nohup npm start > app.log 2>&1 &
