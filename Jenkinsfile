@@ -49,7 +49,16 @@ pipeline {
                                 cleanRemote: false,
                                 excludes: '',
                                 execCommand: '''
-                                    echo "Deploying to live server..."
+                                    echo "Starting application on live server..."
+                                    cd /home/ubuntu/backend 2>/dev/null || cd /home/ubuntu
+                                    
+                                    # Install dependencies and start application in background
+                                    npm install --production || true
+                                    pkill -f "node" || true
+                                    nohup npm start > app.log 2>&1 &
+                                    
+                                    # Wait for port 3000 to listen
+                                    sleep 5
                                 ''',
                                 execTimeout: 120000,
                                 flatten: false,
@@ -71,8 +80,10 @@ pipeline {
         stage('OWASP ZAP DAST Scan') {
             steps {
                 sh '''
+                    # Jenkins container ke volumes ke sath bind mount karein
                     docker run -u 0 --rm --net=host \
-                      -v ${WORKSPACE}:/zap/wrk/:rw \
+                      --volumes-from jenkins \
+                      -w ${WORKSPACE} \
                       zaproxy/zap-stable zap-baseline.py \
                       -t http://192.168.1.35:3000 \
                       -r zap-report.html \
