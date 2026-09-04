@@ -18,8 +18,16 @@ pipeline {
         stage('Trivy Security Scan') {
             steps {
                 sh '''
-                    trivy fs --exit-code 0 --severity HIGH,CRITICAL --format table .
+                    trivy fs --exit-code 0 --severity HIGH,CRITICAL --format template --template "@/var/jenkins_home/html.tpl" -o trivy-report.html .
                 '''
+                publishHTML([
+                    allowMissing: false,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: '.',
+                    reportFiles: 'trivy-report.html',
+                    reportName: 'Trivy Security Report'
+                ])
             }
         }
 
