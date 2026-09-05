@@ -8,6 +8,7 @@ import { startOrganizationExpiryScheduler } from "./services/organizations/expir
 import { startRecycleBinScheduler } from "./services/organizations/recycleBinScheduler";
 import { startDataRetentionScheduler } from "./services/recycleBin/dataRetentionScheduler";
 import { startEscalationScheduler } from "./services/helpdesk/escalationScheduler";
+import { startCacheCleanupScheduler } from "./services/maintenance/cacheCleanupScheduler";
 
 async function start() {
   try {
@@ -18,6 +19,7 @@ async function start() {
     startRecycleBinScheduler();
     startDataRetentionScheduler();
     startEscalationScheduler();
+    startCacheCleanupScheduler();
   } catch (err) {
     logger.error(`Startup error: ${err instanceof Error ? err.message : err}`);
   }

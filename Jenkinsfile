@@ -57,9 +57,15 @@ pipeline {
                                     pm2 save
 
                                     echo "Ensuring cache/log cleanup cron job exists..."
-                                    chmod +x ops/cleanup-cache.sh
-                                    CRON_LINE="0 3 */2 * * /var/www/backend/ops/cleanup-cache.sh >> /var/www/backend/ops/cleanup.log 2>&1"
-                                    (crontab -l 2>/dev/null | grep -v "ops/cleanup-cache.sh" ; echo "$CRON_LINE") | crontab -
+                                    if [ -f "ops/cleanup-cache.sh" ]; then
+                                        chmod +x ops/cleanup-cache.sh
+                                        if command -v crontab >/dev/null 2>&1; then
+                                            CRON_LINE="0 3 */2 * * /var/www/backend/ops/cleanup-cache.sh >> /var/www/backend/ops/cleanup.log 2>&1"
+                                            (crontab -l 2>/dev/null | grep -v "ops/cleanup-cache.sh" ; echo "$CRON_LINE") | crontab -
+                                        else
+                                            echo "crontab utility not found, skipping cron schedule."
+                                        fi
+                                    fi
                                 ''',
                                 execTimeout: 120000,
                                 flatten: false,
@@ -79,15 +85,16 @@ pipeline {
 
         stage('OWASP ZAP DAST Scan') {
             steps {
-                sh '''
-                    docker run -u 0 --rm --net=host \
-                      -v jenkins_home:/zap/wrk/:rw \
-                      zaproxy/zap-stable zap-baseline.py \
-                      -t http://129.121.102.233:3000 \
-                      -r workspace/IT-Asset-integration/zap-report.html \
-                      -I || true
-                    exit 0
-                '''
+                catchError(buildResult: 'SUCCESS', stageResult: 'SUCCESS') {
+                    sh '''
+                        docker run -u 0 --rm --net=host \
+                          -v jenkins_home:/zap/wrk/:rw \
+                          zaproxy/zap-stable zap-baseline.py \
+                          -t http://129.121.102.233:3000 \
+                          -r workspace/IT-Asset-integration/zap-report.html \
+                          -I
+                    '''
+                }
                 publishHTML([
                     allowMissing: true,
                     alwaysLinkToLastBuild: true,

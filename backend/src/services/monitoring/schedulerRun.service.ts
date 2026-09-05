@@ -9,6 +9,7 @@ export const SCHEDULER_KEYS = {
   recycleBinPurge: "recycleBinPurge",
   dataRetention: "dataRetention",
   helpdeskEscalation: "helpdeskEscalation",
+  cacheCleanup: "cacheCleanup",
 } as const;
 
 export type SchedulerKey = (typeof SCHEDULER_KEYS)[keyof typeof SCHEDULER_KEYS];
@@ -33,4 +34,12 @@ export async function recordSchedulerRun(
  * frontend shows "Not yet run" for a missing key). */
 export async function listSchedulerRuns() {
   return SchedulerRun.find({}).lean();
+}
+
+/** One scheduler's own last-run row, or null if it's never fired yet - used by a scheduler whose
+ * cron trigger fires more often than its actual desired interval (e.g. cacheCleanupScheduler
+ * checks daily but only really wants to act every 48 hours; cron's own fields can't express that
+ * directly, so the gate lives here instead). */
+export async function getSchedulerRun(schedulerKey: SchedulerKey) {
+  return SchedulerRun.findOne({ schedulerKey }).lean();
 }
