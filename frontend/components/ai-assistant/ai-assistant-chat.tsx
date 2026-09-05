@@ -1,8 +1,9 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { toast } from "sonner"
-import { Loader2, Send } from "lucide-react"
+import { ExternalLink, Loader2, Send } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,7 +12,10 @@ import { AiAssistantIcon } from "@/components/ai-assistant/ai-assistant-logo"
 import { apiClient, apiErrorMessage, type ApiEnvelope } from "@/lib/api-client"
 import { can } from "@/lib/permissions"
 import { useAuth } from "@/lib/auth-context"
+import { useOrgHref } from "@/lib/use-org-href"
 import { cn } from "@/lib/utils"
+
+type ToolReference = { label: string; link: string }
 
 type PendingTicket = {
   subject: string
@@ -28,12 +32,14 @@ type ChatMessage = {
   content: string
   pendingTicket?: PendingTicket
   ticketStatus?: "pending" | "confirmed" | "discarded"
+  references?: ToolReference[]
 }
 
 type ChatResponse = {
   conversationId: string
   reply: string
   pendingTicket?: PendingTicket
+  references?: ToolReference[]
 }
 
 type ConfirmedTicket = {
@@ -50,6 +56,7 @@ type ConfirmedTicket = {
 export function AiAssistantChat({ panelHeightClassName = "h-[65vh]" }: { panelHeightClassName?: string }) {
   const { user } = useAuth()
   const canCreateTicket = can(user, "helpdesk", "create")
+  const toOrgHref = useOrgHref()
 
   const [messages, setMessages] = React.useState<ChatMessage[]>([])
   const [input, setInput] = React.useState("")
@@ -93,6 +100,7 @@ export function AiAssistantChat({ panelHeightClassName = "h-[65vh]" }: { panelHe
           content: data.reply,
           pendingTicket: data.pendingTicket,
           ticketStatus: data.pendingTicket ? "pending" : undefined,
+          references: data.references,
         },
       ])
     } catch (err) {
@@ -158,6 +166,21 @@ export function AiAssistantChat({ panelHeightClassName = "h-[65vh]" }: { panelHe
                 >
                   {m.content}
                 </div>
+
+                {m.references && m.references.length > 0 && (
+                  <div className="flex w-full max-w-[80%] flex-col gap-1">
+                    {m.references.map((ref) => (
+                      <Link
+                        key={ref.link}
+                        href={toOrgHref(ref.link)}
+                        className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted"
+                      >
+                        <ExternalLink className="size-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{ref.label}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
 
                 {m.pendingTicket && m.ticketStatus === "pending" && (
                   <Card className="w-full max-w-[80%] ring-1 ring-primary/30">

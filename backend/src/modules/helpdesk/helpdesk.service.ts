@@ -6,7 +6,9 @@ import { User } from "../../models/User";
 import { ApiError } from "../../utils/ApiError";
 import { claimNextTicketSequence } from "../settings/settings.service";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
-import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter, fuzzyFallback } from "../../utils/smartSearch";
+
+const TICKET_SEARCH_FIELDS = ["ticketId", "subject"];
 
 const AVAILABLE_AGENT_FILTER = { status: "Active" as const, isDeleted: false, isOnLeave: { $ne: true } };
 
@@ -87,12 +89,10 @@ export async function listTickets(
   if (input.priority) filter.priority = input.priority;
   if (input.category) filter.category = input.category;
   if (input.assignedAgent) filter.assignedAgent = input.assignedAgent;
+  let baseFilterWithoutSearch: Record<string, unknown> | undefined;
   if (input.search) {
-    const search = escapeRegex(input.search);
-    filter.$or = [
-      { ticketId: { $regex: search, $options: "i" } },
-      { subject: { $regex: search, $options: "i" } },
-    ];
+    baseFilterWithoutSearch = { ...filter };
+    filter.$or = [tokenSearchFilter(TICKET_SEARCH_FIELDS, input.search)];
   }
 
   const [items, total] = await Promise.all([
@@ -105,6 +105,15 @@ export async function listTickets(
   ]);
 
   const retentionDays = await getOrgRetentionDays(organizationId);
+
+  if (total === 0 && input.search && baseFilterWithoutSearch) {
+    const fallbackDocs = await fuzzyFallback<InstanceType<typeof Ticket>>(Ticket, baseFilterWithoutSearch, TICKET_SEARCH_FIELDS, input.search);
+    if (fallbackDocs.length > 0) {
+      const populated = await Ticket.populate(fallbackDocs, POPULATE_FIELDS);
+      return { items: withRecycleBinMeta(populated, retentionDays), total: populated.length, page: 1, limit, totalPages: 1 };
+    }
+  }
+
   return { items: withRecycleBinMeta(items, retentionDays), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 

@@ -1,6 +1,6 @@
 import { AssetCategory, type AssetCategoryGroup } from "../../models/AssetCategory";
 import { ApiError } from "../../utils/ApiError";
-import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter } from "../../utils/smartSearch";
 
 type ListInput = {
   page?: number;
@@ -17,13 +17,7 @@ export async function listAssetCategories(input: ListInput, organizationId: stri
   const filter: Record<string, unknown> = { organization: organizationId };
   if (input.status) filter.status = input.status;
   if (input.group) filter.group = input.group;
-  if (input.search) {
-    const search = escapeRegex(input.search);
-    filter.$or = [
-      { name: { $regex: search, $options: "i" } },
-      { prefix: { $regex: search, $options: "i" } },
-    ];
-  }
+  if (input.search) filter.$or = [tokenSearchFilter(["name", "prefix"], input.search)];
 
   const [items, total] = await Promise.all([
     AssetCategory.find(filter)

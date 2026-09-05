@@ -13,6 +13,7 @@ import { User } from "../../models/User";
 import type { EntitlementModule, PermissionModule, PermissionsShape } from "../../config/permissions";
 import type { UserRole } from "../../models/User";
 import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter } from "../../utils/smartSearch";
 
 export type SearchResultType =
   | "asset"
@@ -68,8 +69,10 @@ export async function searchOrganization(ctx: SearchContext, rawQuery: string): 
   // Every token must match SOMEWHERE across the given fields (each token itself matches ANY of
   // those fields) - an AND-of-ORs, so "dell laptop" requires both words present (in either
   // order, across either field) rather than needing one field to contain the literal phrase.
+  // Delegates to the shared smartSearch utility (also used by every per-module list search now)
+  // rather than duplicating the same tokenization here.
   function matchesAllTokens(fields: string[]) {
-    return { $and: tokens.map((rx) => ({ $or: fields.map((field) => ({ [field]: rx })) })) };
+    return tokenSearchFilter(fields, rawQuery);
   }
 
   /**

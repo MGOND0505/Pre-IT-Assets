@@ -9,7 +9,14 @@ import { HelpdeskPriority } from "../../models/HelpdeskPriority";
 import { escapeRegex } from "../../utils/regex";
 import * as helpdeskService from "../helpdesk/helpdesk.service";
 import { chatWithTools, type OllamaMessage, type OllamaToolDefinition } from "./ollama.client";
-import { getAvailableTools, executeTool, summarizeToolResult, type RequestingUser } from "./ai-tools.service";
+import {
+  getAvailableTools,
+  executeTool,
+  summarizeToolResult,
+  extractReferences,
+  type RequestingUser,
+  type ToolReference,
+} from "./ai-tools.service";
 
 // A misbehaving/looping model can never hang a request forever - after this many tool-call
 // round-trips, whatever partial answer exists is returned instead of looping indefinitely.
@@ -22,12 +29,22 @@ const SYSTEM_PROMPT =
   "than a tool actually returned. You only ever see what the current user is already allowed to see " +
   "in the normal application - some tools (like the user directory) are only offered to you at all " +
   "when the current user has permission to see that data themselves; if a tool isn't available or " +
-  "returns nothing, say so honestly rather than guessing. When a user wants to file a helpdesk " +
-  "ticket, use propose_ticket to draft it - you can NEVER create a ticket directly; a human must " +
-  "separately review and confirm the draft afterwards before it becomes real.";
+  "returns nothing, say so honestly rather than guessing. If the user gives you a bare code, ID, or " +
+  "serial number with no other context (it could belong to more than one module), ALWAYS call " +
+  "search_everywhere FIRST rather than guessing a single search_<module> tool - it checks every " +
+  "module in one call, so you never have to guess wrong and tell the user something wasn't found " +
+  "when it actually exists in a different module. When a user wants to file a helpdesk ticket, use " +
+  "propose_ticket to draft it - you can NEVER create a ticket directly; a human must separately " +
+  "review and confirm the draft afterwards before it becomes real.";
 
 function requestingUserFrom(req: Request): RequestingUser {
-  return { id: req.user!.id, isAdmin: req.user!.isAdmin, permissions: req.user!.permissions };
+  return {
+    id: req.user!.id,
+    isAdmin: req.user!.isAdmin,
+    permissions: req.user!.permissions,
+    role: req.user!.role,
+    enabledModules: req.organization!.enabledModules,
+  };
 }
 
 function buildHistory(messages: IAiMessage[]): OllamaMessage[] {
@@ -72,6 +89,7 @@ export const chat = asyncHandler(async (req: Request, res: Response) => {
 
   let pendingTicket: PendingTicket | undefined;
   let finalContent: string | undefined;
+  const references: ToolReference[] = [];
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
     const result = await chatWithTools(buildHistory(conversation.messages), ollamaTools);
@@ -109,6 +127,8 @@ export const chat = asyncHandler(async (req: Request, res: Response) => {
 
       if (call.name === "propose_ticket" && !toolFailed) {
         pendingTicket = toolResult as PendingTicket;
+      } else if (!toolFailed) {
+        references.push(...extractReferences(call.name, toolResult));
       }
     }
     // Loop back with the new tool message(s) in history so the model can use their results.
@@ -123,7 +143,11 @@ export const chat = asyncHandler(async (req: Request, res: Response) => {
   conversation.lastActivityAt = new Date();
   await conversation.save();
 
-  ok(res, { conversationId: conversation.id, reply: finalContent, pendingTicket }, "AI Assistant reply");
+  // Same link can surface twice across tool calls/iterations (e.g. the model re-searching after
+  // a refinement) - de-duped by link, and capped so the reply doesn't turn into a wall of cards.
+  const dedupedReferences = Array.from(new Map(references.map((r) => [r.link, r])).values()).slice(0, 8);
+
+  ok(res, { conversationId: conversation.id, reply: finalContent, pendingTicket, references: dedupedReferences }, "AI Assistant reply");
 });
 
 /** Resolves a model's free-text category/priority guess to a real org record via case-insensitive

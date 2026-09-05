@@ -7,7 +7,15 @@ import { emptyPermissions, subAdminDefaultPermissions, type PermissionsShape } f
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
 import { getPasswordPolicy, getDefaultEmployeePermissions } from "../settings/settings.service";
 import { validatePasswordAgainstPolicy, assertPasswordNotReused, pushPasswordHistory } from "../../utils/passwordPolicy";
-import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter, fuzzyFallback } from "../../utils/smartSearch";
+
+const USER_SEARCH_FIELDS = ["name", "email", "employeeId"];
+const USER_POPULATE_FIELDS = [
+  { path: "department", select: "name" },
+  { path: "location", select: "name" },
+  { path: "designation", select: "name" },
+  { path: "roleTemplate", select: "name portalType" },
+];
 
 /** Looks up a saved Role template for this org, 400s if it doesn't exist/belong here - shared by
  * createUser, updateUserPermissions, and bulkApplyDefaultPermissions, the three places a Role is
@@ -117,21 +125,15 @@ export async function listUsers(input: ListUsersInput, organizationId: string) {
   const filter: Record<string, unknown> = { organization: organizationId, isDeleted: input.includeDeleted ? true : false };
   if (input.status) filter.status = input.status;
   if (input.role) filter.role = input.role;
+  let baseFilterWithoutSearch: Record<string, unknown> | undefined;
   if (input.search) {
-    const search = escapeRegex(input.search);
-    filter.$or = [
-      { name: { $regex: search, $options: "i" } },
-      { email: { $regex: search, $options: "i" } },
-      { employeeId: { $regex: search, $options: "i" } },
-    ];
+    baseFilterWithoutSearch = { ...filter };
+    filter.$or = [tokenSearchFilter(USER_SEARCH_FIELDS, input.search)];
   }
 
   const [items, total] = await Promise.all([
     User.find(filter)
-      .populate("department", "name")
-      .populate("location", "name")
-      .populate("designation", "name")
-      .populate("roleTemplate", "name portalType")
+      .populate(USER_POPULATE_FIELDS)
       .sort({ createdDate: -1 })
       .skip((page - 1) * limit)
       .limit(limit),
@@ -139,6 +141,15 @@ export async function listUsers(input: ListUsersInput, organizationId: string) {
   ]);
 
   const retentionDays = await getOrgRetentionDays(organizationId);
+
+  if (total === 0 && input.search && baseFilterWithoutSearch) {
+    const fallbackDocs = await fuzzyFallback<InstanceType<typeof User>>(User, baseFilterWithoutSearch, USER_SEARCH_FIELDS, input.search);
+    if (fallbackDocs.length > 0) {
+      const populated = await User.populate(fallbackDocs, USER_POPULATE_FIELDS);
+      return { items: withRecycleBinMeta(populated, retentionDays), total: populated.length, page: 1, limit, totalPages: 1 };
+    }
+  }
+
   return { items: withRecycleBinMeta(items, retentionDays), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 

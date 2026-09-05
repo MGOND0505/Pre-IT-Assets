@@ -1,7 +1,9 @@
 import { Department, type IDepartment } from "../../models/Department";
 import { ApiError } from "../../utils/ApiError";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
-import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter, fuzzyFallback } from "../../utils/smartSearch";
+
+const DEPARTMENT_SEARCH_FIELDS = ["name"];
 
 type ListInput = { page?: number; limit?: number; search?: string; status?: "Active" | "Inactive"; includeDeleted?: boolean };
 
@@ -11,7 +13,11 @@ export async function listDepartments(input: ListInput, organizationId: string) 
 
   const filter: Record<string, unknown> = { organization: organizationId, isDeleted: input.includeDeleted ? true : false };
   if (input.status) filter.status = input.status;
-  if (input.search) filter.name = { $regex: escapeRegex(input.search), $options: "i" };
+  let baseFilterWithoutSearch: Record<string, unknown> | undefined;
+  if (input.search) {
+    baseFilterWithoutSearch = { ...filter };
+    Object.assign(filter, tokenSearchFilter(DEPARTMENT_SEARCH_FIELDS, input.search));
+  }
 
   const [items, total] = await Promise.all([
     Department.find(filter)
@@ -22,6 +28,19 @@ export async function listDepartments(input: ListInput, organizationId: string) 
   ]);
 
   const retentionDays = await getOrgRetentionDays(organizationId);
+
+  if (total === 0 && input.search && baseFilterWithoutSearch) {
+    const fallbackDocs = await fuzzyFallback<InstanceType<typeof Department>>(
+      Department,
+      baseFilterWithoutSearch,
+      DEPARTMENT_SEARCH_FIELDS,
+      input.search
+    );
+    if (fallbackDocs.length > 0) {
+      return { items: withRecycleBinMeta(fallbackDocs, retentionDays), total: fallbackDocs.length, page: 1, limit, totalPages: 1 };
+    }
+  }
+
   return { items: withRecycleBinMeta(items, retentionDays), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 

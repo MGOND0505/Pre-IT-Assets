@@ -7,7 +7,7 @@ import {
 import type { UserRole } from "../../models/User";
 import { ApiError } from "../../utils/ApiError";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
-import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter } from "../../utils/smartSearch";
 
 type RequestingUser = { role: UserRole };
 
@@ -55,7 +55,7 @@ export async function listCustomFieldDefinitions(input: ListInput, organizationI
   } else if (input.applicableToCategory) {
     filter.category = { $in: [null, input.applicableToCategory] };
   }
-  if (input.search) filter.label = { $regex: escapeRegex(input.search), $options: "i" };
+  if (input.search) Object.assign(filter, tokenSearchFilter(["label"], input.search));
 
   const [items, total] = await Promise.all([
     CustomFieldDefinition.find(filter)

@@ -1,5 +1,5 @@
 import { User } from "../../models/User";
-import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter } from "../../utils/smartSearch";
 
 type ListUsersAcrossOrgsInput = {
   page?: number;
@@ -25,14 +25,7 @@ export async function listUsersAcrossOrgs(input: ListUsersAcrossOrgsInput) {
   // A specific org id is itself always non-null, so this simply narrows (never widens) the
   // organization-not-null filter above.
   if (input.organizationId) filter.organization = input.organizationId;
-  if (input.search) {
-    const search = escapeRegex(input.search);
-    filter.$or = [
-      { name: { $regex: search, $options: "i" } },
-      { email: { $regex: search, $options: "i" } },
-      { employeeId: { $regex: search, $options: "i" } },
-    ];
-  }
+  if (input.search) filter.$or = [tokenSearchFilter(["name", "email", "employeeId"], input.search)];
 
   const [items, total] = await Promise.all([
     User.find(filter)

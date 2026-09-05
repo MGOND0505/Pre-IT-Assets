@@ -11,7 +11,7 @@ import { getSettings } from "../settings/settings.service";
 import { ASSET_DOCUMENTS_DIR } from "../../utils/upload";
 import { recordAssetHistory } from "./assetHistory.service";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
-import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter, fuzzyFallback } from "../../utils/smartSearch";
 import {
   notifyAssetCreated,
   notifyAssetUpdated,
@@ -26,6 +26,8 @@ const POPULATE_FIELDS = [
   { path: "department", select: "name" },
   { path: "assignedUser", select: "name email employeeId" },
 ];
+
+const ASSET_SEARCH_FIELDS = ["assetId", "assetTag", "name", "serialNumber", "hostname", "manufacturer", "model", "macAddress"];
 
 type RequestingUser = { id: string; isAdmin: boolean; permissions: { assets: { update: boolean } } };
 
@@ -133,29 +135,21 @@ export async function listAssets(input: ListInput, organizationId: string, reque
       };
     }
   }
+  let baseFilterWithoutSearch: Record<string, unknown> | undefined;
   if (input.search) {
-    const search = escapeRegex(input.search);
+    baseFilterWithoutSearch = { ...filter };
     // employeeName/employeeId/email are no longer stored on Asset (see models/Asset.ts) - a
     // search by employee identity now resolves entirely through the real assignedUser reference,
     // so it also picks up email matches which the old Asset-level fields never covered anyway.
+    // Tokenized (see smartSearch.ts) so a multi-word query like "John Doe" matches a user even
+    // when the two words aren't adjacent in a single field.
     const matchingUsers = await User.find({
       organization: organizationId,
-      $or: [
-        { name: { $regex: search, $options: "i" } },
-        { employeeId: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-      ],
+      ...tokenSearchFilter(["name", "employeeId", "email"], input.search),
     }).select("_id");
 
     filter.$or = [
-      { assetId: { $regex: search, $options: "i" } },
-      { assetTag: { $regex: search, $options: "i" } },
-      { name: { $regex: search, $options: "i" } },
-      { serialNumber: { $regex: search, $options: "i" } },
-      { hostname: { $regex: search, $options: "i" } },
-      { manufacturer: { $regex: search, $options: "i" } },
-      { model: { $regex: search, $options: "i" } },
-      { macAddress: { $regex: search, $options: "i" } },
+      tokenSearchFilter(ASSET_SEARCH_FIELDS, input.search),
       ...(matchingUsers.length > 0 ? [{ assignedUser: { $in: matchingUsers.map((u) => u.id) } }] : []),
     ];
   }
@@ -173,6 +167,18 @@ export async function listAssets(input: ListInput, organizationId: string, reque
   ]);
 
   const retentionDays = await getOrgRetentionDays(organizationId);
+
+  // Nothing matched even the tokenized search above - fall back to a "did you mean" pass that
+  // tolerates an actual spelling mistake (e.g. "Latitde" for "Latitude"), rather than a bare
+  // empty list. Only a single best-effort page, not truly paginated - see smartSearch.ts.
+  if (total === 0 && input.search && baseFilterWithoutSearch) {
+    const fallbackDocs = await fuzzyFallback(Asset, baseFilterWithoutSearch, ASSET_SEARCH_FIELDS, input.search);
+    if (fallbackDocs.length > 0) {
+      const populated = await Asset.populate(fallbackDocs, POPULATE_FIELDS);
+      return { items: withRecycleBinMeta(populated, retentionDays), total: populated.length, page: 1, limit, totalPages: 1 };
+    }
+  }
+
   return { items: withRecycleBinMeta(items, retentionDays), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 

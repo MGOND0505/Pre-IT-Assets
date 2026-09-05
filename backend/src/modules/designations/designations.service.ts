@@ -1,7 +1,7 @@
 import { Designation, type IDesignation } from "../../models/Designation";
 import { ApiError } from "../../utils/ApiError";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
-import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter } from "../../utils/smartSearch";
 
 type ListInput = { page?: number; limit?: number; search?: string; status?: "Active" | "Inactive"; includeDeleted?: boolean };
 
@@ -11,7 +11,7 @@ export async function listDesignations(input: ListInput, organizationId: string)
 
   const filter: Record<string, unknown> = { organization: organizationId, isDeleted: input.includeDeleted ? true : false };
   if (input.status) filter.status = input.status;
-  if (input.search) filter.name = { $regex: escapeRegex(input.search), $options: "i" };
+  if (input.search) Object.assign(filter, tokenSearchFilter(["name"], input.search));
 
   const [items, total] = await Promise.all([
     Designation.find(filter)

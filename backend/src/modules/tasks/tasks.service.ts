@@ -5,7 +5,9 @@ import { User } from "../../models/User";
 import { ApiError } from "../../utils/ApiError";
 import { claimNextTaskSequence } from "../settings/settings.service";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
-import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter, fuzzyFallback } from "../../utils/smartSearch";
+
+const TASK_SEARCH_FIELDS = ["title"];
 
 const POPULATE_FIELDS = [
   { path: "assignedTo", select: "name email" },
@@ -60,7 +62,11 @@ export async function listTasks(
   if (input.status) filter.status = input.status;
   if (input.priority) filter.priority = input.priority;
   if (input.assignedTo) filter.assignedTo = input.assignedTo;
-  if (input.search) filter.title = { $regex: escapeRegex(input.search), $options: "i" };
+  let baseFilterWithoutSearch: Record<string, unknown> | undefined;
+  if (input.search) {
+    baseFilterWithoutSearch = { ...filter };
+    Object.assign(filter, tokenSearchFilter(TASK_SEARCH_FIELDS, input.search));
+  }
 
   const [items, total] = await Promise.all([
     Task.find(filter)
@@ -72,6 +78,15 @@ export async function listTasks(
   ]);
 
   const retentionDays = await getOrgRetentionDays(organizationId);
+
+  if (total === 0 && input.search && baseFilterWithoutSearch) {
+    const fallbackDocs = await fuzzyFallback<InstanceType<typeof Task>>(Task, baseFilterWithoutSearch, TASK_SEARCH_FIELDS, input.search);
+    if (fallbackDocs.length > 0) {
+      const populated = await Task.populate(fallbackDocs, POPULATE_FIELDS);
+      return { items: withRecycleBinMeta(populated, retentionDays), total: populated.length, page: 1, limit, totalPages: 1 };
+    }
+  }
+
   return { items: withRecycleBinMeta(items, retentionDays), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 

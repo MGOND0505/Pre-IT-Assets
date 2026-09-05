@@ -1,6 +1,6 @@
 import { LicenseCategory } from "../../models/LicenseCategory";
 import { ApiError } from "../../utils/ApiError";
-import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter } from "../../utils/smartSearch";
 
 type ListInput = { page?: number; limit?: number; search?: string; status?: "Active" | "Inactive" };
 
@@ -10,7 +10,7 @@ export async function listLicenseCategories(input: ListInput, organizationId: st
 
   const filter: Record<string, unknown> = { organization: organizationId };
   if (input.status) filter.status = input.status;
-  if (input.search) filter.name = { $regex: escapeRegex(input.search), $options: "i" };
+  if (input.search) Object.assign(filter, tokenSearchFilter(["name"], input.search));
 
   const [items, total] = await Promise.all([
     LicenseCategory.find(filter)

@@ -7,7 +7,7 @@ import { AuditLog } from "../../models/AuditLog";
 import { LoginHistory } from "../../models/LoginHistory";
 import { AccessRequest } from "../../models/AccessRequest";
 import { ApiError } from "../../utils/ApiError";
-import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter } from "../../utils/smartSearch";
 import { getAssetStats } from "../assets/assets.service";
 import { getLicenseStats } from "../licenses/licenses.service";
 import { createUser } from "../users/users.service";
@@ -142,14 +142,7 @@ export async function listOrganizationsWithStats(input: ListInput) {
 
   const filter: Record<string, unknown> = { isDeleted: input.includeDeleted ? true : false };
   if (input.status) filter.status = input.status;
-  if (input.search) {
-    const search = escapeRegex(input.search);
-    filter.$or = [
-      { name: { $regex: search, $options: "i" } },
-      { code: { $regex: search, $options: "i" } },
-      { slug: { $regex: search, $options: "i" } },
-    ];
-  }
+  if (input.search) filter.$or = [tokenSearchFilter(["name", "code", "slug"], input.search)];
 
   const [orgs, total] = await Promise.all([
     Organization.find(filter)
@@ -778,17 +771,15 @@ const GLOBAL_SEARCH_RESULTS_PER_TYPE = 5;
  * every organization's data unconditionally everywhere else in the app.
  */
 export async function searchAllOrganizations(rawQuery: string): Promise<GlobalSearchResult[]> {
-  const rx = { $regex: escapeRegex(rawQuery), $options: "i" };
-
   const [orgs, users, assets, tickets] = await Promise.all([
-    Organization.find({ isDeleted: false, $or: [{ name: rx }, { slug: rx }] })
+    Organization.find({ isDeleted: false, ...tokenSearchFilter(["name", "slug"], rawQuery) })
       .select("name slug")
       .limit(GLOBAL_SEARCH_RESULTS_PER_TYPE)
       .lean(),
     User.find({
       isDeleted: false,
       organization: { $ne: null },
-      $or: [{ name: rx }, { email: rx }, { employeeId: rx }],
+      ...tokenSearchFilter(["name", "email", "employeeId"], rawQuery),
     })
       .select("name email organization")
       .populate({ path: "organization", select: "name slug" })
@@ -796,13 +787,13 @@ export async function searchAllOrganizations(rawQuery: string): Promise<GlobalSe
       .lean(),
     Asset.find({
       isDeleted: false,
-      $or: [{ name: rx }, { assetId: rx }, { serialNumber: rx }],
+      ...tokenSearchFilter(["name", "assetId", "serialNumber"], rawQuery),
     })
       .select("name assetId organization")
       .populate({ path: "organization", select: "name slug" })
       .limit(GLOBAL_SEARCH_RESULTS_PER_TYPE)
       .lean(),
-    Ticket.find({ isDeleted: false, $or: [{ subject: rx }, { ticketId: rx }] })
+    Ticket.find({ isDeleted: false, ...tokenSearchFilter(["subject", "ticketId"], rawQuery) })
       .select("subject ticketId organization")
       .populate({ path: "organization", select: "name slug" })
       .limit(GLOBAL_SEARCH_RESULTS_PER_TYPE)

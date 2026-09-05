@@ -1,7 +1,13 @@
 import { KnowledgeBaseArticle, type IKnowledgeBaseArticle } from "../../models/KnowledgeBaseArticle";
 import { ApiError } from "../../utils/ApiError";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
-import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter, fuzzyFallback } from "../../utils/smartSearch";
+
+const ARTICLE_SEARCH_FIELDS = ["title", "content"];
+const ARTICLE_POPULATE_FIELDS = [
+  { path: "category", select: "name" },
+  { path: "createdBy", select: "name" },
+];
 
 type ListInput = {
   page?: number;
@@ -19,15 +25,15 @@ export async function listKnowledgeBaseArticles(input: ListInput, organizationId
   const filter: Record<string, unknown> = { organization: organizationId, isDeleted: input.includeDeleted ? true : false };
   if (input.status) filter.status = input.status;
   if (input.category) filter.category = input.category;
+  let baseFilterWithoutSearch: Record<string, unknown> | undefined;
   if (input.search) {
-    const search = escapeRegex(input.search);
-    filter.$or = [{ title: { $regex: search, $options: "i" } }, { content: { $regex: search, $options: "i" } }];
+    baseFilterWithoutSearch = { ...filter };
+    filter.$or = [tokenSearchFilter(ARTICLE_SEARCH_FIELDS, input.search)];
   }
 
   const [items, total] = await Promise.all([
     KnowledgeBaseArticle.find(filter)
-      .populate("category", "name")
-      .populate("createdBy", "name")
+      .populate(ARTICLE_POPULATE_FIELDS)
       .sort({ createdDate: -1 })
       .skip((page - 1) * limit)
       .limit(limit),
@@ -35,6 +41,20 @@ export async function listKnowledgeBaseArticles(input: ListInput, organizationId
   ]);
 
   const retentionDays = await getOrgRetentionDays(organizationId);
+
+  if (total === 0 && input.search && baseFilterWithoutSearch) {
+    const fallbackDocs = await fuzzyFallback<InstanceType<typeof KnowledgeBaseArticle>>(
+      KnowledgeBaseArticle,
+      baseFilterWithoutSearch,
+      ARTICLE_SEARCH_FIELDS,
+      input.search
+    );
+    if (fallbackDocs.length > 0) {
+      const populated = await KnowledgeBaseArticle.populate(fallbackDocs, ARTICLE_POPULATE_FIELDS);
+      return { items: withRecycleBinMeta(populated, retentionDays), total: populated.length, page: 1, limit, totalPages: 1 };
+    }
+  }
+
   return { items: withRecycleBinMeta(items, retentionDays), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 

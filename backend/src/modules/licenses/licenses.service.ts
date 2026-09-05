@@ -3,7 +3,7 @@ import { License, type ILicense } from "../../models/License";
 import { ApiError } from "../../utils/ApiError";
 import { claimNextLicenseSequence } from "../settings/settings.service";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
-import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter, fuzzyFallback } from "../../utils/smartSearch";
 
 const POPULATE_FIELDS = [
   { path: "category", select: "name" },
@@ -12,6 +12,8 @@ const POPULATE_FIELDS = [
   { path: "assignedUsers", select: "name email employeeId" },
   { path: "assets", select: "assetId name" },
 ];
+
+const LICENSE_SEARCH_FIELDS = ["licenseId", "softwareName", "productName", "publisher"];
 
 type RequestingUser = { id: string; isAdmin: boolean; permissions: { licenses: { update: boolean } } };
 
@@ -53,14 +55,10 @@ export async function listLicenses(organizationId: string, input: ListInput, req
   if (input.category) filter.category = input.category;
   if (input.vendor) filter.vendor = input.vendor;
   if (input.asset) filter.assets = input.asset;
+  let baseFilterWithoutSearch: Record<string, unknown> | undefined;
   if (input.search) {
-    const search = escapeRegex(input.search);
-    filter.$or = [
-      { licenseId: { $regex: search, $options: "i" } },
-      { softwareName: { $regex: search, $options: "i" } },
-      { productName: { $regex: search, $options: "i" } },
-      { publisher: { $regex: search, $options: "i" } },
-    ];
+    baseFilterWithoutSearch = { ...filter };
+    filter.$or = [tokenSearchFilter(LICENSE_SEARCH_FIELDS, input.search)];
   }
 
   const [items, total] = await Promise.all([
@@ -73,6 +71,20 @@ export async function listLicenses(organizationId: string, input: ListInput, req
   ]);
 
   const retentionDays = await getOrgRetentionDays(organizationId);
+
+  if (total === 0 && input.search && baseFilterWithoutSearch) {
+    const fallbackDocs = await fuzzyFallback<InstanceType<typeof License>>(
+      License,
+      baseFilterWithoutSearch,
+      LICENSE_SEARCH_FIELDS,
+      input.search
+    );
+    if (fallbackDocs.length > 0) {
+      const populated = await License.populate(fallbackDocs, POPULATE_FIELDS);
+      return { items: withRecycleBinMeta(populated, retentionDays), total: populated.length, page: 1, limit, totalPages: 1 };
+    }
+  }
+
   return { items: withRecycleBinMeta(items, retentionDays), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 

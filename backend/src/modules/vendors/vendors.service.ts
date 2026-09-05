@@ -1,7 +1,9 @@
 import { Vendor, type IVendor } from "../../models/Vendor";
 import { ApiError } from "../../utils/ApiError";
 import { getOrgRetentionDays, withRecycleBinMeta } from "../../utils/recycleBin";
-import { escapeRegex } from "../../utils/regex";
+import { tokenSearchFilter, fuzzyFallback } from "../../utils/smartSearch";
+
+const VENDOR_SEARCH_FIELDS = ["name", "contactPerson", "email"];
 
 type ListInput = { page?: number; limit?: number; search?: string; status?: "Active" | "Inactive"; includeDeleted?: boolean };
 
@@ -11,13 +13,10 @@ export async function listVendors(input: ListInput, organizationId: string) {
 
   const filter: Record<string, unknown> = { organization: organizationId, isDeleted: input.includeDeleted ? true : false };
   if (input.status) filter.status = input.status;
+  let baseFilterWithoutSearch: Record<string, unknown> | undefined;
   if (input.search) {
-    const search = escapeRegex(input.search);
-    filter.$or = [
-      { name: { $regex: search, $options: "i" } },
-      { contactPerson: { $regex: search, $options: "i" } },
-      { email: { $regex: search, $options: "i" } },
-    ];
+    baseFilterWithoutSearch = { ...filter };
+    filter.$or = [tokenSearchFilter(VENDOR_SEARCH_FIELDS, input.search)];
   }
 
   const [items, total] = await Promise.all([
@@ -29,6 +28,14 @@ export async function listVendors(input: ListInput, organizationId: string) {
   ]);
 
   const retentionDays = await getOrgRetentionDays(organizationId);
+
+  if (total === 0 && input.search && baseFilterWithoutSearch) {
+    const fallbackDocs = await fuzzyFallback<InstanceType<typeof Vendor>>(Vendor, baseFilterWithoutSearch, VENDOR_SEARCH_FIELDS, input.search);
+    if (fallbackDocs.length > 0) {
+      return { items: withRecycleBinMeta(fallbackDocs, retentionDays), total: fallbackDocs.length, page: 1, limit, totalPages: 1 };
+    }
+  }
+
   return { items: withRecycleBinMeta(items, retentionDays), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
