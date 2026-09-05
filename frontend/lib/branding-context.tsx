@@ -6,6 +6,7 @@ import { BASELINE_POLICY, type PasswordPolicy } from "@/lib/password-policy"
 
 export type Branding = {
   teamName: string
+  hasLogo: boolean
   sidebarColor: string
   appBackgroundColor: string
   passwordPolicy: PasswordPolicy
@@ -19,6 +20,7 @@ export type Branding = {
 
 const DEFAULT_BRANDING: Branding = {
   teamName: "",
+  hasLogo: false,
   sidebarColor: "",
   appBackgroundColor: "",
   passwordPolicy: BASELINE_POLICY,

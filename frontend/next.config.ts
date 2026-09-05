@@ -30,7 +30,10 @@ const CSP = [
   `default-src 'self'`,
   `script-src 'self' 'unsafe-inline'${isProd ? "" : " 'unsafe-eval'"} ${TURNSTILE_ORIGIN}`,
   `style-src 'self' 'unsafe-inline'`,
-  `img-src 'self' data:`,
+  // The org logo (and any other org-uploaded asset) is served from the backend's own origin, not
+  // the frontend's - same reasoning as connect-src below. A same-origin apiOrigin (nginx-proxied
+  // deploy) yields null here too, already covered by 'self'.
+  `img-src ${["'self'", "data:", apiOrigin].filter(Boolean).join(" ")}`,
   `font-src 'self' data:`,
   `connect-src ${["'self'", apiOrigin, TURNSTILE_ORIGIN].filter(Boolean).join(" ")}`,
   `frame-src ${TURNSTILE_ORIGIN}`,

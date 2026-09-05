@@ -52,6 +52,7 @@ export const getBranding = asyncHandler(async (req: Request, res: Response) => {
     {
       organizationName: req.organization!.name,
       teamName: settings.teamName,
+      hasLogo: Boolean(settings.logoFileName),
       sidebarColor: settings.sidebarColor,
       appBackgroundColor: settings.appBackgroundColor,
       passwordPolicy: {
