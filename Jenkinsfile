@@ -55,6 +55,11 @@ pipeline {
                                     npm run build
                                     pm2 restart it-asset-backend || pm2 start dist/server.js --name "it-asset-backend"
                                     pm2 save
+
+                                    echo "Ensuring cache/log cleanup cron job exists..."
+                                    chmod +x ops/cleanup-cache.sh
+                                    CRON_LINE="0 3 */2 * * /var/www/backend/ops/cleanup-cache.sh >> /var/www/backend/ops/cleanup.log 2>&1"
+                                    (crontab -l 2>/dev/null | grep -v "ops/cleanup-cache.sh" ; echo "$CRON_LINE") | crontab -
                                 ''',
                                 execTimeout: 120000,
                                 flatten: false,
